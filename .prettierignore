@@ -1,0 +1,10 @@
+.next/
+.scannerwork/
+out/
+build/
+node_modules/
+public/
+
+package-lock.json
+yarn.lock
+coverage
