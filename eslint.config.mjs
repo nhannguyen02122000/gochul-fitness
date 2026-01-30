@@ -1,7 +1,7 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
-import importPlugin from "eslint-plugin-import";
+import { defineConfig, globalIgnores } from 'eslint/config'
+import nextVitals from 'eslint-config-next/core-web-vitals'
+import nextTs from 'eslint-config-next/typescript'
+import importPlugin from 'eslint-plugin-import'
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -9,28 +9,28 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts'
   ]),
   {
     plugins: {
-      import: importPlugin,
+      import: importPlugin
     },
     rules: {
-      "import/no-unresolved": "error",
+      'import/no-unresolved': 'error'
     },
     settings: {
-      "import/resolver": {
+      'import/resolver': {
         typescript: {
           alwaysTryTypes: true,
-          project: "./tsconfig.json",
+          project: './tsconfig.json'
         },
-        node: true,
-      },
-    },
-  },
-]);
+        node: true
+      }
+    }
+  }
+])
 
-export default eslintConfig;
+export default eslintConfig

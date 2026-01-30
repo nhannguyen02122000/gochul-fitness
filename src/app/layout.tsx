@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Noto_Sans } from 'next/font/google'
+import { Noto_Sans } from 'next/font/google'
+import AntConfigProvider from '@/providers/AntConfigProvider'
+import './globals.css'
 
 const notoFont = Noto_Sans({
   subsets: ['latin']
@@ -17,7 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
-      <body className={`${notoFont.className} antialiased`}>{children}</body>
+      <body className={`${notoFont.className} antialiased`}>
+        <AntConfigProvider>{children}</AntConfigProvider>
+      </body>
     </html>
   )
 }

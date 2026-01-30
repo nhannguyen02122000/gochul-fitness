@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primary Colors */
+  --color-primary: #fa6868;
+  --color-primary-50: #fef3f3;
+  --color-primary-100: #fee7e7;
+  --color-primary-500: #fa6868;
+  --color-primary-600: #f83e3e;
+  --color-primary-900: #920b0b;
+
+  /* Secondary Colors */
+  --color-secondary: #faac68;
+  --color-secondary-50: #fef7f0;
+  --color-secondary-100: #feeee1;
+  --color-secondary-500: #faac68;
+  --color-secondary-600: #f88f3a;
+  --color-secondary-900: #994708;
+
+  /* Accent Colors */
+  --color-accent: #5a9cb5;
+  --color-accent-50: #eef5f8;
+  --color-accent-100: #ddebf1;
+  --color-accent-500: #5a9cb5;
+  --color-accent-600: #4a8097;
+  --color-accent-900: #1a2c3d;
+
+  /* Warning Colors */
+  --color-warning: #face68;
+  --color-warning-50: #fef9f0;
+  --color-warning-100: #fef4e1;
+  --color-warning-500: #face68;
+  --color-warning-600: #f8bd3a;
+  --color-warning-900: #996708;
+}
+
+@layer base {
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
