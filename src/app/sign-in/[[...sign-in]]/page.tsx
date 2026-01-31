@@ -14,12 +14,12 @@ export default function Page() {
           className='blur-md'
         />
       </div>
-      <div className='w-full h-full flex items-center justify-center flex-grow'>
+      <div className='w-full h-full flex items-center justify-center grow'>
         <SignIn
           appearance={{
             elements: {
               formButtonPrimary:
-                'bg-red-500 hover:bg-red-400 !border-none !shadow-none'
+                '!bg-red-500 !hover:bg-red-400 !border-none !shadow-none'
             }
           }}
           fallback={'/'}

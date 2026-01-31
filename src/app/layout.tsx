@@ -6,6 +6,7 @@ import {
 import type { Metadata } from 'next'
 import { Noto_Sans } from 'next/font/google'
 import './globals.css'
+import InstantDBAuthSync from '@/components/InstantAuthDB'
 
 const notoFont = Noto_Sans({
   subsets: ['latin']
@@ -31,6 +32,7 @@ export default function RootLayout({
       }}
       signInUrl={'/sign-in'}
     >
+      <InstantDBAuthSync />
       <html lang='en'>
         <body className={`${notoFont.className} antialiased`}>
           <AntConfigProvider>{children}</AntConfigProvider>

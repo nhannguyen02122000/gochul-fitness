@@ -1,6 +1,5 @@
 /* eslint-disable import/no-anonymous-default-export */
 export default {
-  mode: 'jit',
   content: [
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}'
