@@ -1,4 +1,5 @@
 import AntConfigProvider from '@/providers/AntConfigProvider'
+import ReactQueryProvider from '@/providers/QueryClientProvider'
 import { viVN } from '@clerk/localizations'
 import {
   ClerkProvider
@@ -35,7 +36,9 @@ export default function RootLayout({
       <InstantDBAuthSync />
       <html lang='en'>
         <body className={`${notoFont.className} antialiased`}>
-          <AntConfigProvider>{children}</AntConfigProvider>
+          <ReactQueryProvider>
+            <AntConfigProvider>{children}</AntConfigProvider>
+          </ReactQueryProvider>
         </body>
       </html>
     </ClerkProvider>

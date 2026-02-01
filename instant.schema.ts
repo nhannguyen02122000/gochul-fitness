@@ -14,7 +14,8 @@ const _schema = i.schema({
       kind: i.string(), // PT, REHAB, PT_MONTHLY
       credits: i.number().optional(),
       status: i.string(),
-      money: i.number()
+      money: i.number(),
+      sale_by: i.string().optional() // References $users.id
     }),
     history: i.entity({
       date: i.number(),
@@ -77,6 +78,18 @@ const _schema = i.schema({
         has: 'many',
         label: 'contract'
       }
+    },
+    contractSaleBy: {
+      forward: {
+        on: 'contract',
+        has: 'one',
+        label: 'sale_by_user'
+      },
+      reverse: {
+        on: '$users',
+        has: 'many',
+        label: 'contracts_sold'
+      }
     }
   },
   rooms: {}
@@ -84,6 +97,7 @@ const _schema = i.schema({
 
 // This helps TypeScript display nicer intellisense
 type _AppSchema = typeof _schema;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface AppSchema extends _AppSchema { }
 const schema: AppSchema = _schema;
 
