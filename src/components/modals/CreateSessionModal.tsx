@@ -40,7 +40,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
   // Get active contracts
   const activeContracts = useMemo(() => {
     if (!contractsData) return []
-    
+
     const allContracts = contractsData.pages.flatMap(page =>
       'contracts' in page ? page.contracts : []
     )
@@ -51,7 +51,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
   // Get trainer ID from selected contract
   const selectedTrainerId = useMemo(() => {
     if (!contractId) return undefined
-    
+
     const contract = activeContracts.find(c => c.id === contractId)
     return contract?.sale_by
   }, [contractId, activeContracts])
@@ -75,7 +75,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
         'REHAB': 'Rehab',
         'PT_MONTHLY': 'PT Monthly'
       }
-      
+
       return {
         value: contract.id,
         label: `${kindLabels[contract.kind]} - ${customerName}`,
@@ -96,8 +96,8 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
       message.success('Session created successfully')
       form.resetFields()
       onClose()
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to create session'
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create session'
       message.error(errorMessage)
     }
   }
@@ -151,8 +151,8 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
           label="Date"
           rules={[{ required: true, message: 'Please select date' }]}
         >
-          <DatePicker 
-            className="w-full" 
+          <DatePicker
+            className="w-full"
             format="DD/MM/YYYY"
             disabledDate={(current) => current && current < dayjs().startOf('day')}
             onChange={() => {
@@ -181,12 +181,12 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
           >
             <input type="hidden" />
           </Form.Item>
-          
+
           {selectedTrainerId && selectedDate ? (
             <TimeSlotPicker
               selectedFrom={fromValue}
               selectedTo={toValue}
-              occupiedSlots={scheduleData?.occupied_slots || []}
+              occupiedSlots={(scheduleData && 'occupied_slots' in scheduleData) ? scheduleData.occupied_slots : []}
               date={selectedDate}
               onSelect={handleSlotSelect}
               loading={isLoadingSchedule}

@@ -20,8 +20,8 @@ interface SessionCardProps {
   onStatusChange?: (sessionId: string, newStatus: HistoryStatus) => void
 }
 
-export default function SessionCard({ 
-  session, 
+export default function SessionCard({
+  session,
   onClick,
   userRole,
   userInstantId,
@@ -31,14 +31,14 @@ export default function SessionCard({
   const { mutate: updateStatus } = useUpdateHistoryStatus()
 
   const contractKind = session.contract?.kind || 'Unknown'
-  
+
   // Get customer info from user_setting
   const purchasedByUser = session.contract?.purchased_by_user?.[0]
   const customerUserSetting = purchasedByUser?.user_setting?.[0]
   const customerName = customerUserSetting
     ? [customerUserSetting.first_name, customerUserSetting.last_name]
-        .filter(Boolean)
-        .join(' ') || 'Unknown'
+      .filter(Boolean)
+      .join(' ') || 'Unknown'
     : 'Unknown'
   const customerEmail = purchasedByUser?.email || 'N/A'
 
@@ -49,12 +49,12 @@ export default function SessionCard({
   }
 
   // Determine if action buttons should be shown
-  const shouldShowButtons = userRole && 
-    userInstantId && 
+  const shouldShowButtons = userRole &&
+    userInstantId &&
     shouldShowHistoryActionButtons(session, userRole, userInstantId)
 
   // Get available action buttons based on status and role
-  const actionButtons = shouldShowButtons 
+  const actionButtons = shouldShowButtons
     ? getHistoryActionButtons(session.status, userRole!)
     : []
 
@@ -92,7 +92,7 @@ export default function SessionCard({
         </div>
 
         {/* Details */}
-        <Space orientation="vertical" size="xs" className="w-full mt-2">
+        <Space orientation="vertical" size="small" className="w-full mt-2">
           <div className="flex items-center gap-2">
             <CalendarOutlined className="text-gray-400" />
             <Text strong className="text-sm">{formatDate(session.date)}</Text>

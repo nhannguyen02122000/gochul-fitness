@@ -128,7 +128,8 @@ export async function POST(request: Request) {
         )
       }
       // Verify user has permission to cancel
-      const contractPurchasedBy = history.contract?.purchased_by
+      const contract = history.contract?.[0]
+      const contractPurchasedBy = contract?.purchased_by
       const isCustomerOwner = contractPurchasedBy === userInstantId
       const isStaff = role === 'STAFF'
 
@@ -155,7 +156,8 @@ export async function POST(request: Request) {
         }
       } else if (role === 'CUSTOMER') {
         // Verify this is the customer who purchased the contract
-        const contractPurchasedBy = history.contract?.purchased_by
+        const contract = history.contract?.[0]
+        const contractPurchasedBy = contract?.purchased_by
         if (contractPurchasedBy !== userInstantId) {
           return NextResponse.json(
             { error: 'Forbidden - You can only update sessions for contracts you purchased' },

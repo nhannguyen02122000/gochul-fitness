@@ -88,7 +88,8 @@ export async function POST(request: Request) {
     // Check permissions based on role
     if (role === 'CUSTOMER') {
       // CUSTOMER: Must be the one who purchased the contract
-      const contractPurchasedBy = existingHistory.contract?.purchased_by
+      const contract = existingHistory.contract?.[0]
+      const contractPurchasedBy = contract?.purchased_by
       if (contractPurchasedBy !== userInstantId) {
         return NextResponse.json(
           { error: 'Forbidden - You can only update history for contracts you purchased' },
@@ -174,7 +175,7 @@ export async function POST(request: Request) {
 
     // If time or date changed, check contract and conflicts
     if (date !== undefined || from !== undefined || to !== undefined) {
-      const contract = existingHistory.contract
+      const contract = existingHistory.contract?.[0]
 
       if (!contract) {
         return NextResponse.json(
@@ -236,8 +237,8 @@ export async function POST(request: Request) {
         // Check if time ranges overlap
         if (newFrom < session.to && newTo > session.from) {
           return NextResponse.json(
-            { 
-              error: `Time conflict: The trainer already has a session from ${session.from} to ${session.to} on this date` 
+            {
+              error: `Time conflict: The trainer already has a session from ${session.from} to ${session.to} on this date`
             },
             { status: 400 }
           )

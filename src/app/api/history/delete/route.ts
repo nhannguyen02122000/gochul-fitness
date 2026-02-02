@@ -86,7 +86,8 @@ export async function POST(request: Request) {
     // Check permissions based on role
     if (role === 'CUSTOMER') {
       // CUSTOMER: Must be the one who purchased the contract
-      const contractPurchasedBy = existingHistory.contract?.purchased_by
+      const contract = existingHistory.contract?.[0]
+      const contractPurchasedBy = contract?.purchased_by
       if (contractPurchasedBy !== userInstantId) {
         return NextResponse.json(
           { error: 'Forbidden - You can only delete history for contracts you purchased' },
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
     ])
 
     return NextResponse.json(
-      { 
+      {
         message: 'History canceled successfully',
         history_id: history_id
       },

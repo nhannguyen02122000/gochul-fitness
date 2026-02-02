@@ -33,17 +33,17 @@ export default function ContractsPage() {
 
   const isStaffOrAdmin = userInfo && 'role' in userInfo && (userInfo.role === 'ADMIN' || userInfo.role === 'STAFF')
   const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
-  const userInstantId = userInfo && 'instantUser' in userInfo && userInfo.instantUser?.[0]?.id
+  const userInstantId = userInfo && 'instantUser' in userInfo ? userInfo.instantUser?.[0]?.id : undefined
 
   const allContracts = data?.pages.flatMap(page => 'contracts' in page ? page.contracts : []) || []
-  
+
   // Filter out NEWLY_CREATED contracts for CUSTOMER role
-  const visibleContracts = userRole === 'CUSTOMER' 
+  const visibleContracts = userRole === 'CUSTOMER'
     ? allContracts.filter(c => c.status !== 'NEWLY_CREATED')
     : allContracts
-  
-  const filteredContracts = statusFilter === 'all' 
-    ? visibleContracts 
+
+  const filteredContracts = statusFilter === 'all'
+    ? visibleContracts
     : visibleContracts.filter(c => c.status === statusFilter)
 
   return (

@@ -33,12 +33,12 @@ export default function HistoryPage() {
 
   const isCustomer = userInfo && 'role' in userInfo && userInfo.role === 'CUSTOMER'
   const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
-  const userInstantId = userInfo && 'instantUser' in userInfo && userInfo.instantUser?.[0]?.id
+  const userInstantId = userInfo && 'instantUser' in userInfo ? userInfo.instantUser?.[0]?.id : undefined
 
   const allHistory = data?.pages.flatMap(page => 'history' in page ? page.history : []) || []
-  
-  const filteredHistory = statusFilter === 'all' 
-    ? allHistory 
+
+  const filteredHistory = statusFilter === 'all'
+    ? allHistory
     : allHistory.filter(h => h.status === statusFilter)
 
   // Sort by date descending
