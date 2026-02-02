@@ -15,13 +15,15 @@ const _schema = i.schema({
       credits: i.number().optional(),
       status: i.string(),
       money: i.number(),
-      sale_by: i.string().optional() // References $users.id
+      sale_by: i.string(), // References $users.id
+      purchased_by: i.string() // References $users.id
     }),
     history: i.entity({
       date: i.number(),
       status: i.string(),
       from: i.number(),
-      to: i.number()
+      to: i.number(),
+      teach_by: i.string() // References $users.id
     }),
     user_setting: i.entity({
       role: i.string(), // CUSTOMER, STAFF, ADMIN
@@ -89,6 +91,18 @@ const _schema = i.schema({
         on: '$users',
         has: 'many',
         label: 'contracts_sold'
+      }
+    },
+    contractPurchasedBy: {
+      forward: {
+        on: 'contract',
+        has: 'one',
+        label: 'purchased_by_user'
+      },
+      reverse: {
+        on: '$users',
+        has: 'many',
+        label: 'contracts_purchased'
       }
     }
   },

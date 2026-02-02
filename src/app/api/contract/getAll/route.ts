@@ -62,11 +62,16 @@ export async function GET(request: Request) {
       const data = await instantServer.query({
         contract: {
           $: {
-            limit: limit,
+            limit: limit + 1, // Fetch one extra to check if there are more
             offset: offset
           },
           users: {}, // Customer who owns the contract
-          sale_by_user: {}, // Staff who sold the contract
+          sale_by_user: {
+            user_setting: {} // Get user_setting for sales person
+          }, // Staff who sold the contract
+          purchased_by_user: {
+            user_setting: {} // Get user_setting for customer
+          }, // User who purchased the contract
           history: {}
         }
       })
@@ -80,37 +85,43 @@ export async function GET(request: Request) {
             where: {
               sale_by: userInstantId
             },
-            limit: limit,
+            limit: limit + 1, // Fetch one extra to check if there are more
             offset: offset
           },
           users: {}, // Customer who owns the contract
-          sale_by_user: {}, // Staff who sold the contract (themselves)
+          sale_by_user: {
+            user_setting: {} // Get user_setting for sales person
+          }, // Staff who sold the contract (themselves)
+          purchased_by_user: {
+            user_setting: {} // Get user_setting for customer
+          }, // User who purchased the contract
           history: {}
         }
       })
       contracts = data.contract || []
 
     } else if (role === 'CUSTOMER') {
-      // CUSTOMER: Get only their own contracts
+      // CUSTOMER: Get only their own contracts (where they are the purchaser)
       const data = await instantServer.query({
-        $users: {
+        contract: {
           $: {
             where: {
-              id: userInstantId
-            }
-          },
-          contract: {
-            $: {
-              limit: limit,
-              offset: offset
+              purchased_by: userInstantId
             },
-            sale_by_user: {}, // Staff who sold the contract
-            history: {}
-          }
+            limit: limit + 1, // Fetch one extra to check if there are more
+            offset: offset
+          },
+          users: {}, // Customer who owns the contract
+          sale_by_user: {
+            user_setting: {} // Get user_setting for sales person
+          }, // Staff who sold the contract
+          purchased_by_user: {
+            user_setting: {} // Get user_setting for customer
+          }, // User who purchased the contract
+          history: {}
         }
       })
-      const user = data.$users[0]
-      contracts = user?.contract || []
+      contracts = data.contract || []
 
     } else {
       return NextResponse.json(
@@ -119,8 +130,52 @@ export async function GET(request: Request) {
       )
     }
 
-    // Calculate pagination metadata
-    const hasMore = contracts.length === limit
+    // Check if there are more pages (we fetched limit + 1)
+    const hasMore = contracts.length > limit
+    if (hasMore) {
+      contracts = contracts.slice(0, limit)
+    }
+
+    // Collect all unique user IDs from contracts
+    const userIds = new Set<string>()
+    contracts.forEach(contract => {
+      if (contract.purchased_by) userIds.add(contract.purchased_by)
+      if (contract.sale_by) userIds.add(contract.sale_by)
+    })
+
+    // Fetch user_setting data for all users
+    const userSettingsData = await instantServer.query({
+      user_setting: {
+        users: {}
+      }
+    })
+
+    // Create a map of user_id -> user_setting
+    const userSettingsMap = new Map()
+    userSettingsData.user_setting.forEach((setting: any) => {
+      const userId = setting.users?.[0]?.id
+      if (userId) {
+        userSettingsMap.set(userId, setting)
+      }
+    })
+
+    // Attach user_setting data to the users in contracts
+    contracts.forEach(contract => {
+      if (contract.purchased_by_user?.[0]) {
+        const userId = contract.purchased_by_user[0].id
+        const userSetting = userSettingsMap.get(userId)
+        if (userSetting) {
+          contract.purchased_by_user[0].user_setting = [userSetting]
+        }
+      }
+      if (contract.sale_by_user?.[0]) {
+        const userId = contract.sale_by_user[0].id
+        const userSetting = userSettingsMap.get(userId)
+        if (userSetting) {
+          contract.sale_by_user[0].user_setting = [userSetting]
+        }
+      }
+    })
 
     return NextResponse.json({
       contracts,

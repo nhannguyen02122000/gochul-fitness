@@ -8,7 +8,21 @@ export type Role = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
 export type ContractKind = 'PT' | 'REHAB' | 'PT_MONTHLY'
 
-export type ContractStatus = string // Define specific statuses as needed
+export type ContractStatus =
+    | 'NEWLY_CREATED'
+    | 'CUSTOMER_REVIEW'
+    | 'CUSTOMER_CONFIRMED'
+    | 'ACTIVE'
+    | 'CANCELED'
+    | 'EXPIRED'
+
+export type HistoryStatus =
+    | 'NEWLY_CREATED'
+    | 'PT_CONFIRMED'
+    | 'USER_CHECKED_IN'
+    | 'PT_CHECKED_IN'
+    | 'CANCELED'
+    | 'EXPIRED'
 
 // ============================================================================
 // Entity Types (based on instant.schema.ts)
@@ -17,6 +31,7 @@ export type ContractStatus = string // Define specific statuses as needed
 export interface User {
     id: string
     email?: string
+    user_setting?: UserSetting[]
 }
 
 export interface UserSetting {
@@ -31,9 +46,10 @@ export interface UserSetting {
 export interface History {
     id: string
     date: number
-    status: string
+    status: HistoryStatus
     from: number
     to: number
+    teach_by: string
     users?: User[]
     contract?: Contract
 }
@@ -48,8 +64,10 @@ export interface Contract {
     status: ContractStatus
     money: number
     sale_by?: string
+    purchased_by: string
     users?: User[]
     sale_by_user?: User[]
+    purchased_by_user?: User[]
     history?: History[]
 }
 
@@ -67,8 +85,8 @@ export interface ApiErrorResponse {
 
 export interface CreateContractRequest {
     kind: ContractKind
-    status: ContractStatus
     money: number
+    purchased_by: string
     start_date?: number
     end_date?: number
     credits?: number
@@ -93,6 +111,7 @@ export interface UpdateContractRequest {
     end_date?: number
     credits?: number
     sale_by?: string
+    purchased_by?: string
 }
 
 export interface UpdateContractSuccessResponse {
@@ -170,4 +189,153 @@ export interface GetUserInformationSuccessResponse extends ClerkUser {
 }
 
 export type GetUserInformationResponse = GetUserInformationSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/user/updateBasicInfo
+// ============================================================================
+
+export interface UpdateUserBasicInfoRequest {
+    first_name?: string
+    last_name?: string
+}
+
+export interface UpdateUserBasicInfoSuccessResponse {
+    user_setting: UserSetting
+}
+
+export type UpdateUserBasicInfoResponse = UpdateUserBasicInfoSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/history/create
+// ============================================================================
+
+export interface CreateHistoryRequest {
+    contract_id: string
+    date: number
+    from: number
+    to: number
+}
+
+export interface CreateHistorySuccessResponse {
+    history: History
+}
+
+export type CreateHistoryResponse = CreateHistorySuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/history/update
+// ============================================================================
+
+export interface UpdateHistoryRequest {
+    history_id: string
+    date?: number
+    from?: number
+    to?: number
+    status?: HistoryStatus
+}
+
+export interface UpdateHistorySuccessResponse {
+    history: History
+}
+
+export type UpdateHistoryResponse = UpdateHistorySuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/history/delete
+// ============================================================================
+
+export interface DeleteHistoryRequest {
+    history_id: string
+}
+
+export interface DeleteHistorySuccessResponse {
+    message: string
+    history_id: string
+}
+
+export type DeleteHistoryResponse = DeleteHistorySuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/history/getAll
+// ============================================================================
+
+export interface GetAllHistoryRequest {
+    page?: string | number
+    limit?: string | number
+    statuses?: string
+    start_date?: string | number
+    end_date?: string | number
+}
+
+export interface GetAllHistorySuccessResponse {
+    history: History[]
+    pagination: PaginationMetadata
+    role: Role
+}
+
+export type GetAllHistoryResponse = GetAllHistorySuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/contract/updateStatus
+// ============================================================================
+
+export interface UpdateContractStatusRequest {
+    contract_id: string
+    status: ContractStatus
+}
+
+export interface UpdateContractStatusSuccessResponse {
+    contract: Contract
+}
+
+export type UpdateContractStatusResponse = UpdateContractStatusSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/history/updateStatus
+// ============================================================================
+
+export interface UpdateHistoryStatusRequest {
+    history_id: string
+    status: HistoryStatus
+}
+
+export interface UpdateHistoryStatusSuccessResponse {
+    history: History
+}
+
+export type UpdateHistoryStatusResponse = UpdateHistoryStatusSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/user/getByRole
+// ============================================================================
+
+export interface GetUsersByRoleRequest {
+    role?: string
+}
+
+export interface GetUsersByRoleSuccessResponse {
+    users: UserSetting[]
+}
+
+export type GetUsersByRoleResponse = GetUsersByRoleSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/history/getOccupiedTimeSlots
+// ============================================================================
+
+export interface GetTrainerScheduleRequest {
+    user_id: string
+    date: number
+}
+
+export interface OccupiedSlot {
+    from: number
+    to: number
+}
+
+export interface GetTrainerScheduleSuccessResponse {
+    occupied_slots: OccupiedSlot[]
+}
+
+export type GetTrainerScheduleResponse = GetTrainerScheduleSuccessResponse | ApiErrorResponse
 

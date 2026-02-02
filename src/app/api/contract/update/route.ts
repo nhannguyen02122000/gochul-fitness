@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
         // Parse request body
         const body = await request.json()
-        const { contract_id, kind, status, money, start_date, end_date, credits, sale_by } = body
+        const { contract_id, kind, status, money, start_date, end_date, credits, sale_by, purchased_by } = body
 
         // Validate required field: contract_id
         if (!contract_id || typeof contract_id !== 'string') {
@@ -152,6 +152,16 @@ export async function POST(request: Request) {
             updateData.sale_by = sale_by
         }
 
+        if (purchased_by !== undefined) {
+            if (typeof purchased_by !== 'string') {
+                return NextResponse.json(
+                    { error: 'Invalid field: purchased_by must be a string' },
+                    { status: 400 }
+                )
+            }
+            updateData.purchased_by = purchased_by
+        }
+
         // Check if there are any fields to update
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json(
@@ -160,10 +170,19 @@ export async function POST(request: Request) {
             )
         }
 
+        // Build transaction with links if sale_by or purchased_by are being updated
+        const transaction = instantServer.tx.contract[contract_id].update(updateData)
+        
+        // Add links if the user references are being updated
+        if (sale_by !== undefined) {
+            transaction.link({ sale_by_user: sale_by })
+        }
+        if (purchased_by !== undefined) {
+            transaction.link({ purchased_by_user: purchased_by })
+        }
+
         // Update the contract using InstantDB transaction
-        await instantServer.transact([
-            instantServer.tx.contract[contract_id].update(updateData)
-        ])
+        await instantServer.transact([transaction])
 
         // Query the updated contract to return it
         const updatedContractData = await instantServer.query({
@@ -175,6 +194,7 @@ export async function POST(request: Request) {
                 },
                 users: {},
                 sale_by_user: {},
+                purchased_by_user: {},
                 history: {}
             }
         })

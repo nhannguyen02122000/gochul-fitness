@@ -7,7 +7,9 @@ import type {
     DeleteContractResponse,
     GetAllContractsResponse,
     UpdateContractRequest,
-    UpdateContractResponse
+    UpdateContractResponse,
+    UpdateContractStatusRequest,
+    UpdateContractStatusResponse
 } from '@/app/type/api'
 
 // Query Keys
@@ -84,6 +86,24 @@ async function deleteContract(
     if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Failed to delete contract')
+    }
+    return response.json()
+}
+
+// Update contract status
+async function updateContractStatus(
+    data: UpdateContractStatusRequest
+): Promise<UpdateContractStatusResponse> {
+    const response = await fetch('/api/contract/updateStatus', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update contract status')
     }
     return response.json()
 }
@@ -184,6 +204,24 @@ export function useDeleteContract() {
 
     return useMutation({
         mutationFn: deleteContract,
+        onSuccess: () => {
+            // Invalidate and refetch contracts list
+            queryClient.invalidateQueries({ queryKey: contractKeys.lists() })
+        }
+    })
+}
+
+/**
+ * Hook to update contract status
+ * @example
+ * const { mutate, isPending } = useUpdateContractStatus()
+ * mutate({ contract_id: '123', status: 'CUSTOMER_REVIEW' })
+ */
+export function useUpdateContractStatus() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: updateContractStatus,
         onSuccess: () => {
             // Invalidate and refetch contracts list
             queryClient.invalidateQueries({ queryKey: contractKeys.lists() })

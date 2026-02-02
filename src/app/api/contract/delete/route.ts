@@ -78,14 +78,39 @@ export async function POST(request: Request) {
       )
     }
 
-    // Delete the contract using InstantDB transaction
+    // Soft delete: Update status to CANCELED instead of hard delete
     await instantServer.transact([
-      instantServer.tx.contract[contract_id].delete()
+      instantServer.tx.contract[contract_id].update({
+        status: 'CANCELED'
+      })
     ])
+
+    // Query the updated contract to return it
+    const updatedContractData = await instantServer.query({
+      contract: {
+        $: {
+          where: {
+            id: contract_id
+          }
+        },
+        users: {},
+        sale_by_user: {},
+        history: {}
+      }
+    })
+
+    const updatedContract = updatedContractData.contract[0]
+
+    if (!updatedContract) {
+      return NextResponse.json(
+        { error: 'Contract updated but could not be retrieved' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json(
       { 
-        message: 'Contract deleted successfully',
+        message: 'Contract canceled successfully',
         contract_id: contract_id
       },
       { status: 200 }

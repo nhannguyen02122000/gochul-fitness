@@ -58,12 +58,12 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json()
-    const { kind, status, money, start_date, end_date, credits } = body
+    const { kind, money, purchased_by, start_date, end_date, credits } = body
 
     // Validate required fields
-    if (!kind || !status || money === undefined) {
+    if (!kind || money === undefined || !purchased_by) {
       return NextResponse.json(
-        { error: 'Missing required fields: kind, status, and money are required' },
+        { error: 'Missing required fields: kind, money, and purchased_by are required' },
         { status: 400 }
       )
     }
@@ -76,19 +76,22 @@ export async function POST(request: Request) {
       )
     }
 
-    if (typeof status !== 'string') {
-      return NextResponse.json(
-        { error: 'Invalid field: status must be a string' },
-        { status: 400 }
-      )
-    }
-
     if (typeof money !== 'number') {
       return NextResponse.json(
         { error: 'Invalid field: money must be a number' },
         { status: 400 }
       )
     }
+
+    if (typeof purchased_by !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid field: purchased_by must be a string' },
+        { status: 400 }
+      )
+    }
+
+    // Set default status to NEWLY_CREATED
+    const status = 'NEWLY_CREATED'
 
     // Validate optional fields if provided
     if (start_date !== undefined && typeof start_date !== 'number') {
@@ -126,10 +129,13 @@ export async function POST(request: Request) {
         status,
         money,
         sale_by: userInstantId,
+        purchased_by,
         ...(start_date !== undefined && { start_date }),
         ...(end_date !== undefined && { end_date }),
         ...(credits !== undefined && { credits })
       })
+        .link({ sale_by_user: userInstantId })
+        .link({ purchased_by_user: purchased_by })
     ])
 
     // Query the created contract to return it
@@ -142,6 +148,7 @@ export async function POST(request: Request) {
         },
         users: {},
         sale_by_user: {},
+        purchased_by_user: {},
         history: {}
       }
     })
