@@ -1,11 +1,15 @@
 // src/components/layout/TopBar.tsx
 'use client'
 
-import { Avatar, Badge } from 'antd'
-import { UserOutlined, BellOutlined } from '@ant-design/icons'
+import { Avatar } from 'antd'
+import { UserOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useRouter, usePathname } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { GetUserInformationResponse } from '@/app/type/api'
+import { historyKeys } from '@/hooks/useHistory'
+import { contractKeys } from '@/hooks/useContracts'
+import { userKeys } from '@/hooks/useUser'
+import { useState } from 'react'
 
 async function fetchUserInfo(): Promise<GetUserInformationResponse> {
   const response = await fetch('/api/user/getUserInformation')
@@ -18,11 +22,42 @@ async function fetchUserInfo(): Promise<GetUserInformationResponse> {
 export default function TopBar() {
   const router = useRouter()
   const pathname = usePathname()
+  const queryClient = useQueryClient()
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
   const { data, isLoading } = useQuery({
     queryKey: ['userInfo'],
     queryFn: fetchUserInfo,
     enabled: typeof window !== 'undefined'
   })
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return
+
+    setIsRefreshing(true)
+
+    try {
+      // Invalidate all query tags
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: historyKeys.all }),
+        queryClient.invalidateQueries({ queryKey: contractKeys.all }),
+        queryClient.invalidateQueries({ queryKey: userKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ['userInfo'] }),
+      ])
+
+      // Force refetch all active queries
+      await queryClient.refetchQueries({
+        type: 'active',
+        stale: true
+      })
+    } catch (error) {
+      console.error('Error refreshing data:', error)
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false)
+      }, 500)
+    }
+  }
 
   // Get page title based on route
   const getPageTitle = () => {
@@ -56,7 +91,6 @@ export default function TopBar() {
     return null
   }
 
-  const fullName = [data.first_name, data.last_name].filter(Boolean).join(' ') || data.username || 'User'
   const firstName = data.first_name || data.username || 'User'
 
   // Role badge styling
@@ -99,6 +133,18 @@ export default function TopBar() {
               </span>
               {getRoleBadge()}
             </div>
+          </button>
+
+          {/* Refresh Button */}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 active:scale-95 transition-all disabled:opacity-50"
+            aria-label="Refresh data"
+          >
+            <ReloadOutlined
+              className={`text-white text-lg ${isRefreshing ? 'animate-spin' : ''}`}
+            />
           </button>
         </div>
       </div>

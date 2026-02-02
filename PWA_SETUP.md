@@ -2,6 +2,8 @@
 
 Your fitness app is now a Progressive Web App (PWA)! 🎉
 
+> **🔄 New Feature**: Pull-to-Refresh! Pull down from the top of any page to refresh all data. Works on mobile and desktop. See `PULL_TO_REFRESH.md` for complete documentation.
+
 ## ✅ What's Been Added
 
 ### 1. **Service Worker** (`public/sw.js`)
