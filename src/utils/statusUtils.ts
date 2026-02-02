@@ -136,12 +136,12 @@ export function canViewContract(status: ContractStatus, role: Role): boolean {
   if (role === 'ADMIN' || role === 'STAFF') {
     return true
   }
-  
+
   // CUSTOMER cannot see NEWLY_CREATED contracts
   if (role === 'CUSTOMER' && status === 'NEWLY_CREATED') {
     return false
   }
-  
+
   return true
 }
 
@@ -249,12 +249,12 @@ export function shouldShowContractActionButtons(
   if (userRole === 'ADMIN' || userRole === 'STAFF') {
     return true
   }
-  
+
   // CUSTOMER can only see buttons for contracts they purchased
   if (userRole === 'CUSTOMER') {
     return contract.purchased_by === userInstantId
   }
-  
+
   return false
 }
 
@@ -274,12 +274,12 @@ export function shouldShowHistoryActionButtons(
   if (userRole === 'ADMIN' || userRole === 'STAFF') {
     return true
   }
-  
+
   // CUSTOMER can only see buttons for sessions from contracts they purchased
   if (userRole === 'CUSTOMER') {
     return session.contract?.purchased_by === userInstantId
   }
-  
+
   return false
 }
 

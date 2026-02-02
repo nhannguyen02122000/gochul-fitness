@@ -2,7 +2,7 @@
 'use client'
 
 import { Card, Space, Typography, Button, Tag, message } from 'antd'
-import { CalendarOutlined, UserOutlined, DollarOutlined, MailOutlined, PlusOutlined } from '@ant-design/icons'
+import { CalendarOutlined, UserOutlined, DollarOutlined, MailOutlined, PlusOutlined, CrownOutlined, ThunderboltOutlined, HeartOutlined } from '@ant-design/icons'
 import type { Contract, Role, ContractStatus } from '@/app/type/api'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatDate } from '@/utils/timeUtils'
@@ -12,7 +12,7 @@ import { useUpdateContractStatus } from '@/hooks/useContracts'
 import { useState } from 'react'
 import CreateSessionModal from '@/components/modals/CreateSessionModal'
 
-const { Text } = Typography
+const { Text, Title } = Typography
 
 interface ContractCardProps {
   contract: Contract
@@ -59,12 +59,30 @@ export default function ContractCard({
     : saleByUser?.email || 'Unknown'
   const salesEmail = saleByUser?.email || 'N/A'
 
-  const kindLabels: Record<string, string> = {
-    'PT': 'Personal Training',
-    'REHAB': 'Rehabilitation',
-    'PT_MONTHLY': 'PT Monthly'
+  const kindLabels: Record<string, { label: string; icon: typeof DollarOutlined; gradient: string }> = {
+    'PT': { 
+      label: 'Personal Training', 
+      icon: CrownOutlined,
+      gradient: 'from-purple-500 to-pink-500'
+    },
+    'REHAB': { 
+      label: 'Rehabilitation', 
+      icon: HeartOutlined,
+      gradient: 'from-blue-500 to-cyan-500'
+    },
+    'PT_MONTHLY': { 
+      label: 'PT Monthly', 
+      icon: ThunderboltOutlined,
+      gradient: 'from-orange-500 to-red-500'
+    }
   }
 
+  const kindInfo = kindLabels[contract.kind] || { 
+    label: contract.kind, 
+    icon: DollarOutlined,
+    gradient: 'from-gray-500 to-gray-600'
+  }
+  const KindIcon = kindInfo.icon
   const hasCredits = contract.kind === 'PT' || contract.kind === 'REHAB'
 
   // Determine if action buttons should be shown
@@ -110,57 +128,90 @@ export default function ContractCard({
     <Card
       hoverable={!!onClick}
       onClick={onClick}
-      className="w-full shadow-sm hover:shadow-md transition-shadow"
+      className="w-full overflow-hidden animate-fade-in modern-card"
+      styles={{
+        body: { padding: 0 }
+      }}
     >
-      <Space orientation="vertical" size="small" className="w-full">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <Tag color="blue" className="mb-2">{kindLabels[contract.kind] || contract.kind}</Tag>
-            <StatusBadge status={contract.status} type="contract" />
+      {/* Gradient Header */}
+      <div className={`bg-linear-to-r ${kindInfo.gradient} p-3 relative overflow-hidden`}>
+        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
+        <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full -ml-10 -mb-10" />
+        
+        <div className="relative z-10 flex justify-between items-start gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center shrink-0">
+              <KindIcon className="text-white text-base" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Text className="text-white font-semibold text-xs block mb-0.5 truncate">{kindInfo.label}</Text>
+              <StatusBadge status={contract.status} type="contract" />
+            </div>
           </div>
-          <Text strong className="text-lg text-primary">
-            {formatVND(contract.money)}
-          </Text>
-        </div>
-
-        {/* Details */}
-        <Space orientation="vertical" size="small" className="w-full mt-2">
-          <div className="flex items-center gap-2">
-            <UserOutlined className="text-gray-400" />
-            <Text type="secondary" className="text-sm">Customer: {customerName}</Text>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <MailOutlined className="text-gray-400" />
-            <Text type="secondary" className="text-sm">{customerEmail}</Text>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <UserOutlined className="text-gray-400" />
-            <Text type="secondary" className="text-sm">Sales: {salesPerson}</Text>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <MailOutlined className="text-gray-400" />
-            <Text type="secondary" className="text-sm">{salesEmail}</Text>
-          </div>
-
-          {contract.start_date && (
-            <div className="flex items-center gap-2">
-              <CalendarOutlined className="text-gray-400" />
-              <Text type="secondary" className="text-sm">
-                {formatDate(contract.start_date)} - {contract.end_date ? formatDate(contract.end_date) : 'N/A'}
-              </Text>
+          {hasCredits && contract.credits !== undefined && (
+            <div className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg shrink-0">
+              <Text className="text-white text-xs font-bold block leading-none text-center">{contract.credits}</Text>
+              <Text className="text-white/80 text-[10px] block mt-0.5 text-center">Credits</Text>
             </div>
           )}
+        </div>
 
-          {hasCredits && contract.credits !== undefined && (
-            <div className="flex items-center gap-2">
-              <DollarOutlined className="text-gray-400" />
-              <Text type="secondary" className="text-sm">
-                Credits: {contract.credits}
-              </Text>
+        {/* Amount */}
+        <div className="relative z-10 mt-2">
+          <Text className="text-white/80 text-[10px] block mb-1">Contract Value</Text>
+          <Title level={4} className="text-white !mb-0 !text-base font-bold leading-none">
+            {formatVND(contract.money)}
+          </Title>
+        </div>
+      </div>
+
+      {/* Details Section */}
+      <div className="p-3">
+        <Space orientation="vertical" size={8} className="w-full">
+          {/* Customer Info */}
+          <div className="bg-gray-50 rounded-lg p-2.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-7 h-7 bg-[#FA6868]/10 rounded-lg flex items-center justify-center shrink-0">
+                <UserOutlined className="text-[#FA6868] text-xs" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Text className="text-[10px] text-gray-500 block mb-0.5">Customer</Text>
+                <Text strong className="text-xs block truncate">{customerName}</Text>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 ml-9">
+              <MailOutlined className="text-gray-400" style={{ fontSize: '10px' }} />
+              <Text type="secondary" className="text-[10px] truncate">{customerEmail}</Text>
+            </div>
+          </div>
+
+          {/* Sales Info */}
+          <div className="bg-gray-50 rounded-lg p-2.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-7 h-7 bg-[#5A9CB5]/10 rounded-lg flex items-center justify-center shrink-0">
+                <UserOutlined className="text-[#5A9CB5] text-xs" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Text className="text-[10px] text-gray-500 block mb-0.5">Sales Rep</Text>
+                <Text strong className="text-xs block truncate">{salesPerson}</Text>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 ml-9">
+              <MailOutlined className="text-gray-400" style={{ fontSize: '10px' }} />
+              <Text type="secondary" className="text-[10px] truncate">{salesEmail}</Text>
+            </div>
+          </div>
+
+          {/* Date Range */}
+          {contract.start_date && (
+            <div className="flex items-center gap-2 px-2 py-2 bg-linear-to-r from-gray-50 to-transparent rounded-lg">
+              <CalendarOutlined className="text-[#FAAC68] text-sm shrink-0" />
+              <div className="flex-1 min-w-0">
+                <Text type="secondary" className="text-[10px] block mb-0.5">Duration</Text>
+                <Text strong className="text-[11px] block truncate">
+                  {formatDate(contract.start_date)} → {contract.end_date ? formatDate(contract.end_date) : 'N/A'}
+                </Text>
+              </div>
             </div>
           )}
         </Space>
@@ -168,7 +219,7 @@ export default function ContractCard({
         {/* Actions */}
         {(actionButtons.length > 0 || shouldShowCreateSession) && (
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <Space size="small" className="w-full" wrap>
+            <Space size={6} className="w-full" wrap>
               {actionButtons.map((button) => (
                 <Button
                   key={button.nextStatus}
@@ -181,6 +232,7 @@ export default function ContractCard({
                     e.stopPropagation()
                     handleStatusChange(button.nextStatus as ContractStatus)
                   }}
+                  className="flex-1 min-w-[90px] text-xs"
                 >
                   {button.label}
                 </Button>
@@ -194,6 +246,7 @@ export default function ContractCard({
                     e.stopPropagation()
                     setIsSessionModalOpen(true)
                   }}
+                  className="flex-1 min-w-[120px] text-xs"
                 >
                   Create Session
                 </Button>
@@ -201,7 +254,7 @@ export default function ContractCard({
             </Space>
           </div>
         )}
-      </Space>
+      </div>
 
       {/* Create Session Modal */}
       <CreateSessionModal

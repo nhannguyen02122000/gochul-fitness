@@ -10,13 +10,15 @@ interface UserSearchSelectProps {
   onChange?: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  size?: 'large' | 'middle' | 'small'
 }
 
 export default function UserSearchSelect({
   value,
   onChange,
   placeholder = 'Search for customer...',
-  disabled = false
+  disabled = false,
+  size = 'middle'
 }: UserSearchSelectProps) {
   const { data, isLoading } = useCustomers()
 
@@ -52,6 +54,7 @@ export default function UserSearchSelect({
       filterOption={filterOption}
       notFoundContent={isLoading ? <Spin size="small" /> : 'No customers found'}
       className="w-full"
+      size={size}
     />
   )
 }

@@ -11,10 +11,10 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#f8f9fa] flex flex-col">
       <TopBar />
-      <main className="flex-1 pb-20 pt-4 overflow-y-auto">
-        <div className="max-w-screen-xl mx-auto px-4">
+      <main className="flex-1 pb-20 overflow-y-auto">
+        <div className="max-w-screen-xl mx-auto">
           {children}
         </div>
       </main>

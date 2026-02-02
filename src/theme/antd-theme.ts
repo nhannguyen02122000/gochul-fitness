@@ -1,69 +1,138 @@
 import type { ThemeConfig } from 'antd'
-import { Noto_Sans } from 'next/font/google'
+import { Inter } from 'next/font/google'
 
-const notoFont = Noto_Sans({ subsets: ['latin'] })
-
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
 export const antdTheme: ThemeConfig = {
   token: {
-    // Primary color
+    // Primary color - Vibrant Coral
     colorPrimary: '#FA6868',
+    colorPrimaryHover: '#FC8585',
+    colorPrimaryActive: '#F83E3E',
 
     // Secondary color (used for links, info states)
-    colorInfo: '#FAAC68',
-
+    colorInfo: '#5A9CB5',
+    colorInfoHover: '#6BADC5',
+    
     // Success color
-    colorSuccess: '#52c41a',
+    colorSuccess: '#10b981',
+    colorSuccessBg: '#d1fae5',
 
     // Warning color
-    colorWarning: '#FACE68',
+    colorWarning: '#FAAC68',
+    colorWarningBg: '#FEF7F0',
 
     // Error color
-    colorError: '#ff4d4f',
+    colorError: '#ef4444',
+    colorErrorBg: '#fee2e2',
 
     // Border and background
-    colorBorder: '#d9d9d9',
+    colorBorder: '#e5e7eb',
+    colorBorderSecondary: '#f3f4f6',
     colorBgContainer: '#ffffff',
+    colorBgLayout: '#f8f9fa',
+    colorBgElevated: '#ffffff',
 
     // Typography
-    fontFamily: notoFont.style.fontFamily,
-    fontSize: 14,
+    fontFamily: inter.style.fontFamily,
+    fontSize: 15,
+    fontSizeHeading1: 32,
+    fontSizeHeading2: 28,
+    fontSizeHeading3: 24,
+    fontSizeHeading4: 20,
+    fontSizeHeading5: 16,
+    colorText: '#1f2937',
+    colorTextSecondary: '#6b7280',
+    colorTextTertiary: '#9ca3af',
 
-    // Border radius
-    borderRadius: 6,
+    // Border radius - More modern
+    borderRadius: 12,
+    borderRadiusLG: 16,
+    borderRadiusSM: 8,
 
     // Spacing
-    controlHeight: 40,
+    controlHeight: 44,
+    controlHeightLG: 52,
+    controlHeightSM: 36,
+    
+    // Padding
+    padding: 16,
+    paddingLG: 24,
+    paddingSM: 12,
+    paddingXS: 8,
 
     // Links
     colorLink: '#5A9CB5',
-    colorLinkHover: '#4a8ca5',
-    colorLinkActive: '#3a7c95'
+    colorLinkHover: '#6BADC5',
+    colorLinkActive: '#4A8097',
+    
+    // Box shadows
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+    boxShadowSecondary: '0 4px 16px rgba(0, 0, 0, 0.12)',
   },
   components: {
     Button: {
-      controlHeight: 40,
-      borderRadius: 6,
-      fontWeight: 500,
-      primaryShadow: '0 2px 0 rgba(250, 104, 104, 0.1)'
+      controlHeight: 44,
+      controlHeightLG: 52,
+      controlHeightSM: 36,
+      borderRadius: 12,
+      borderRadiusLG: 14,
+      borderRadiusSM: 10,
+      fontWeight: 600,
+      primaryShadow: '0 4px 12px rgba(250, 104, 104, 0.25)',
+      defaultShadow: '0 2px 4px rgba(0, 0, 0, 0.06)',
+      paddingContentHorizontal: 20,
     },
     Input: {
-      controlHeight: 40,
-      borderRadius: 6
+      controlHeight: 44,
+      borderRadius: 12,
+      paddingBlock: 10,
+      paddingInline: 16,
+      fontSize: 15,
+    },
+    InputNumber: {
+      controlHeight: 44,
+      borderRadius: 12,
+      paddingBlock: 10,
+      paddingInline: 16,
     },
     Select: {
-      controlHeight: 40,
-      borderRadius: 6
+      controlHeight: 44,
+      borderRadius: 12,
+      fontSize: 15,
+    },
+    DatePicker: {
+      controlHeight: 44,
+      borderRadius: 12,
     },
     Card: {
-      borderRadius: 8,
-      boxShadow:
-        '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
+      borderRadius: 16,
+      borderRadiusLG: 20,
+      paddingLG: 24,
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+      boxShadowTertiary: '0 4px 16px rgba(0, 0, 0, 0.12)',
+    },
+    Modal: {
+      borderRadius: 16,
+      borderRadiusLG: 20,
+      paddingContentHorizontal: 24,
     },
     Layout: {
       headerBg: '#ffffff',
-      bodyBg: '#f5f5f5',
-      siderBg: '#ffffff'
-    }
+      bodyBg: '#f8f9fa',
+      siderBg: '#ffffff',
+    },
+    Statistic: {
+      titleFontSize: 14,
+      contentFontSize: 28,
+    },
+    Tag: {
+      borderRadiusSM: 8,
+      defaultBg: '#f3f4f6',
+      defaultColor: '#6b7280',
+    },
+    Badge: {
+      dotSize: 8,
+    },
   }
 }

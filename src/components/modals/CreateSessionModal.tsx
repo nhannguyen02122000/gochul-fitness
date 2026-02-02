@@ -1,12 +1,15 @@
 // src/components/modals/CreateSessionModal.tsx
 'use client'
 
-import { Modal, Form, Select, DatePicker, message } from 'antd'
+import { Modal, Form, Select, DatePicker, message, Typography, Card } from 'antd'
+import { CalendarOutlined, FileTextOutlined, ClockCircleOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useCreateHistory, useTrainerSchedule } from '@/hooks/useHistory'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import TimeSlotPicker from '@/components/common/TimeSlotPicker'
 import dayjs, { Dayjs } from 'dayjs'
 import { useMemo } from 'react'
+
+const { Text, Title } = Typography
 
 interface CreateSessionModalProps {
   open: boolean
@@ -113,90 +116,151 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
 
   return (
     <Modal
-      title="Create New Session"
+      title={
+        <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+          <div className="w-10 h-10 bg-linear-to-br from-[#FA6868] to-[#FAAC68] rounded-xl flex items-center justify-center">
+            <CalendarOutlined className="text-white text-lg" />
+          </div>
+          <div>
+            <Title level={4} className="mb-0!">Create New Session</Title>
+            <Text type="secondary" className="text-sm">Schedule a training session</Text>
+          </div>
+        </div>
+      }
       open={open}
       onCancel={handleCancel}
       onOk={() => form.submit()}
       confirmLoading={createHistory.isPending}
-      width={700}
+      width={750}
       destroyOnClose
+      okText="Create Session"
+      okButtonProps={{
+        size: 'large',
+        className: 'h-11'
+      }}
+      cancelButtonProps={{
+        size: 'large',
+        className: 'h-11'
+      }}
+      styles={{
+        header: { padding: '24px 24px 0' },
+        body: { padding: '24px' }
+      }}
     >
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        className="mt-4"
+        className="mt-2"
       >
-        <Form.Item
-          name="contract_id"
-          label="Contract"
-          rules={[{ required: true, message: 'Please select a contract' }]}
-        >
-          <Select
-            placeholder="Select active contract"
-            options={contractOptions}
-            showSearch
-            filterOption={(input, option) =>
-              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-            }
-            onChange={() => {
-              // Reset time selection when contract changes
-              form.setFieldsValue({ from: undefined, to: undefined })
-            }}
-          />
-        </Form.Item>
+        {/* Contract Selection Card */}
+        <Card className="mb-5 border-gray-200! shadow-sm" styles={{ body: { padding: '20px' } }}>
+          <div className="flex items-center gap-2 mb-4">
+            <FileTextOutlined className="text-[#FA6868] text-lg" />
+            <Text strong className="text-base">Contract Information</Text>
+          </div>
 
-        <Form.Item
-          name="date"
-          label="Date"
-          rules={[{ required: true, message: 'Please select date' }]}
-        >
-          <DatePicker
-            className="w-full"
-            format="DD/MM/YYYY"
-            disabledDate={(current) => current && current < dayjs().startOf('day')}
-            onChange={() => {
-              // Reset time selection when date changes
-              form.setFieldsValue({ from: undefined, to: undefined })
-            }}
-          />
-        </Form.Item>
-
-        <Form.Item
-          label="Time Slot (90 minutes)"
-          required
-          help={!selectedTrainerId || !selectedDate ? 'Please select contract and date first' : undefined}
-        >
           <Form.Item
-            name="from"
-            noStyle
-            rules={[{ required: true, message: 'Please select a time slot' }]}
+            name="contract_id"
+            label={<Text className="text-sm font-medium">Select Active Contract</Text>}
+            rules={[{ required: true, message: 'Please select a contract' }]}
+            className="mb-0!"
           >
-            <input type="hidden" />
-          </Form.Item>
-          <Form.Item
-            name="to"
-            noStyle
-            rules={[{ required: true, message: 'Please select a time slot' }]}
-          >
-            <input type="hidden" />
-          </Form.Item>
-
-          {selectedTrainerId && selectedDate ? (
-            <TimeSlotPicker
-              selectedFrom={fromValue}
-              selectedTo={toValue}
-              occupiedSlots={(scheduleData && 'occupied_slots' in scheduleData) ? scheduleData.occupied_slots : []}
-              date={selectedDate}
-              onSelect={handleSlotSelect}
-              loading={isLoadingSchedule}
+            <Select
+              size="large"
+              placeholder="Choose a contract"
+              options={contractOptions}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              onChange={() => {
+                // Reset time selection when contract changes
+                form.setFieldsValue({ from: undefined, to: undefined })
+              }}
+              suffixIcon={<FileTextOutlined className="text-gray-400" />}
             />
-          ) : (
-            <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-300 rounded-lg">
-              Select a contract and date to view available time slots
-            </div>
-          )}
-        </Form.Item>
+          </Form.Item>
+        </Card>
+
+        {/* Date & Time Selection Card */}
+        <Card className="mb-5 border-gray-200! shadow-sm" styles={{ body: { padding: '20px' } }}>
+          <div className="flex items-center gap-2 mb-4">
+            <ClockCircleOutlined className="text-[#5A9CB5] text-lg" />
+            <Text strong className="text-base">Date & Time</Text>
+          </div>
+
+          <Form.Item
+            name="date"
+            label={<Text className="text-sm font-medium">Select Date</Text>}
+            rules={[{ required: true, message: 'Please select date' }]}
+          >
+            <DatePicker
+              size="large"
+              className="w-full"
+              format="DD/MM/YYYY"
+              disabledDate={(current) => current && current < dayjs().startOf('day')}
+              onChange={() => {
+                // Reset time selection when date changes
+                form.setFieldsValue({ from: undefined, to: undefined })
+              }}
+              suffixIcon={<CalendarOutlined className="text-gray-400" />}
+              placeholder="Choose a date"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={
+              <div className="flex items-center gap-2">
+                <Text className="text-sm font-medium">Time Slot</Text>
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-md font-medium">
+                  90 minutes
+                </span>
+              </div>
+            }
+            required
+            help={!selectedTrainerId || !selectedDate ? (
+              <div className="flex items-center gap-2 mt-2">
+                <ThunderboltOutlined className="text-orange-500" />
+                <Text type="secondary" className="text-sm">Please select contract and date first</Text>
+              </div>
+            ) : undefined}
+          >
+            <Form.Item
+              name="from"
+              noStyle
+              rules={[{ required: true, message: 'Please select a time slot' }]}
+            >
+              <input type="hidden" />
+            </Form.Item>
+            <Form.Item
+              name="to"
+              noStyle
+              rules={[{ required: true, message: 'Please select a time slot' }]}
+            >
+              <input type="hidden" />
+            </Form.Item>
+
+            {selectedTrainerId && selectedDate ? (
+              <div className="mt-3">
+                <TimeSlotPicker
+                  selectedFrom={fromValue}
+                  selectedTo={toValue}
+                  occupiedSlots={(scheduleData && 'occupied_slots' in scheduleData) ? scheduleData.occupied_slots : []}
+                  date={selectedDate}
+                  onSelect={handleSlotSelect}
+                  loading={isLoadingSchedule}
+                />
+              </div>
+            ) : (
+              <div className="text-center py-10 px-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl mt-3">
+                <CalendarOutlined className="text-4xl text-gray-300 mb-3" />
+                <Text className="text-gray-500 block text-sm font-medium">No date selected yet</Text>
+                <Text type="secondary" className="text-xs">Select a contract and date to view available time slots</Text>
+              </div>
+            )}
+          </Form.Item>
+        </Card>
       </Form>
     </Modal>
   )
