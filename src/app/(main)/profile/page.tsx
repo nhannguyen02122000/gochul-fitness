@@ -96,7 +96,7 @@ export default function ProfilePage() {
   return (
     <div className="pb-6">
       {/* Profile Hero Card */}
-      <div className="relative -mx-4 mb-5 overflow-hidden">
+      <div className="relative mb-5 overflow-hidden">
         <div className={`bg-gradient-to-br ${roleBadge.bg} px-6 py-8 pb-24`}>
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16" />

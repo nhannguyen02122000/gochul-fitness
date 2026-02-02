@@ -105,7 +105,7 @@ export default function HomePage() {
     return (
         <div className="pb-6">
             {/* Hero Section */}
-            <div className="relative -mx-4 mb-6 overflow-hidden">
+            <div className="relative mb-6 overflow-hidden">
                 <div className="bg-gradient-to-br from-[#FA6868] via-[#FAAC68] to-[#FA6868] px-6 py-8 pb-10">
                     <div className="max-w-7xl mx-auto">
                         <div className="flex items-center gap-2 mb-5 animate-slide-up">

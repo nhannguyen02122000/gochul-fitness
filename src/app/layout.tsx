@@ -15,7 +15,26 @@ const notoFont = Noto_Sans({
 
 export const metadata: Metadata = {
   title: 'GoChul - ComeFit',
-  description: 'An application for booking services and ChulFitness'
+  description: 'An application for booking services and ChulFitness',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'GoChul Fitness'
+  },
+  formatDetection: {
+    telephone: false
+  },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png'
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false
+  }
 }
 
 export default function RootLayout({
