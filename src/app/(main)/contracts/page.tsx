@@ -47,13 +47,13 @@ export default function ContractsPage() {
     return {
       all: visibleContracts,
       active: visibleContracts.filter(c => c.status === 'ACTIVE'),
-      pending: visibleContracts.filter(c => 
-        c.status === 'NEWLY_CREATED' || 
-        c.status === 'CUSTOMER_REVIEW' || 
+      pending: visibleContracts.filter(c =>
+        c.status === 'NEWLY_CREATED' ||
+        c.status === 'CUSTOMER_REVIEW' ||
         c.status === 'CUSTOMER_CONFIRMED'
       ),
-      inactive: visibleContracts.filter(c => 
-        c.status === 'EXPIRED' || 
+      inactive: visibleContracts.filter(c =>
+        c.status === 'EXPIRED' ||
         c.status === 'CANCELED'
       )
     }
@@ -107,7 +107,7 @@ export default function ContractsPage() {
   return (
     <div className="pb-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in px-4">
+      <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in px-4 mt-2.5">
         <Card className="!border-0 shadow-sm" styles={{ body: { padding: '12px' } }}>
           <Text className="text-[10px] text-gray-500 block mb-1">Total</Text>
           <Text strong className="text-xl block leading-none">{contractsByStatus.all.length}</Text>
@@ -159,7 +159,7 @@ export default function ContractsPage() {
           <>
             <div className="space-y-3">
               {filteredContracts.map((contract, index) => (
-                <div 
+                <div
                   key={contract.id}
                   className="animate-slide-up"
                   style={{ animationDelay: `${index * 0.05}s` }}

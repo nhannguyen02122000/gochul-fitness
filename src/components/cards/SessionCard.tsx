@@ -36,17 +36,31 @@ export default function SessionCard({
   const [loadingStatus, setLoadingStatus] = useState<HistoryStatus | null>(null)
   const { mutate: updateStatus } = useUpdateHistoryStatus()
 
-  const contractKind = session.contract?.kind || 'Unknown'
+  // Get contract (it's an array, take first item)
+  const contract = Array.isArray(session.contract) ? session.contract[0] : session.contract
+  const contractKind = contract?.kind || 'Unknown'
 
   // Get customer info from user_setting
-  const purchasedByUser = session.contract?.purchased_by_user?.[0]
+  const purchasedByUser = contract?.purchased_by_user?.[0]
   const customerUserSetting = purchasedByUser?.user_setting?.[0]
+
   const customerName = customerUserSetting
     ? [customerUserSetting.first_name, customerUserSetting.last_name]
       .filter(Boolean)
-      .join(' ') || 'Unknown'
-    : 'Unknown'
+      .join(' ') || purchasedByUser?.email || 'Unknown Customer'
+    : purchasedByUser?.email || 'Unknown Customer'
   const customerEmail = purchasedByUser?.email || 'N/A'
+
+  // Get trainer info from user_setting
+  const saleByUser = contract?.sale_by_user?.[0]
+  const trainerUserSetting = saleByUser?.user_setting?.[0]
+
+  const trainerName = trainerUserSetting
+    ? [trainerUserSetting.first_name, trainerUserSetting.last_name]
+      .filter(Boolean)
+      .join(' ') || saleByUser?.email || 'Unknown Trainer'
+    : saleByUser?.email || 'Unknown Trainer'
+  const trainerEmail = saleByUser?.email || 'N/A'
 
   const kindLabels: Record<string, { label: string; icon: typeof ClockCircleOutlined; color: string; bgColor: string }> = {
     'PT': {
@@ -168,19 +182,39 @@ export default function SessionCard({
 
       {/* Details Section */}
       <div className="p-5 bg-white">
-        <div className="bg-gray-50 rounded-xl p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-[#FA6868]/10 rounded-lg flex items-center justify-center shrink-0">
-              <UserOutlined className="text-[#FA6868] text-base" />
+        <div className="space-y-3">
+          {/* Customer Info */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-[#FA6868]/10 rounded-lg flex items-center justify-center shrink-0">
+                <UserOutlined className="text-[#FA6868] text-base" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Text className="text-xs text-gray-500 block mb-1">Customer</Text>
+                <Text strong className="text-base block truncate">{customerName}</Text>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <Text className="text-xs text-gray-500 block mb-1">Customer</Text>
-              <Text strong className="text-base block truncate">{customerName}</Text>
+            <div className="flex items-center gap-2 ml-13 pl-1">
+              <MailOutlined className="text-gray-400" />
+              <Text type="secondary" className="text-sm truncate">{customerEmail}</Text>
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-13 pl-1">
-            <MailOutlined className="text-gray-400" />
-            <Text type="secondary" className="text-sm truncate">{customerEmail}</Text>
+
+          {/* Trainer Info */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-[#5A9CB5]/10 rounded-lg flex items-center justify-center shrink-0">
+                <UserOutlined className="text-[#5A9CB5] text-base" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Text className="text-xs text-gray-500 block mb-1">Trainer</Text>
+                <Text strong className="text-base block truncate">{trainerName}</Text>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-13 pl-1">
+              <MailOutlined className="text-gray-400" />
+              <Text type="secondary" className="text-sm truncate">{trainerEmail}</Text>
+            </div>
           </div>
         </div>
 

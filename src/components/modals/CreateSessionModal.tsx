@@ -117,7 +117,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
   return (
     <Modal
       title={
-        <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+        <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
           <div className="w-10 h-10 bg-linear-to-br from-[#FA6868] to-[#FAAC68] rounded-xl flex items-center justify-center">
             <CalendarOutlined className="text-white text-lg" />
           </div>
@@ -143,8 +143,8 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
         className: 'h-11'
       }}
       styles={{
-        header: { padding: '24px 24px 0' },
-        body: { padding: '24px' }
+        header: { padding: '20px 20px 0' },
+        body: { padding: '20px' }
       }}
     >
       <Form
@@ -154,8 +154,8 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
         className="mt-2"
       >
         {/* Contract Selection Card */}
-        <Card className="mb-5 border-gray-200! shadow-sm" styles={{ body: { padding: '20px' } }}>
-          <div className="flex items-center gap-2 mb-4">
+        <Card className="mb-4 border-gray-200! shadow-sm" styles={{ body: { padding: '16px' } }}>
+          <div className="flex items-center gap-2 mb-3">
             <FileTextOutlined className="text-[#FA6868] text-lg" />
             <Text strong className="text-base">Contract Information</Text>
           </div>
@@ -184,8 +184,8 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
         </Card>
 
         {/* Date & Time Selection Card */}
-        <Card className="mb-5 border-gray-200! shadow-sm" styles={{ body: { padding: '20px' } }}>
-          <div className="flex items-center gap-2 mb-4">
+        <Card className="mb-0 border-gray-200! shadow-sm" styles={{ body: { padding: '16px' } }}>
+          <div className="flex items-center gap-2 mb-3">
             <ClockCircleOutlined className="text-[#5A9CB5] text-lg" />
             <Text strong className="text-base">Date & Time</Text>
           </div>
@@ -253,8 +253,8 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
                 />
               </div>
             ) : (
-              <div className="text-center py-10 px-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl mt-3">
-                <CalendarOutlined className="text-4xl text-gray-300 mb-3" />
+              <div className="text-center py-8 px-4 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl mt-3">
+                <CalendarOutlined className="text-3xl text-gray-300 mb-2" />
                 <Text className="text-gray-500 block text-sm font-medium">No date selected yet</Text>
                 <Text type="secondary" className="text-xs">Select a contract and date to view available time slots</Text>
               </div>

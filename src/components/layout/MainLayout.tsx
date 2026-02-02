@@ -11,9 +11,9 @@ interface MainLayoutProps {
 
 export default function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="min-h-screen bg-[#f8f9fa] flex flex-col">
+    <div className="flex flex-col h-screen overflow-hidden">
       <TopBar />
-      <main className="flex-1 pb-20 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto bg-[#f8f9fa]" style={{ paddingBottom: '120px' }}>
         <div className="max-w-screen-xl mx-auto">
           {children}
         </div>

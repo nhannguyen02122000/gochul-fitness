@@ -1,7 +1,7 @@
 // src/app/(main)/page.tsx
 'use client'
 
-import { Button, Empty, Spin, Typography, Card, Statistic, Row, Col } from 'antd'
+import { Button, Empty, Spin, Typography, Card } from 'antd'
 import { PlusOutlined, FileTextOutlined, HistoryOutlined, ThunderboltOutlined, TrophyOutlined, FireOutlined, RocketOutlined } from '@ant-design/icons'
 import { useInfiniteHistory } from '@/hooks/useHistory'
 import { useInfiniteContracts } from '@/hooks/useContracts'
@@ -23,8 +23,17 @@ async function fetchUserInfo(): Promise<GetUserInformationResponse> {
     return response.json()
 }
 
+const motivationalMessages = [
+    { icon: FireOutlined, text: "Let's crush today's goals!", color: "#FA6868" },
+    { icon: TrophyOutlined, text: "You're on fire!", color: "#FAAC68" },
+    { icon: ThunderboltOutlined, text: "Keep pushing forward!", color: "#5A9CB5" },
+    { icon: RocketOutlined, text: "Ready to train?", color: "#FA6868" }
+]
+
 export default function HomePage() {
     const [createContractOpen, setCreateContractOpen] = useState(false)
+    // Initialize random message once on component mount
+    const [randomMessage] = useState(() => motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)])
     const { isSignedIn, isLoaded } = useAuth()
     const router = useRouter()
 
@@ -83,6 +92,8 @@ export default function HomePage() {
 
     const isStaffOrAdmin = userInfo && 'role' in userInfo && (userInfo.role === 'ADMIN' || userInfo.role === 'STAFF')
 
+    const MessageIcon = randomMessage.icon
+
     if (!isLoaded || !isSignedIn) {
         return (
             <div className="flex justify-center items-center min-h-screen">
@@ -91,20 +102,10 @@ export default function HomePage() {
         )
     }
 
-    const firstName = userInfo && 'first_name' in userInfo ? userInfo.first_name : ''
-    const motivationalMessages = [
-        { icon: FireOutlined, text: "Let's crush today's goals!", color: "#FA6868" },
-        { icon: TrophyOutlined, text: "You're on fire!", color: "#FAAC68" },
-        { icon: ThunderboltOutlined, text: "Keep pushing forward!", color: "#5A9CB5" },
-        { icon: RocketOutlined, text: "Ready to train?", color: "#FA6868" }
-    ]
-    const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)]
-    const MessageIcon = randomMessage.icon
-
     return (
         <div className="pb-6">
             {/* Hero Section */}
-            <div className="relative -mt-4 -mx-4 mb-6 overflow-hidden">
+            <div className="relative -mx-4 mb-6 overflow-hidden">
                 <div className="bg-gradient-to-br from-[#FA6868] via-[#FAAC68] to-[#FA6868] px-6 py-8 pb-10">
                     <div className="max-w-7xl mx-auto">
                         <div className="flex items-center gap-2 mb-5 animate-slide-up">

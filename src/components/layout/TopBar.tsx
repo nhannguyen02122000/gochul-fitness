@@ -35,7 +35,7 @@ export default function TopBar() {
 
   if (isLoading || typeof window === 'undefined') {
     return (
-      <div className="sticky top-0 z-50 bg-gradient-to-r from-[#FA6868] to-[#FAAC68] safe-area-top">
+      <div className="shrink-0 z-50 bg-gradient-to-r from-[#FA6868] to-[#FAAC68] safe-area-top shadow-lg">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between max-w-7xl mx-auto">
             <div className="flex items-center gap-3">
@@ -58,7 +58,7 @@ export default function TopBar() {
 
   const fullName = [data.first_name, data.last_name].filter(Boolean).join(' ') || data.username || 'User'
   const firstName = data.first_name || data.username || 'User'
-  
+
   // Role badge styling
   const getRoleBadge = () => {
     const roleStyles = {
@@ -67,7 +67,7 @@ export default function TopBar() {
       CUSTOMER: { bg: 'bg-green-500/20', text: 'text-white', label: 'Member' }
     }
     const style = roleStyles[data.role as keyof typeof roleStyles] || roleStyles.CUSTOMER
-    
+
     return (
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
         {style.label}
@@ -76,7 +76,7 @@ export default function TopBar() {
   }
 
   return (
-    <div className="sticky top-0 z-50 bg-gradient-to-r from-[#FA6868] to-[#FAAC68] safe-area-top shadow-lg">
+    <div className="shrink-0 z-50 bg-gradient-to-r from-[#FA6868] to-[#FAAC68] safe-area-top shadow-lg">
       <div className="px-4 py-4">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           {/* User Info */}
@@ -100,16 +100,9 @@ export default function TopBar() {
               {getRoleBadge()}
             </div>
           </button>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-2">
-            <button className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors active:scale-95">
-              <BellOutlined className="text-white text-lg" />
-            </button>
-          </div>
         </div>
       </div>
-      
+
       {/* Page Title Bar - Only show on non-home pages */}
       {pathname !== '/' && (
         <div className="bg-white/10 backdrop-blur-sm px-4 py-3 border-t border-white/10">

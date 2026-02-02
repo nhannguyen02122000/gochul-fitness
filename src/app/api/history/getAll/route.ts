@@ -78,8 +78,12 @@ export async function GET(request: Request) {
           users: {},
           contract: {
             users: {},
-            sale_by_user: {},
-            purchased_by_user: {}
+            sale_by_user: {
+              user_setting: {} // Get user_setting for sales person
+            },
+            purchased_by_user: {
+              user_setting: {} // Get user_setting for customer
+            }
           }
         }
       })
@@ -99,8 +103,12 @@ export async function GET(request: Request) {
           users: {},
           contract: {
             users: {},
-            sale_by_user: {},
-            purchased_by_user: {}
+            sale_by_user: {
+              user_setting: {} // Get user_setting for sales person
+            },
+            purchased_by_user: {
+              user_setting: {} // Get user_setting for customer
+            }
           }
         }
       })
@@ -226,29 +234,6 @@ export async function GET(request: Request) {
       filteredHistory = filteredHistory.slice(0, limit)
     }
 
-    // Collect all unique user IDs from contracts in history
-    const userIds = new Set<string>()
-    filteredHistory.forEach(session => {
-      if (session.contract?.purchased_by) userIds.add(session.contract.purchased_by)
-      if (session.contract?.sale_by) userIds.add(session.contract.sale_by)
-    })
-
-    // Fetch user_setting data for all users
-    const userSettingsData = await instantServer.query({
-      user_setting: {
-        users: {}
-      }
-    })
-
-    // Create a map of user_id -> user_setting
-    const userSettingsMap = new Map()
-    userSettingsData.user_setting.forEach((setting: any) => {
-      const userId = setting.users?.[0]?.id
-      if (userId) {
-        userSettingsMap.set(userId, setting)
-      }
-    })
-
     // Debug logging
     console.log('=== DEBUG: History Query Results ===')
     console.log('Total filtered history:', filteredHistory.length)
@@ -256,31 +241,12 @@ export async function GET(request: Request) {
       const sample = filteredHistory[0]
       console.log('Sample history ID:', sample.id)
       console.log('Has contract?:', !!sample.contract)
-      console.log('Contract purchased_by:', sample.contract?.purchased_by)
-      console.log('Contract purchased_by_user:', sample.contract?.purchased_by_user)
-      console.log('Contract sale_by:', sample.contract?.sale_by)
-      console.log('Contract sale_by_user:', sample.contract?.sale_by_user)
+      console.log('Contract purchased_by_user:', sample.contract?.purchased_by_user?.[0])
+      console.log('Customer user_setting:', sample.contract?.purchased_by_user?.[0]?.user_setting?.[0])
+      console.log('Contract sale_by_user:', sample.contract?.sale_by_user?.[0])
+      console.log('Sales user_setting:', sample.contract?.sale_by_user?.[0]?.user_setting?.[0])
     }
-    console.log('User settings map size:', userSettingsMap.size)
     console.log('===================================')
-
-    // Attach user_setting data to the users in history contracts
-    filteredHistory.forEach(session => {
-      if (session.contract?.purchased_by_user?.[0]) {
-        const userId = session.contract.purchased_by_user[0].id
-        const userSetting = userSettingsMap.get(userId)
-        if (userSetting) {
-          session.contract.purchased_by_user[0].user_setting = [userSetting]
-        }
-      }
-      if (session.contract?.sale_by_user?.[0]) {
-        const userId = session.contract.sale_by_user[0].id
-        const userSetting = userSettingsMap.get(userId)
-        if (userSetting) {
-          session.contract.sale_by_user[0].user_setting = [userSetting]
-        }
-      }
-    })
 
     return NextResponse.json({
       history: filteredHistory,
