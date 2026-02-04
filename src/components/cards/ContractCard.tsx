@@ -119,10 +119,14 @@ export default function ContractCard({
     onSessionCreated?.()
   }
 
-  // Check if customer should see "Create Session" button
-  const shouldShowCreateSession = userRole === 'CUSTOMER' &&
-    contract.status === 'ACTIVE' &&
-    contract.purchased_by === userInstantId
+  // Check if user should see "Create Session" button
+  // CUSTOMER: only for their own active contracts
+  // ADMIN/STAFF: for any active contract
+  const shouldShowCreateSession = contract.status === 'ACTIVE' && (
+    (userRole === 'CUSTOMER' && contract.purchased_by === userInstantId) ||
+    userRole === 'ADMIN' ||
+    userRole === 'STAFF'
+  )
 
   return (
     <Card

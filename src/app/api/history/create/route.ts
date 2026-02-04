@@ -120,10 +120,22 @@ export async function POST(request: Request) {
       )
     }
 
-    // If user is CUSTOMER, verify they are the one who purchased the contract
-    if (role === 'CUSTOMER' && contract.purchased_by !== userInstantId) {
+    // Role-based authorization
+    if (role === 'CUSTOMER') {
+      // CUSTOMER can only create history for contracts they purchased
+      if (contract.purchased_by !== userInstantId) {
+        return NextResponse.json(
+          { error: 'Forbidden - You can only create history for contracts you purchased' },
+          { status: 403 }
+        )
+      }
+    } else if (role === 'ADMIN' || role === 'STAFF') {
+      // ADMIN/STAFF can create history for any contract
+      // No additional checks needed
+    } else {
+      // Unknown role
       return NextResponse.json(
-        { error: 'Forbidden - You can only create history for contracts you purchased' },
+        { error: 'Forbidden - Invalid user role' },
         { status: 403 }
       )
     }

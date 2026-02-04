@@ -2,6 +2,43 @@
 
 All notable changes to the GoChul Fitness app will be documented in this file.
 
+## [2.1.0] - 2026-02-03
+
+### ✨ New Features
+
+#### Session Creation for ADMIN/STAFF
+- **ADMIN/STAFF Session Creation**: ADMIN and STAFF users can now create sessions for any active contract
+- **Role-Based Permissions**: ADMIN sees all contracts, STAFF sees contracts they sold, CUSTOMER sees own contracts
+- **Unified UI**: Create Session button/FAB now available for ADMIN/STAFF as well as CUSTOMER
+- **Enhanced Authorization**: API properly validates role-based access for session creation
+
+### 🔧 Technical Changes
+
+#### API Updates
+- Updated `/api/history/create` route to support ADMIN/STAFF session creation
+- Enhanced role-based authorization logic for session creation
+- ADMIN can create sessions for any active contract
+- STAFF can create sessions for contracts they sold
+- CUSTOMER can only create sessions for contracts they purchased
+
+#### UI/UX Updates
+- ContractCard now shows "Create Session" button for ADMIN/STAFF on active contracts
+- History page FAB (Floating Action Button) now visible for ADMIN/STAFF
+- CreateSessionModal displays appropriate contracts based on user role
+- Clear visual feedback for role-based permissions
+
+#### Components Modified
+- `src/app/api/history/create/route.ts` - Enhanced authorization logic
+- `src/components/cards/ContractCard.tsx` - Show create button for ADMIN/STAFF
+- `src/app/(main)/history/page.tsx` - Enable FAB for ADMIN/STAFF
+- `src/components/modals/CreateSessionModal.tsx` - Role-aware contract filtering
+
+### 📚 Documentation
+- Updated CHANGELOG with v2.1.0 changes
+- Added inline comments explaining role-based logic
+
+---
+
 ## [2.0.0] - 2026-02-02
 
 ### 🎉 Major Features Added

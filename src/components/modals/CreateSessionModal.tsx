@@ -40,7 +40,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
     form.setFieldValue('contract_id', preselectedContractId)
   }
 
-  // Get active contracts
+  // Get active contracts (all active contracts for ADMIN/STAFF, only user's contracts for CUSTOMER)
   const activeContracts = useMemo(() => {
     if (!contractsData) return []
 
@@ -48,6 +48,9 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
       'contracts' in page ? page.contracts : []
     )
 
+    // Filter to only active contracts
+    // Note: The API already handles role-based filtering
+    // CUSTOMER sees only their contracts, ADMIN/STAFF see all contracts
     return allContracts.filter(c => c.status === 'ACTIVE')
   }, [contractsData])
 

@@ -31,16 +31,18 @@ export default function HistoryPage() {
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteHistory(10)
 
-  const isCustomer = userInfo && 'role' in userInfo && userInfo.role === 'CUSTOMER'
   const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
   const userInstantId = userInfo && 'instantUser' in userInfo ? userInfo.instantUser?.[0]?.id : undefined
+
+  // Allow CUSTOMER, ADMIN, and STAFF to create sessions
+  const canCreateSession = userRole && ['CUSTOMER', 'ADMIN', 'STAFF'].includes(userRole)
 
   const allHistory = data?.pages.flatMap(page => 'history' in page ? page.history : []) || []
 
   // Categorize sessions
   const categorizedSessions = useMemo(() => {
     const now = Date.now()
-    
+
     const upcoming = allHistory
       .filter(session => {
         const sessionTime = session.date + (session.from * 60 * 1000)
@@ -68,8 +70,8 @@ export default function HistoryPage() {
     return { upcoming, past, completed, all: allHistory }
   }, [allHistory])
 
-  const displayedSessions = timeFilter === 'upcoming' 
-    ? categorizedSessions.upcoming 
+  const displayedSessions = timeFilter === 'upcoming'
+    ? categorizedSessions.upcoming
     : categorizedSessions.past
 
   return (
@@ -137,7 +139,7 @@ export default function HistoryPage() {
                     {timeFilter === 'upcoming' ? 'No upcoming sessions' : 'No past sessions'}
                   </Text>
                   <Text type="secondary" className="text-sm">
-                    {timeFilter === 'upcoming' 
+                    {timeFilter === 'upcoming'
                       ? 'Book your next training session to get started'
                       : 'Your session history will appear here'
                     }
@@ -151,7 +153,7 @@ export default function HistoryPage() {
           <>
             <div className="space-y-4">
               {displayedSessions.map((session, index) => (
-                <div 
+                <div
                   key={session.id}
                   className="animate-slide-up"
                   style={{ animationDelay: `${index * 0.05}s` }}
@@ -184,8 +186,8 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {/* Floating Action Button for CUSTOMER */}
-      {isCustomer && (
+      {/* Floating Action Button for CUSTOMER/ADMIN/STAFF */}
+      {canCreateSession && (
         <button
           onClick={() => setCreateModalOpen(true)}
           className="fab"
