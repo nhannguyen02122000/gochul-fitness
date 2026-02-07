@@ -64,19 +64,19 @@ export default function BottomNavigation() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-2xl z-50 safe-area-bottom">
       {/* Animated indicator */}
-      <div 
+      <div
         className="absolute top-0 h-1 bg-gradient-to-r from-[#FA6868] to-[#FAAC68] transition-all duration-300 ease-out"
         style={{
           width: `${100 / navItems.length}%`,
           left: `${(activeIndex * 100) / navItems.length}%`,
         }}
       />
-      
+
       <div className="flex justify-around items-center h-16 max-w-screen-xl mx-auto px-2">
         {navItems.map((item, index) => {
           const active = isActive(item.path)
           const IconComponent = item.icon
-          
+
           return (
             <button
               key={item.key}
@@ -89,31 +89,24 @@ export default function BottomNavigation() {
                   <div className="w-14 h-14 bg-gradient-to-br from-[#FA6868]/10 to-[#FAAC68]/10 rounded-2xl animate-scale-in" />
                 </div>
               )}
-              
+
               {/* Icon container */}
-              <div className={`relative z-10 flex items-center justify-center mb-1 transition-transform duration-200 ${
-                active ? 'scale-110' : 'scale-100'
-              }`}>
-                <IconComponent 
+              <div className={`relative z-10 flex items-center justify-center mb-1 transition-transform duration-200 ${active ? 'scale-110' : 'scale-100'
+                }`}>
+                <IconComponent
                   className={item.iconSize}
-                  style={{ 
+                  style={{
                     color: active ? '#FA6868' : '#9CA3AF',
                     transition: 'color 0.2s',
                   }}
                 />
-                
-                {/* Active dot indicator */}
-                {active && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#FA6868] rounded-full animate-scale-in" />
-                )}
               </div>
-              
+
               {/* Label */}
-              <span className={`relative z-10 text-xs font-semibold transition-all duration-200 ${
-                active
-                  ? 'text-[#FA6868] scale-100'
-                  : 'text-gray-400 scale-95'
-              }`}>
+              <span className={`relative z-10 text-xs font-semibold transition-all duration-200 ${active
+                ? 'text-[#FA6868] scale-100'
+                : 'text-gray-400 scale-95'
+                }`}>
                 {item.label}
               </span>
             </button>

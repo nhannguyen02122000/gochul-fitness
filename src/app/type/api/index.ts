@@ -339,3 +339,29 @@ export interface GetTrainerScheduleSuccessResponse {
 
 export type GetTrainerScheduleResponse = GetTrainerScheduleSuccessResponse | ApiErrorResponse
 
+// ============================================================================
+// /api/user/checkUserSetting
+// ============================================================================
+
+export interface CheckUserSettingSuccessResponse {
+    exists: boolean
+    user_setting?: UserSetting
+}
+
+export type CheckUserSettingResponse = CheckUserSettingSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/user/createUserSetting
+// ============================================================================
+
+export interface CreateUserSettingRequest {
+    first_name: string
+    last_name: string
+}
+
+export interface CreateUserSettingSuccessResponse {
+    user_setting: UserSetting
+}
+
+export type CreateUserSettingResponse = CreateUserSettingSuccessResponse | ApiErrorResponse
+

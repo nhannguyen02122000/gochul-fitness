@@ -1,3 +1,4 @@
+import InstantDBAuthSync from '@/components/InstantAuthDB'
 import AntConfigProvider from '@/providers/AntConfigProvider'
 import ReactQueryProvider from '@/providers/QueryClientProvider'
 import { viVN } from '@clerk/localizations'
@@ -7,7 +8,6 @@ import {
 import type { Metadata } from 'next'
 import { Noto_Sans } from 'next/font/google'
 import './globals.css'
-import InstantDBAuthSync from '@/components/InstantAuthDB'
 
 const notoFont = Noto_Sans({
   subsets: ['latin']
@@ -42,6 +42,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  console.log('RootLayout')
   return (
     <ClerkProvider
       localization={viVN}
@@ -56,7 +57,9 @@ export default function RootLayout({
       <html lang='en'>
         <body className={`${notoFont.className} antialiased`}>
           <ReactQueryProvider>
-            <AntConfigProvider>{children}</AntConfigProvider>
+            <AntConfigProvider>
+              {children}
+            </AntConfigProvider>
           </ReactQueryProvider>
         </body>
       </html>

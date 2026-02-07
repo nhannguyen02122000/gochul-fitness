@@ -10,7 +10,34 @@ export default function PWAInstaller() {
   const [showInstall, setShowInstall] = useState(false)
 
   useEffect(() => {
-    // Register service worker
+    // Skip service worker registration on localhost
+    const isLocalhost = 
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === '[::1]' ||
+      window.location.hostname.includes('localhost')
+
+    if (isLocalhost) {
+      // Unregister any existing service workers on localhost
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.unregister()
+            console.log('[PWA] Service worker unregistered on localhost')
+          })
+        })
+        // Clear all caches on localhost
+        caches.keys().then((names) => {
+          names.forEach((name) => {
+            caches.delete(name)
+            console.log('[PWA] Cache deleted on localhost:', name)
+          })
+        })
+      }
+      return
+    }
+
+    // Register service worker only in production
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker

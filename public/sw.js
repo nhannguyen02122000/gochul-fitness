@@ -2,6 +2,13 @@
 const CACHE_NAME = 'gochul-fitness-v1';
 const RUNTIME_CACHE = 'gochul-runtime-v1';
 
+// Check if we're on localhost
+const isLocalhost = 
+  self.location.hostname === 'localhost' ||
+  self.location.hostname === '127.0.0.1' ||
+  self.location.hostname === '[::1]' ||
+  self.location.hostname.includes('localhost');
+
 // Assets to cache on install
 const PRECACHE_ASSETS = [
   '/',
@@ -13,6 +20,12 @@ const PRECACHE_ASSETS = [
 
 // Install event - precache essential assets
 self.addEventListener('install', (event) => {
+  // Skip caching on localhost
+  if (isLocalhost) {
+    console.log('[SW] Skipping cache on localhost');
+    return self.skipWaiting();
+  }
+
   console.log('[SW] Installing service worker...');
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -26,6 +39,22 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  // Clear all caches on localhost
+  if (isLocalhost) {
+    console.log('[SW] Clearing all caches on localhost');
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((name) => {
+            console.log('[SW] Deleting cache on localhost:', name);
+            return caches.delete(name);
+          })
+        );
+      }).then(() => self.clients.claim())
+    );
+    return;
+  }
+
   console.log('[SW] Activating service worker...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -43,6 +72,11 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - network first, fallback to cache
 self.addEventListener('fetch', (event) => {
+  // Skip caching on localhost - always fetch from network
+  if (isLocalhost) {
+    return;
+  }
+
   const { request } = event;
   const url = new URL(request.url);
 
