@@ -1,14 +1,14 @@
 // src/app/history/page.tsx
 'use client'
 
-import { Button, Empty, Spin, Typography, Select, Tabs, Badge, Card, Segmented } from 'antd'
-import { PlusOutlined, CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined } from '@ant-design/icons'
-import { useInfiniteHistory } from '@/hooks/useHistory'
-import SessionCard from '@/components/cards/SessionCard'
-import { useState, useMemo } from 'react'
-import CreateSessionModal from '@/components/modals/CreateSessionModal'
-import { useQuery } from '@tanstack/react-query'
 import type { GetUserInformationResponse } from '@/app/type/api'
+import SessionCard from '@/components/cards/SessionCard'
+import CreateSessionModal from '@/components/modals/CreateSessionModal'
+import { useInfiniteHistory } from '@/hooks/useHistory'
+import { CalendarOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons'
+import { useQuery } from '@tanstack/react-query'
+import { Badge, Button, Card, Empty, Segmented, Spin, Typography } from 'antd'
+import { useMemo, useState } from 'react'
 
 const { Title, Text } = Typography
 
@@ -77,7 +77,7 @@ export default function HistoryPage() {
   return (
     <div className="pb-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-3 mb-5 animate-fade-in px-4">
+      <div className="grid grid-cols-3 gap-3 mt-5 mb-5 animate-fade-in px-4">
         <Card className="!border-0 shadow-sm" styles={{ body: { padding: '16px' } }}>
           <Text className="text-xs text-gray-500 block mb-2">Total</Text>
           <Text strong className="text-2xl block">{categorizedSessions.all.length}</Text>
@@ -100,7 +100,7 @@ export default function HistoryPage() {
           options={[
             {
               label: (
-                <div className="flex items-center gap-2 px-3">
+                <div className="flex items-center justify-center gap-2 px-3">
                   <CalendarOutlined />
                   <span>Upcoming</span>
                   <Badge count={categorizedSessions.upcoming.length} showZero style={{ backgroundColor: '#5A9CB5' }} />
@@ -110,7 +110,7 @@ export default function HistoryPage() {
             },
             {
               label: (
-                <div className="flex items-center gap-2 px-3">
+                <div className="flex items-center justify-center gap-2 px-3">
                   <ClockCircleOutlined />
                   <span>Past</span>
                   <Badge count={categorizedSessions.past.length} showZero style={{ backgroundColor: '#6b7280' }} />

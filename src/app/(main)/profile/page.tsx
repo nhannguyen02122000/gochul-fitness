@@ -11,6 +11,7 @@ import { useUpdateUserBasicInfo } from '@/hooks/useUser'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import { useInfiniteHistory } from '@/hooks/useHistory'
 import { useMemo, useState } from 'react'
+import packageJson from '../../../../package.json'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -39,10 +40,10 @@ export default function ProfilePage() {
 
   // Calculate stats
   const stats = useMemo(() => {
-    const allContracts = contractsData?.pages.flatMap(page => 
+    const allContracts = contractsData?.pages.flatMap(page =>
       'contracts' in page ? page.contracts : []
     ) || []
-    
+
     const allHistory = historyData?.pages.flatMap(page =>
       'history' in page ? page.history : []
     ) || []
@@ -80,7 +81,7 @@ export default function ProfilePage() {
   }
 
   const fullName = [userInfo.first_name, userInfo.last_name].filter(Boolean).join(' ') || userInfo.username || 'User'
-  
+
   // Role badge styling
   const getRoleBadge = () => {
     const roleStyles = {
@@ -101,7 +102,7 @@ export default function ProfilePage() {
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16" />
         </div>
-        
+
         <div className="relative -mt-20 px-4">
           <Card className="!border-0 shadow-xl">
             <div className="flex flex-col items-center text-center py-2">
@@ -114,10 +115,10 @@ export default function ProfilePage() {
                 />
                 <div className="absolute bottom-1 right-1 w-9 h-9 bg-green-400 border-4 border-white rounded-full" />
               </div>
-              
+
               <Title level={3} className="!mb-2">{fullName}</Title>
               <Text type="secondary" className="text-sm mb-3">{userInfo.emailAddresses?.[0]?.emailAddress}</Text>
-              
+
               <div className={`px-5 py-2 bg-gradient-to-r ${roleBadge.bg} rounded-full flex items-center gap-2`}>
                 <span className="text-xl">{roleBadge.icon}</span>
                 <Text className="text-white font-semibold text-base">{roleBadge.label}</Text>
@@ -175,14 +176,14 @@ export default function ProfilePage() {
 
       {/* Edit Profile */}
       <div className="mb-5 px-4">
-        <Card 
+        <Card
           className="!border-0 shadow-sm"
           title={
             <div className="flex items-center justify-between py-1">
               <span className="font-semibold">Personal Information</span>
               {!isEditing && (
-                <Button 
-                  type="text" 
+                <Button
+                  type="text"
                   icon={<EditOutlined />}
                   onClick={() => setIsEditing(true)}
                   size="middle"
@@ -271,6 +272,14 @@ export default function ProfilePage() {
         >
           Logout
         </Button>
+      </div>
+
+      {/* Version Information */}
+      <div className="px-4 mt-6 pb-4">
+        <div className="text-center">
+          <Text className="text-gray-400 text-xs block mb-1">GoChul Fitness</Text>
+          <Text className="text-gray-500 text-xs">Version {packageJson.version}</Text>
+        </div>
       </div>
     </div>
   )

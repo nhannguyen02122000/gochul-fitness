@@ -107,7 +107,7 @@ export default function ContractsPage() {
   return (
     <div className="pb-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in px-4 mt-2.5">
+      <div className="grid grid-cols-3 gap-2 mb-5 mt-5 animate-fade-in px-4">
         <Card className="!border-0 shadow-sm" styles={{ body: { padding: '12px' } }}>
           <Text className="text-[10px] text-gray-500 block mb-1">Total</Text>
           <Text strong className="text-xl block leading-none">{contractsByStatus.all.length}</Text>

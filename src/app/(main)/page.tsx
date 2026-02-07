@@ -105,7 +105,7 @@ export default function HomePage() {
     return (
         <div className="pb-6">
             {/* Hero Section */}
-            <div className="relative mb-6 overflow-hidden">
+            <div className="relative overflow-hidden">
                 <div className="bg-gradient-to-br from-[#FA6868] via-[#FAAC68] to-[#FA6868] px-6 py-8 pb-10">
                     <div className="max-w-7xl mx-auto">
                         <div className="flex items-center gap-2 mb-5 animate-slide-up">
@@ -123,13 +123,13 @@ export default function HomePage() {
                 </div>
 
                 {/* Decorative wave */}
-                <svg className="w-full h-4 -mt-1" viewBox="0 0 1200 20" preserveAspectRatio="none">
+                <svg className="w-full" viewBox="0 0 1200 20" preserveAspectRatio="none">
                     <path d="M0,10 Q300,20 600,10 T1200,10 L1200,20 L0,20 Z" fill="#f8f9fa" />
                 </svg>
             </div>
 
             {/* Quick Stats Cards */}
-            <div className="grid grid-cols-2 gap-3 mb-5 animate-fade-in px-4">
+            <div className="grid grid-cols-2 gap-3 mt-5 mb-5 animate-fade-in px-4">
                 <Card
                     className="!border-0 shadow-sm hover:shadow-md transition-shadow"
                     styles={{ body: { padding: '20px' } }}
@@ -234,34 +234,6 @@ export default function HomePage() {
                         ))}
                     </div>
                 )}
-            </div>
-
-            {/* Quick Actions - Mobile Friendly */}
-            <div className="px-4">
-                <Title level={5} className="!mb-3">Quick Actions</Title>
-                <div className="grid grid-cols-2 gap-3">
-                    <button
-                        onClick={() => router.push('/contracts')}
-                        className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all active:scale-95 border border-gray-100"
-                    >
-                        <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-3">
-                            <FileTextOutlined className="text-purple-600 text-xl" />
-                        </div>
-                        <Text strong className="block text-base mb-1">View Contracts</Text>
-                        <Text type="secondary" className="text-xs">Manage all contracts</Text>
-                    </button>
-
-                    <button
-                        onClick={() => router.push('/history')}
-                        className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all active:scale-95 border border-gray-100"
-                    >
-                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-3">
-                            <HistoryOutlined className="text-blue-600 text-xl" />
-                        </div>
-                        <Text strong className="block text-base mb-1">All Sessions</Text>
-                        <Text type="secondary" className="text-xs">View history</Text>
-                    </button>
-                </div>
             </div>
 
             {/* Create Contract Modal */}

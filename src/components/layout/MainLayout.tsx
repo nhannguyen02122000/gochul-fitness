@@ -24,7 +24,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   // Check if user needs onboarding (only when signed in)
   console.log('isSignedIn', isSignedIn)
   const { data: checkData } = useCheckUserSetting(!!isSignedIn)
-  const needsOnboarding = isSignedIn && checkData && !checkData.exists
+  const needsOnboarding = isSignedIn && checkData && 'exists' in checkData && !checkData.exists
 
   const handleOnboardingComplete = () => {
     // Invalidate the check query to refetch user setting status

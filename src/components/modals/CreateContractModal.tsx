@@ -109,7 +109,8 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        className="mt-2"
+        className="mt-2 w-full flex flex-col"
+        style={{ gap: '20px' }}
       >
         {/* Customer Selection Card */}
         <Card className="mb-5 border-gray-200! shadow-sm" styles={{ body: { padding: '20px' } }}>
@@ -194,6 +195,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                 placeholder="Enter number of sessions"
                 className="w-full"
                 prefix={<ThunderboltOutlined className="text-gray-400" />}
+                style={{ width: '100%' }}
               />
             </Form.Item>
           )}
@@ -221,9 +223,8 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                 return (parsed ? Number(parsed) : 0) as 0
               }}
               placeholder="Enter total amount"
-              className="w-full"
+              style={{ width: '100%' }}
               addonAfter="VND"
-              prefix={<DollarOutlined className="text-gray-400" />}
             />
           </Form.Item>
         </Card>
@@ -248,6 +249,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                 format="DD/MM/YYYY"
                 suffixIcon={<CalendarOutlined className="text-gray-400" />}
                 placeholder="Choose start date"
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
               />
             </Form.Item>
 
@@ -274,6 +276,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                 format="DD/MM/YYYY"
                 suffixIcon={<CalendarOutlined className="text-gray-400" />}
                 placeholder="Choose end date"
+                getPopupContainer={(trigger) => trigger.parentElement || document.body}
               />
             </Form.Item>
           </Space>
