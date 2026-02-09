@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
         hostname: '**'
       }
     ]
+  },
+  // Disable caching in development
+  onDemandEntries: {
+    maxInactiveAge: 0,
+    pagesBufferLength: 0,
   }
 }
 

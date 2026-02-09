@@ -5,6 +5,10 @@ import { NextResponse } from 'next/server'
 import { id } from '@instantdb/admin'
 import type { History } from '@/app/type/api'
 
+
+// Disable caching for this route
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 export async function POST(request: Request) {
   try {
     // Check if user is signed in
