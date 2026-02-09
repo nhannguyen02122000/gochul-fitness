@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import { id } from '@instantdb/admin'
+import type { History } from '@/app/type/api'
 
 export async function POST(request: Request) {
   try {
@@ -164,6 +165,28 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check credits for PT and REHAB contracts
+    if (contract.kind === 'PT' || contract.kind === 'REHAB') {
+      if (!contract.credits) {
+        return NextResponse.json(
+          { error: 'Contract does not have credits assigned' },
+          { status: 400 }
+        )
+      }
+
+      // Count history records with PT_CHECKED_IN status for this contract
+      const usedCredits = contract.history?.filter(
+        (h: History) => h.status === 'PT_CHECKED_IN'
+      ).length || 0
+
+      if (usedCredits >= contract.credits) {
+        return NextResponse.json(
+          { error: `No credits available. Used ${usedCredits} of ${contract.credits} credits.` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Get teach_by user from contract's sale_by field
     const teachBy = contract.sale_by
 
@@ -199,8 +222,8 @@ export async function POST(request: Request) {
       // Overlap if: newFrom < existingTo AND newTo > existingFrom
       if (from < session.to && to > session.from) {
         return NextResponse.json(
-          { 
-            error: `Time conflict: The trainer already has a session from ${session.from} to ${session.to} on this date` 
+          {
+            error: `Time conflict: The trainer already has a session from ${session.from} to ${session.to} on this date`
           },
           { status: 400 }
         )

@@ -60,25 +60,25 @@ export default function ContractCard({
   const salesEmail = saleByUser?.email || 'N/A'
 
   const kindLabels: Record<string, { label: string; icon: typeof DollarOutlined; gradient: string }> = {
-    'PT': { 
-      label: 'Personal Training', 
+    'PT': {
+      label: 'Personal Training',
       icon: CrownOutlined,
       gradient: 'from-purple-500 to-pink-500'
     },
-    'REHAB': { 
-      label: 'Rehabilitation', 
+    'REHAB': {
+      label: 'Rehabilitation',
       icon: HeartOutlined,
       gradient: 'from-blue-500 to-cyan-500'
     },
-    'PT_MONTHLY': { 
-      label: 'PT Monthly', 
+    'PT_MONTHLY': {
+      label: 'PT Monthly',
       icon: ThunderboltOutlined,
       gradient: 'from-orange-500 to-red-500'
     }
   }
 
-  const kindInfo = kindLabels[contract.kind] || { 
-    label: contract.kind, 
+  const kindInfo = kindLabels[contract.kind] || {
+    label: contract.kind,
     icon: DollarOutlined,
     gradient: 'from-gray-500 to-gray-600'
   }
@@ -119,14 +119,20 @@ export default function ContractCard({
     onSessionCreated?.()
   }
 
+  // Check if contract has available credits (for PT/REHAB)
+  const hasAvailableCredits = !hasCredits ||
+    (contract.credits && (contract.used_credits || 0) < contract.credits)
+
   // Check if user should see "Create Session" button
-  // CUSTOMER: only for their own active contracts
-  // ADMIN/STAFF: for any active contract
-  const shouldShowCreateSession = contract.status === 'ACTIVE' && (
-    (userRole === 'CUSTOMER' && contract.purchased_by === userInstantId) ||
-    userRole === 'ADMIN' ||
-    userRole === 'STAFF'
-  )
+  // CUSTOMER: only for their own active contracts with available credits
+  // ADMIN/STAFF: for any active contract with available credits
+  const shouldShowCreateSession = contract.status === 'ACTIVE' &&
+    hasAvailableCredits &&
+    (
+      (userRole === 'CUSTOMER' && contract.purchased_by === userInstantId) ||
+      userRole === 'ADMIN' ||
+      userRole === 'STAFF'
+    )
 
   return (
     <Card
@@ -141,7 +147,7 @@ export default function ContractCard({
       <div className={`bg-linear-to-r ${kindInfo.gradient} p-3 relative overflow-hidden`}>
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
         <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full -ml-10 -mb-10" />
-        
+
         <div className="relative z-10 flex justify-between items-start gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center shrink-0">
@@ -154,8 +160,10 @@ export default function ContractCard({
           </div>
           {hasCredits && contract.credits !== undefined && (
             <div className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg shrink-0">
-              <Text className="text-white text-xs font-bold block leading-none text-center">{contract.credits}</Text>
-              <Text className="text-white/80 text-[10px] block mt-0.5 text-center">Credits</Text>
+              <Text className="text-white text-xs font-bold block leading-none text-center">
+                {contract.used_credits || 0} / {contract.credits}
+              </Text>
+              <Text className="text-white/80 text-[10px] block mt-0.5 text-center">Credits Used</Text>
             </div>
           )}
         </div>

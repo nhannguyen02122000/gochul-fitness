@@ -2,6 +2,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
+import type { History } from '@/app/type/api'
 
 export async function GET(request: Request) {
   try {
@@ -175,6 +176,16 @@ export async function GET(request: Request) {
           contract.sale_by_user[0].user_setting = [userSetting]
         }
       }
+    })
+
+    // Calculate used_credits for each contract
+    // used_credits = number of history records with status PT_CHECKED_IN
+    contracts.forEach(contract => {
+      const usedCreditsCount = contract.history?.filter(
+        (h: History) => h.status === 'PT_CHECKED_IN'
+      ).length || 0
+
+      contract.used_credits = usedCreditsCount
     })
 
     return NextResponse.json({

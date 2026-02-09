@@ -48,10 +48,22 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
       'contracts' in page ? page.contracts : []
     )
 
-    // Filter to only active contracts
+    // Filter to only active contracts with available credits
     // Note: The API already handles role-based filtering
     // CUSTOMER sees only their contracts, ADMIN/STAFF see all contracts
-    return allContracts.filter(c => c.status === 'ACTIVE')
+    return allContracts.filter(c => {
+      if (c.status !== 'ACTIVE') return false
+
+      // For PT/REHAB contracts, check if credits are available
+      const hasCreditsField = c.kind === 'PT' || c.kind === 'REHAB'
+      if (hasCreditsField && c.credits) {
+        const usedCredits = c.used_credits || 0
+        return usedCredits < c.credits
+      }
+
+      // For PT_MONTHLY, no credit check needed
+      return true
+    })
   }, [contractsData])
 
   // Get trainer ID from selected contract

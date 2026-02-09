@@ -248,6 +248,10 @@ export function useUpdateHistoryStatus() {
         onSuccess: () => {
             // Invalidate and refetch history list
             queryClient.invalidateQueries({ queryKey: historyKeys.lists() })
+            // Invalidate contracts after 2 seconds to refresh used_credits count
+            setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: contractKeys.lists() })
+            }, 2000)
         }
     })
 }

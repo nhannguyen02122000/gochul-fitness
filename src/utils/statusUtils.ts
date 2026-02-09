@@ -278,7 +278,9 @@ export function shouldShowHistoryActionButtons(
 
   // CUSTOMER can only see buttons for sessions from contracts they purchased
   if (userRole === 'CUSTOMER') {
-    return session.contract?.purchased_by === userInstantId
+    // contract is an array, so access first element
+    const contract = Array.isArray(session.contract) ? session.contract[0] : session.contract
+    return contract?.purchased_by === userInstantId
   }
 
   return false
