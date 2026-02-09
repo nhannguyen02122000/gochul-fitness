@@ -54,7 +54,7 @@ export function getContractActionButtons(
   } else if (role === 'CUSTOMER') {
     // CUSTOMER can: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → ACTIVE
     if (status === 'CUSTOMER_REVIEW') {
-      buttons.push({ label: 'Confirm', nextStatus: 'CUSTOMER_CONFIRMED', type: 'primary' })
+      buttons.push({ label: 'Payment Confirm', nextStatus: 'CUSTOMER_CONFIRMED', type: 'primary' })
     } else if (status === 'CUSTOMER_CONFIRMED') {
       buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
     }
@@ -80,14 +80,14 @@ export function getHistoryActionButtons(
   const buttons: ActionButton[] = []
 
   if (role === 'ADMIN') {
-    // ADMIN can perform any transition
+    // ADMIN can perform transitions, but must wait for CUSTOMER to check in first
     switch (status) {
       case 'NEWLY_CREATED':
         buttons.push({ label: 'Confirm', nextStatus: 'PT_CONFIRMED', type: 'primary' })
         buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'PT_CONFIRMED':
-        buttons.push({ label: 'Check In', nextStatus: 'USER_CHECKED_IN', type: 'primary' })
+        // Wait for CUSTOMER to check in - no check-in button for ADMIN
         buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'USER_CHECKED_IN':
@@ -102,6 +102,7 @@ export function getHistoryActionButtons(
     }
   } else if (role === 'STAFF') {
     // STAFF can: NEWLY_CREATED → PT_CONFIRMED, USER_CHECKED_IN → PT_CHECKED_IN
+    // STAFF must wait for CUSTOMER to check in at PT_CONFIRMED status
     if (status === 'NEWLY_CREATED') {
       buttons.push({ label: 'Confirm', nextStatus: 'PT_CONFIRMED', type: 'primary' })
     } else if (status === 'USER_CHECKED_IN') {

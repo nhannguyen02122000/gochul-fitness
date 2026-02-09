@@ -124,7 +124,16 @@ export async function GET(request: Request) {
               purchased_by: userInstantId
             }
           },
-          history: {}
+          users: {},
+          sale_by_user: {
+            user_setting: {} // Get user_setting for sales person
+          },
+          purchased_by_user: {
+            user_setting: {} // Get user_setting for customer
+          },
+          history: {
+            users: {} // Get users relation for history items
+          }
         }
       })
 
@@ -145,9 +154,11 @@ export async function GET(request: Request) {
       contractsData.contract?.forEach(contract => {
         if (contract.history && contract.history.length > 0) {
           contract.history.forEach(h => {
+            // Spread contract data but remove the history array to avoid circular reference
+            const { history: _, ...contractWithoutHistory } = contract
             allHistory.push({
               ...h,
-              contract: contract
+              contract: [contractWithoutHistory] // Wrap in array to match ADMIN/STAFF schema
             })
           })
         }
