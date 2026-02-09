@@ -1,9 +1,9 @@
 // Service Worker for GoChul Fitness PWA
-const CACHE_NAME = 'gochul-fitness-v1';
-const RUNTIME_CACHE = 'gochul-runtime-v1';
+const CACHE_NAME = 'gochul-fitness-v2'; // Bumped version to force cache refresh
+const RUNTIME_CACHE = 'gochul-runtime-v2'; // Bumped version to force cache refresh
 
 // Check if we're on localhost
-const isLocalhost = 
+const isLocalhost =
   self.location.hostname === 'localhost' ||
   self.location.hostname === '127.0.0.1' ||
   self.location.hostname === '[::1]' ||
@@ -116,32 +116,52 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets - cache first, fallback to network
+  // Static assets - network first for navigation, cache first for other assets
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return fetch(request).then((response) => {
-        // Don't cache non-successful responses
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+    // Network first for HTML/navigation requests to always get latest UI
+    (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html'))
+      ? fetch(request)
+        .then((response) => {
+          // Cache the response
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseClone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
           return response;
+        })
+        .catch(() => {
+          // Fallback to cache if network fails
+          return caches.match(request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/offline');
+          });
+        })
+      : // Cache first for other static assets (JS, CSS, images)
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
         }
 
-        const responseClone = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => {
-          cache.put(request, responseClone);
+        return fetch(request).then((response) => {
+          // Don't cache non-successful responses
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          const responseClone = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => {
+            cache.put(request, responseClone);
+          });
+
+          return response;
+        }).catch(() => {
+          // Return offline page for navigation requests
+          if (request.mode === 'navigate') {
+            return caches.match('/offline');
+          }
         });
-
-        return response;
-      }).catch(() => {
-        // Return offline page for navigation requests
-        if (request.mode === 'navigate') {
-          return caches.match('/offline');
-        }
-      });
-    })
+      })
   );
 });
 

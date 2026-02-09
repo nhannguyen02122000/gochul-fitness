@@ -13,6 +13,10 @@ const notoFont = Noto_Sans({
   subsets: ['latin']
 })
 
+// Disable caching globally
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export const metadata: Metadata = {
   title: 'GoChul - ComeFit',
   description: 'An application for booking services and ChulFitness',
