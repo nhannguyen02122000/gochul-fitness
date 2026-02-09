@@ -366,3 +366,19 @@ export interface CreateUserSettingSuccessResponse {
 
 export type CreateUserSettingResponse = CreateUserSettingSuccessResponse | ApiErrorResponse
 
+// ============================================================================
+// /api/history/getByContract
+// ============================================================================
+
+export interface GetHistoryByContractRequest {
+    contract_id: string
+}
+
+export interface GetHistoryByContractSuccessResponse {
+    history: History[]
+    contract: Contract
+    role: Role
+}
+
+export type GetHistoryByContractResponse = GetHistoryByContractSuccessResponse | ApiErrorResponse
+

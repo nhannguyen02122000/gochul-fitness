@@ -6,6 +6,7 @@ import type {
     DeleteHistoryRequest,
     DeleteHistoryResponse,
     GetAllHistoryResponse,
+    GetHistoryByContractResponse,
     GetTrainerScheduleResponse,
     UpdateHistoryRequest,
     UpdateHistoryResponse,
@@ -288,6 +289,40 @@ export function useTrainerSchedule(userId: string | undefined, date: number | un
         queryFn: () => fetchTrainerSchedule(userId!, date!),
         enabled: !!userId && !!date,
         staleTime: 1000 * 30 // 30 seconds - keep data fresh for scheduling
+    })
+}
+
+// Fetch contract history
+async function fetchContractHistory(
+    contractId: string
+): Promise<GetHistoryByContractResponse> {
+    const params = new URLSearchParams({
+        contract_id: contractId
+    })
+
+    const response = await fetch(`/api/history/getByContract?${params.toString()}`)
+    if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to fetch contract history')
+    }
+    return response.json()
+}
+
+/**
+ * Hook to fetch all history records for a specific contract
+ * @param contractId - Contract ID to fetch history for
+ * @returns Contract history with contract details
+ * @example
+ * const { data, isLoading, error } = useContractHistory(contractId)
+ * const sessions = data?.history ?? []
+ * const contract = data?.contract
+ */
+export function useContractHistory(contractId: string | undefined) {
+    return useQuery({
+        queryKey: ['history', 'by-contract', contractId],
+        queryFn: () => fetchContractHistory(contractId!),
+        enabled: !!contractId,
+        staleTime: 1000 * 60 // 1 minute - keep data relatively fresh
     })
 }
 

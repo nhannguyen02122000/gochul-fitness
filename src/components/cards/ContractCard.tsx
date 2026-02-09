@@ -1,8 +1,8 @@
 // src/components/cards/ContractCard.tsx
 'use client'
 
-import { Card, Space, Typography, Button, Tag, message } from 'antd'
-import { CalendarOutlined, UserOutlined, DollarOutlined, MailOutlined, PlusOutlined, CrownOutlined, ThunderboltOutlined, HeartOutlined } from '@ant-design/icons'
+import { Card, Space, Typography, Button, Tag, message, Tooltip } from 'antd'
+import { CalendarOutlined, UserOutlined, DollarOutlined, MailOutlined, PlusOutlined, CrownOutlined, ThunderboltOutlined, HeartOutlined, EyeOutlined } from '@ant-design/icons'
 import type { Contract, Role, ContractStatus } from '@/app/type/api'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatDate } from '@/utils/timeUtils'
@@ -11,6 +11,7 @@ import { getContractActionButtons, shouldShowContractActionButtons } from '@/uti
 import { useUpdateContractStatus } from '@/hooks/useContracts'
 import { useState } from 'react'
 import CreateSessionModal from '@/components/modals/CreateSessionModal'
+import SessionHistoryModal from '@/components/modals/SessionHistoryModal'
 
 const { Text, Title } = Typography
 
@@ -35,6 +36,7 @@ export default function ContractCard({
 }: ContractCardProps) {
   const [loadingStatus, setLoadingStatus] = useState<ContractStatus | null>(null)
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const { mutate: updateStatus } = useUpdateContractStatus()
 
   // Get customer info from user_setting
@@ -159,12 +161,32 @@ export default function ContractCard({
             </div>
           </div>
           {hasCredits && contract.credits !== undefined && (
-            <div className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg shrink-0">
-              <Text className="text-white text-xs font-bold block leading-none text-center">
-                {contract.used_credits || 0} / {contract.credits}
-              </Text>
-              <Text className="text-white/80 text-[10px] block mt-0.5 text-center">Credits Used</Text>
-            </div>
+            <Tooltip title="Click to view session history" placement="left">
+              <div
+                className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg shrink-0 cursor-pointer hover:bg-white/30 hover:scale-105 active:scale-95 transition-all duration-200 group"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsHistoryModalOpen(true)
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setIsHistoryModalOpen(true)
+                  }
+                }}
+              >
+                <div className="flex items-center gap-1 justify-center">
+                  <Text className="text-white text-xs font-bold leading-none">
+                    {contract.used_credits || 0} / {contract.credits}
+                  </Text>
+                  <EyeOutlined className="text-white/60 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <Text className="text-white/80 text-[10px] block mt-0.5 text-center">Credits Used</Text>
+              </div>
+            </Tooltip>
           )}
         </div>
 
@@ -273,6 +295,16 @@ export default function ContractCard({
         open={isSessionModalOpen}
         onClose={handleSessionModalClose}
         preselectedContractId={contract.id}
+      />
+
+      {/* Session History Modal */}
+      <SessionHistoryModal
+        open={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        contractId={contract.id}
+        contractKind={contract.kind}
+        totalCredits={contract.credits}
+        usedCredits={contract.used_credits}
       />
     </Card>
   )
