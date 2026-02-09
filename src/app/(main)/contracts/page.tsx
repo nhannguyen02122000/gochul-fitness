@@ -7,7 +7,7 @@ import { useInfiniteContracts } from '@/hooks/useContracts'
 import ContractCard from '@/components/cards/ContractCard'
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { GetUserInformationResponse } from '@/app/type/api'
+import type { GetUserInformationResponse, Contract } from '@/app/type/api'
 import CreateContractModal from '@/components/modals/CreateContractModal'
 
 const { Title, Text } = Typography
@@ -44,17 +44,33 @@ export default function ContractsPage() {
 
   // Group contracts by status
   const contractsByStatus = useMemo(() => {
+    // Helper function to check if contract has available credits
+    const hasAvailableCredits = (contract: Contract) => {
+      const hasCreditsField = contract.kind === 'PT' || contract.kind === 'REHAB'
+      if (!hasCreditsField) return true // PT_MONTHLY contracts always have "available credits"
+
+      if (!contract.credits) return false // No credits assigned
+
+      const usedCredits = contract.used_credits || 0
+      return usedCredits < contract.credits
+    }
+
     return {
       all: visibleContracts,
-      active: visibleContracts.filter(c => c.status === 'ACTIVE'),
+      // Active: ACTIVE status AND has available credits
+      active: visibleContracts.filter(c =>
+        c.status === 'ACTIVE' && hasAvailableCredits(c)
+      ),
       pending: visibleContracts.filter(c =>
         c.status === 'NEWLY_CREATED' ||
         c.status === 'CUSTOMER_REVIEW' ||
         c.status === 'CUSTOMER_CONFIRMED'
       ),
+      // Inactive: EXPIRED, CANCELED, or ACTIVE with exhausted credits
       inactive: visibleContracts.filter(c =>
         c.status === 'EXPIRED' ||
-        c.status === 'CANCELED'
+        c.status === 'CANCELED' ||
+        (c.status === 'ACTIVE' && !hasAvailableCredits(c))
       )
     }
   }, [visibleContracts])
