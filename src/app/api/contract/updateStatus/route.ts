@@ -193,11 +193,31 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update the contract status
+    // Handle date adjustments when activating a contract before its start_date
+    const dateUpdates: { start_date?: number; end_date?: number } = {}
+
+    if (newStatus === 'ACTIVE' && contract.start_date && contract.end_date) {
+      // If activating before the start_date, adjust both dates
+      if (now < contract.start_date) {
+        // Calculate the original contract duration (in milliseconds)
+        const contractDuration = contract.end_date - contract.start_date
+
+        // Set new start_date to current date
+        dateUpdates.start_date = now
+
+        // Set new end_date to current date + original duration
+        dateUpdates.end_date = now + contractDuration
+      }
+    }
+
+    // Update the contract status and dates if needed
+    const updateData: { status: ContractStatus; start_date?: number; end_date?: number } = {
+      status: newStatus,
+      ...dateUpdates
+    }
+
     await instantServer.transact([
-      instantServer.tx.contract[contract_id].update({
-        status: newStatus
-      })
+      instantServer.tx.contract[contract_id].update(updateData)
     ])
 
     // Query the updated contract to return it

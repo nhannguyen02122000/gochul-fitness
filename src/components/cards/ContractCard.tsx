@@ -1,8 +1,8 @@
 // src/components/cards/ContractCard.tsx
 'use client'
 
-import { Card, Space, Typography, Button, Tag, message, Tooltip } from 'antd'
-import { CalendarOutlined, UserOutlined, DollarOutlined, MailOutlined, PlusOutlined, CrownOutlined, ThunderboltOutlined, HeartOutlined, EyeOutlined } from '@ant-design/icons'
+import { Card, Space, Typography, Button, Tag, message, Tooltip, Modal } from 'antd'
+import { CalendarOutlined, UserOutlined, DollarOutlined, MailOutlined, PlusOutlined, CrownOutlined, ThunderboltOutlined, HeartOutlined, EyeOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import type { Contract, Role, ContractStatus } from '@/app/type/api'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatDate } from '@/utils/timeUtils'
@@ -99,6 +99,52 @@ export default function ContractCard({
     : []
 
   const handleStatusChange = (newStatus: ContractStatus) => {
+    // Check if activating before start_date - show confirmation modal
+    if (newStatus === 'ACTIVE' && contract.start_date && contract.end_date) {
+      const now = Date.now()
+
+      if (now < contract.start_date) {
+        // Calculate the new dates
+        const contractDuration = contract.end_date - contract.start_date
+        const newStartDate = now
+        const newEndDate = now + contractDuration
+
+        // Calculate duration in days
+        const durationDays = Math.ceil(contractDuration / (1000 * 60 * 60 * 24))
+
+        Modal.confirm({
+          title: 'Contract Date Adjustment',
+          icon: <ExclamationCircleOutlined />,
+          content: (
+            <div>
+              <p>You are activating this contract before its scheduled start date.</p>
+              <p><strong>Current contract dates:</strong></p>
+              <p>• Start: {formatDate(contract.start_date)}</p>
+              <p>• End: {formatDate(contract.end_date)}</p>
+              <p className="mt-3"><strong>New contract dates will be:</strong></p>
+              <p>• Start: {formatDate(newStartDate)} (Today)</p>
+              <p>• End: {formatDate(newEndDate)}</p>
+              <p className="mt-3" style={{ color: '#52c41a' }}>
+                ✓ Contract duration remains unchanged: <strong>{durationDays} days</strong>
+              </p>
+            </div>
+          ),
+          okText: 'Confirm & Activate',
+          okType: 'primary',
+          cancelText: 'Cancel',
+          onOk: () => {
+            executeStatusChange(newStatus)
+          }
+        })
+        return
+      }
+    }
+
+    // No date adjustment needed, proceed directly
+    executeStatusChange(newStatus)
+  }
+
+  const executeStatusChange = (newStatus: ContractStatus) => {
     setLoadingStatus(newStatus)
     updateStatus(
       { contract_id: contract.id, status: newStatus },
