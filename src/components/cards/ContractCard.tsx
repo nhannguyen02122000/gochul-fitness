@@ -15,6 +15,10 @@ import SessionHistoryModal from '@/components/modals/SessionHistoryModal'
 
 const { Text, Title } = Typography
 
+function getCurrentTimestamp() {
+  return Date.now()
+}
+
 interface ContractCardProps {
   contract: Contract
   onClick?: () => void
@@ -101,7 +105,7 @@ export default function ContractCard({
   const handleStatusChange = (newStatus: ContractStatus) => {
     // Check if activating before start_date - show confirmation modal
     if (newStatus === 'ACTIVE' && contract.start_date && contract.end_date) {
-      const now = Date.now()
+      const now = getCurrentTimestamp()
 
       if (now < contract.start_date) {
         // Calculate the new dates
