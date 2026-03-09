@@ -2,42 +2,37 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { FileTextOutlined, HomeOutlined, HistoryOutlined, UserOutlined } from '@ant-design/icons'
 import { useState, useEffect } from 'react'
+import { Home, FileText, Clock, User } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function BottomNavigation() {
   const pathname = usePathname()
   const router = useRouter()
-  const [activeIndex, setActiveIndex] = useState(1)
 
   const navItems = [
     {
       key: 'contracts',
       label: 'Contracts',
-      icon: FileTextOutlined,
-      iconSize: 'text-2xl',
+      icon: FileText,
       path: '/contracts'
     },
     {
       key: 'home',
       label: 'Home',
-      icon: HomeOutlined,
-      iconSize: 'text-2xl',
+      icon: Home,
       path: '/',
-      isCenter: true
     },
     {
       key: 'sessions',
       label: 'Sessions',
-      icon: HistoryOutlined,
-      iconSize: 'text-2xl',
+      icon: Clock,
       path: '/history'
     },
     {
       key: 'profile',
       label: 'Profile',
-      icon: UserOutlined,
-      iconSize: 'text-2xl',
+      icon: User,
       path: '/profile'
     }
   ]
@@ -49,66 +44,43 @@ export default function BottomNavigation() {
     return pathname.startsWith(path)
   }
 
-  useEffect(() => {
-    const index = navItems.findIndex(item => isActive(item.path))
-    if (index !== -1) {
-      setActiveIndex(index)
-    }
-  }, [pathname])
-
-  const handleNavigation = (path: string, index: number) => {
-    setActiveIndex(index)
+  const handleNavigation = (path: string) => {
     router.push(path)
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-2xl z-50 safe-area-bottom">
-      {/* Animated indicator */}
-      <div
-        className="absolute top-0 h-1 bg-gradient-to-r from-[#FA6868] to-[#FAAC68] transition-all duration-300 ease-out"
-        style={{
-          width: `${100 / navItems.length}%`,
-          left: `${(activeIndex * 100) / navItems.length}%`,
-        }}
-      />
-
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 safe-area-bottom">
       <div className="flex justify-around items-center h-16 max-w-screen-xl mx-auto px-2">
-        {navItems.map((item, index) => {
+        {navItems.map((item) => {
           const active = isActive(item.path)
           const IconComponent = item.icon
 
           return (
             <button
               key={item.key}
-              onClick={() => handleNavigation(item.path, index)}
-              className="relative flex flex-col items-center justify-center flex-1 h-full transition-all duration-200 active:scale-90"
-            >
-              {/* Active background */}
-              {active && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-14 h-14 bg-gradient-to-br from-[#FA6868]/10 to-[#FAAC68]/10 rounded-2xl animate-scale-in" />
-                </div>
+              onClick={() => handleNavigation(item.path)}
+              className={cn(
+                "relative flex flex-col items-center justify-center flex-1 h-full transition-colors duration-150 cursor-pointer active:scale-95",
               )}
-
-              {/* Icon container */}
-              <div className={`relative z-10 flex items-center justify-center mb-1 transition-transform duration-200 ${active ? 'scale-110' : 'scale-100'
-                }`}>
-                <IconComponent
-                  className={item.iconSize}
-                  style={{
-                    color: active ? '#FA6868' : '#9CA3AF',
-                    transition: 'color 0.2s',
-                  }}
-                />
-              </div>
-
-              {/* Label */}
-              <span className={`relative z-10 text-xs font-semibold transition-all duration-200 ${active
-                ? 'text-[#FA6868] scale-100'
-                : 'text-gray-400 scale-95'
-                }`}>
+            >
+              <IconComponent
+                className={cn(
+                  "h-5 w-5 mb-1 transition-colors duration-150",
+                  active ? "text-foreground" : "text-muted-foreground"
+                )}
+                strokeWidth={active ? 2.5 : 1.5}
+              />
+              <span className={cn(
+                "text-[10px] font-medium transition-colors duration-150",
+                active ? "text-foreground" : "text-muted-foreground"
+              )}>
                 {item.label}
               </span>
+
+              {/* Active indicator dot */}
+              {active && (
+                <div className="absolute top-1 w-1 h-1 rounded-full bg-foreground" />
+              )}
             </button>
           )
         })}
@@ -116,4 +88,3 @@ export default function BottomNavigation() {
     </nav>
   )
 }
-

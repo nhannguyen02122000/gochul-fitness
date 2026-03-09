@@ -1,8 +1,8 @@
 // src/app/offline/page.tsx
 'use client'
 
-import { Button, Result } from 'antd'
-import { WifiOutlined } from '@ant-design/icons'
+import { Button } from '@/components/ui/button'
+import { WifiOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function OfflinePage() {
@@ -17,18 +17,21 @@ export default function OfflinePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Result
-        icon={<WifiOutlined className="text-gray-400" />}
-        title="You're Offline"
-        subTitle="Please check your internet connection and try again."
-        extra={
-          <Button type="primary" size="large" onClick={handleRetry}>
-            Try Again
-          </Button>
-        }
-      />
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="flex flex-col items-center text-center max-w-sm">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
+          <WifiOff className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="text-xl font-bold text-foreground mb-2">
+          You&apos;re Offline
+        </h1>
+        <p className="text-sm text-muted-foreground mb-8">
+          Please check your internet connection and try again.
+        </p>
+        <Button onClick={handleRetry} className="min-w-[160px] h-11">
+          Try Again
+        </Button>
+      </div>
     </div>
   )
 }
-

@@ -1,16 +1,25 @@
 // src/components/cards/SessionCard.tsx
 'use client'
 
-import { Card, Space, Typography, Tag, Button, message } from 'antd'
-import { ClockCircleOutlined, UserOutlined, MailOutlined, ThunderboltOutlined, HeartOutlined, CrownOutlined } from '@ant-design/icons'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Clock,
+  User,
+  Crown,
+  Heart,
+  Zap,
+  Loader2,
+} from 'lucide-react'
 import type { History, Role, HistoryStatus } from '@/app/type/api'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatTimeRange } from '@/utils/timeUtils'
 import { getHistoryActionButtons, shouldShowHistoryActionButtons } from '@/utils/statusUtils'
 import { useUpdateHistoryStatus } from '@/hooks/useHistory'
 import { useState } from 'react'
-
-const { Text } = Typography
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface SessionCardProps {
   session: History
@@ -20,10 +29,30 @@ interface SessionCardProps {
   onStatusChange?: (sessionId: string, newStatus: HistoryStatus) => void
 }
 
-// Helper function outside component to check if session is upcoming
 function checkIfUpcoming(sessionDate: number, sessionFrom: number, status: string): boolean {
   const sessionDateTime = sessionDate + (sessionFrom * 60 * 1000)
   return sessionDateTime > Date.now() && status !== 'CANCELED' && status !== 'EXPIRED'
+}
+
+const kindConfig: Record<string, { label: string; icon: typeof Clock; color: string; bg: string }> = {
+  'PT': {
+    label: 'PT Session',
+    icon: Crown,
+    color: 'text-[#F26076]',
+    bg: 'bg-[#FDE8EB]',
+  },
+  'REHAB': {
+    label: 'Rehab Session',
+    icon: Heart,
+    color: 'text-[#458B73]',
+    bg: 'bg-[#E8F5EF]',
+  },
+  'PT_MONTHLY': {
+    label: 'PT Monthly',
+    icon: Zap,
+    color: 'text-[#FF9760]',
+    bg: 'bg-[#FFF4EC]',
+  }
 }
 
 export default function SessionCard({
@@ -40,66 +69,39 @@ export default function SessionCard({
   const contract = Array.isArray(session.contract) ? session.contract[0] : session.contract
   const contractKind = contract?.kind || 'Unknown'
 
-  // Get customer info from user_setting
+  // Get customer info
   const purchasedByUser = contract?.purchased_by_user?.[0]
   const customerUserSetting = purchasedByUser?.user_setting?.[0]
-
   const customerName = customerUserSetting
     ? [customerUserSetting.first_name, customerUserSetting.last_name]
       .filter(Boolean)
       .join(' ') || purchasedByUser?.email || 'Unknown Customer'
     : purchasedByUser?.email || 'Unknown Customer'
-  const customerEmail = purchasedByUser?.email || 'N/A'
 
-  // Get trainer info from user_setting
+  // Get trainer info
   const saleByUser = contract?.sale_by_user?.[0]
   const trainerUserSetting = saleByUser?.user_setting?.[0]
-
   const trainerName = trainerUserSetting
     ? [trainerUserSetting.first_name, trainerUserSetting.last_name]
       .filter(Boolean)
       .join(' ') || saleByUser?.email || 'Unknown Trainer'
     : saleByUser?.email || 'Unknown Trainer'
-  const trainerEmail = saleByUser?.email || 'N/A'
 
-  const kindLabels: Record<string, { label: string; icon: typeof ClockCircleOutlined; color: string; bgColor: string }> = {
-    'PT': {
-      label: 'PT Session',
-      icon: CrownOutlined,
-      color: '#9333ea',
-      bgColor: '#f3e8ff'
-    },
-    'REHAB': {
-      label: 'Rehab Session',
-      icon: HeartOutlined,
-      color: '#0ea5e9',
-      bgColor: '#e0f2fe'
-    },
-    'PT_MONTHLY': {
-      label: 'PT Monthly',
-      icon: ThunderboltOutlined,
-      color: '#f97316',
-      bgColor: '#ffedd5'
-    }
-  }
-
-  const kindInfo = kindLabels[contractKind] || {
+  const kind = kindConfig[contractKind] || {
     label: contractKind,
-    icon: ClockCircleOutlined,
-    color: '#6b7280',
-    bgColor: '#f3f4f6'
+    icon: Clock,
+    color: 'text-zinc-700',
+    bg: 'bg-zinc-50',
   }
-  const KindIcon = kindInfo.icon
+  const KindIcon = kind.icon
 
-  // Check if session is upcoming
   const isUpcoming = checkIfUpcoming(session.date, session.from, session.status)
 
-  // Determine if action buttons should be shown
+  // Action buttons
   const shouldShowButtons = userRole &&
     userInstantId &&
     shouldShowHistoryActionButtons(session, userRole, userInstantId)
 
-  // Get available action buttons based on status and role
   const actionButtons = shouldShowButtons
     ? getHistoryActionButtons(session.status, userRole!)
     : []
@@ -110,140 +112,119 @@ export default function SessionCard({
       { history_id: session.id, status: newStatus },
       {
         onSuccess: () => {
-          message.success(`Session status updated to ${newStatus}`)
+          toast.success(`Session status updated`)
           setLoadingStatus(null)
           onStatusChange?.(session.id, newStatus)
         },
         onError: (error) => {
-          message.error(error.message || 'Failed to update session status')
+          toast.error(error.message || 'Failed to update session status')
           setLoadingStatus(null)
         }
       }
     )
   }
 
+  const dateObj = new Date(session.date)
+  const monthStr = dateObj.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
+  const dayStr = dateObj.getDate()
+  const weekdayStr = dateObj.toLocaleDateString('en-US', { weekday: 'short' })
+
   return (
     <Card
-      hoverable={!!onClick}
+      className={cn(
+        'w-full overflow-hidden animate-fade-in transition-shadow hover:shadow-md cursor-default',
+        isUpcoming && 'ring-1 ring-[var(--color-cta)]/20',
+        onClick && 'cursor-pointer'
+      )}
       onClick={onClick}
-      className={`w-full overflow-hidden animate-fade-in modern-card ${isUpcoming ? 'ring-2 ring-[#FA6868]/20' : ''}`}
-      styles={{
-        body: { padding: 0 }
-      }}
     >
-      {/* Header Section */}
-      <div className="relative" style={{ backgroundColor: kindInfo.bgColor }}>
-        {isUpcoming && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-[#FA6868] to-[#FAAC68]" />
-        )}
+      <CardContent className="p-0">
+        <div className="flex">
+          {/* Date column */}
+          <div className={cn(
+            'flex flex-col items-center justify-center px-3 py-4 min-w-[60px] border-r border-border',
+            isUpcoming ? 'bg-blue-50' : 'bg-muted/50'
+          )}>
+            <span className="text-[10px] font-medium text-muted-foreground">{monthStr}</span>
+            <span className="text-xl font-bold text-foreground leading-none mt-0.5">{dayStr}</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5">{weekdayStr}</span>
+          </div>
 
-        <div className="p-5 relative">
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: kindInfo.color + '20' }}
-              >
-                <KindIcon className="text-xl" style={{ color: kindInfo.color }} />
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {/* Header */}
+            <div className="px-3 pt-3 pb-2">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={cn('w-7 h-7 rounded-md flex items-center justify-center shrink-0', kind.bg)}>
+                    <KindIcon className={cn('h-3.5 w-3.5', kind.color)} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cn('text-xs font-semibold leading-tight', kind.color)}>{kind.label}</p>
+                    <StatusBadge status={session.status} type="history" className="mt-0.5" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {isUpcoming && (
+                    <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0 border-0">
+                      Upcoming
+                    </Badge>
+                  )}
+                </div>
               </div>
-              <div>
-                <Text strong className="text-base block mb-1" style={{ color: kindInfo.color }}>
-                  {kindInfo.label}
-                </Text>
-                <StatusBadge status={session.status} type="history" />
+
+              {/* Time */}
+              <div className="flex items-center gap-1.5 mb-2">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">{formatTimeRange(session.from, session.to)}</span>
+              </div>
+
+              {/* People */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                    <User className="h-3 w-3 text-blue-600" />
+                  </div>
+                  <span className="text-xs text-muted-foreground truncate">{customerName}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                    <User className="h-3 w-3 text-emerald-600" />
+                  </div>
+                  <span className="text-xs text-muted-foreground truncate">{trainerName}</span>
+                </div>
               </div>
             </div>
-            {isUpcoming && (
-              <Tag color="error" className="m-0 shrink-0">Upcoming</Tag>
+
+            {/* Actions */}
+            {actionButtons.length > 0 && (
+              <div className="px-3 pb-3 pt-2 border-t border-border">
+                <div className="flex flex-wrap gap-2">
+                  {actionButtons.map((button) => (
+                    <Button
+                      key={button.nextStatus}
+                      variant={button.type === 'danger' ? 'destructive' : button.type === 'primary' ? 'default' : 'outline'}
+                      size="default"
+                      disabled={loadingStatus !== null && loadingStatus !== button.nextStatus}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleStatusChange(button.nextStatus as HistoryStatus)
+                      }}
+                      className={cn(
+                        'flex-1 min-w-[100px] text-sm h-10',
+                        button.type === 'primary' && 'bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]'
+                      )}
+                    >
+                      {loadingStatus === button.nextStatus && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                      {button.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-
-          {/* Date & Time - Large Display */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 mt-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white rounded-xl flex flex-col items-center justify-center shadow-sm shrink-0">
-                <Text className="text-xs text-gray-500 leading-none font-medium">
-                  {new Date(session.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
-                </Text>
-                <Text strong className="text-2xl leading-none mt-1">
-                  {new Date(session.date).getDate()}
-                </Text>
-              </div>
-              <div className="flex-1">
-                <Text className="text-xs text-gray-500 block mb-1">Session Time</Text>
-                <Text strong className="text-lg" style={{ color: kindInfo.color }}>
-                  {formatTimeRange(session.from, session.to)}
-                </Text>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
-
-      {/* Details Section */}
-      <div className="p-5 bg-white">
-        <div className="space-y-3">
-          {/* Customer Info */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-[#FA6868]/10 rounded-lg flex items-center justify-center shrink-0">
-                <UserOutlined className="text-[#FA6868] text-base" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <Text className="text-xs text-gray-500 block mb-1">Customer</Text>
-                <Text strong className="text-base block truncate">{customerName}</Text>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 ml-13 pl-1">
-              <MailOutlined className="text-gray-400" />
-              <Text type="secondary" className="text-sm truncate">{customerEmail}</Text>
-            </div>
-          </div>
-
-          {/* Trainer Info */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-[#5A9CB5]/10 rounded-lg flex items-center justify-center shrink-0">
-                <UserOutlined className="text-[#5A9CB5] text-base" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <Text className="text-xs text-gray-500 block mb-1">Trainer</Text>
-                <Text strong className="text-base block truncate">{trainerName}</Text>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 ml-13 pl-1">
-              <MailOutlined className="text-gray-400" />
-              <Text type="secondary" className="text-sm truncate">{trainerEmail}</Text>
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        {actionButtons.length > 0 && (
-          <div className="mt-5 pt-5 border-t border-gray-100">
-            <Space size={12} className="w-full" wrap>
-              {actionButtons.map((button) => (
-                <Button
-                  key={button.nextStatus}
-                  type={button.type === 'danger' ? 'default' : button.type}
-                  danger={button.type === 'danger'}
-                  size="large"
-                  loading={loadingStatus === button.nextStatus}
-                  disabled={loadingStatus !== null && loadingStatus !== button.nextStatus}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleStatusChange(button.nextStatus as HistoryStatus)
-                  }}
-                  className="flex-1 min-w-[120px]"
-                >
-                  {button.label}
-                </Button>
-              ))}
-            </Space>
-          </div>
-        )}
-      </div>
+      </CardContent>
     </Card>
   )
 }
-

@@ -1,8 +1,10 @@
 // src/app/(main)/page.tsx
 'use client'
 
-import { Button, Empty, Spin, Typography, Card } from 'antd'
-import { PlusOutlined, FileTextOutlined, HistoryOutlined, ThunderboltOutlined, TrophyOutlined, FireOutlined, RocketOutlined } from '@ant-design/icons'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Plus, FileText, Clock, Loader2 } from 'lucide-react'
 import { useInfiniteHistory } from '@/hooks/useHistory'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import SessionCard from '@/components/cards/SessionCard'
@@ -13,235 +15,193 @@ import CreateContractModal from '@/components/modals/CreateContractModal'
 import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 
-const { Title, Text, Paragraph } = Typography
-
 async function fetchUserInfo(): Promise<GetUserInformationResponse> {
-    const response = await fetch('/api/user/getUserInformation')
-    if (!response.ok) {
-        throw new Error('Failed to fetch user information')
-    }
-    return response.json()
+  const response = await fetch('/api/user/getUserInformation')
+  if (!response.ok) throw new Error('Failed to fetch user information')
+  return response.json()
 }
-
-const motivationalMessages = [
-    { icon: FireOutlined, text: "Let's crush today's goals!", color: "#FA6868" },
-    { icon: TrophyOutlined, text: "You're on fire!", color: "#FAAC68" },
-    { icon: ThunderboltOutlined, text: "Keep pushing forward!", color: "#5A9CB5" },
-    { icon: RocketOutlined, text: "Ready to train?", color: "#FA6868" }
-]
 
 export default function HomePage() {
-    const [createContractOpen, setCreateContractOpen] = useState(false)
-    // Initialize random message once on component mount
-    const [randomMessage] = useState(() => motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)])
-    const { isSignedIn, isLoaded } = useAuth()
-    const router = useRouter()
+  const [createContractOpen, setCreateContractOpen] = useState(false)
+  const { isSignedIn, isLoaded } = useAuth()
+  const router = useRouter()
 
-    useEffect(() => {
-        if (isLoaded && !isSignedIn) {
-            router.push('/sign-in')
-        }
-    }, [isLoaded, isSignedIn, router])
-
-    const { data: userInfo } = useQuery({
-        queryKey: ['userInfo'],
-        queryFn: fetchUserInfo,
-        enabled: isSignedIn
-    })
-
-    const { data: historyData, isLoading: historyLoading } = useInfiniteHistory(10)
-    const { data: contractsData } = useInfiniteContracts(10)
-
-    // Extract user role and instant ID
-    const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
-    const userInstantId = userInfo && 'instant_id' in userInfo ? userInfo.instant_id : undefined
-
-    // Get upcoming sessions (not CANCELED or EXPIRED)
-    const upcomingSessions = useMemo(() => {
-        if (!historyData) return []
-
-        const allSessions = historyData.pages.flatMap(page =>
-            'history' in page ? page.history : []
-        )
-
-        const now = new Date().getTime()
-        return allSessions
-            .filter(session => {
-                if (session.status === 'CANCELED' || session.status === 'EXPIRED') return false
-                const sessionTime = session.date + (session.to * 60 * 1000)
-                return sessionTime >= now
-            })
-            .sort((a, b) => {
-                const aTime = a.date + (a.from * 60 * 1000)
-                const bTime = b.date + (b.from * 60 * 1000)
-                return aTime - bTime
-            })
-            .slice(0, 3)
-    }, [historyData])
-
-    // Get active contracts count
-    const activeContractsCount = useMemo(() => {
-        if (!contractsData) return 0
-
-        const allContracts = contractsData.pages.flatMap(page =>
-            'contracts' in page ? page.contracts : []
-        )
-
-        return allContracts.filter(c => c.status === 'ACTIVE').length
-    }, [contractsData])
-
-    const isStaffOrAdmin = userInfo && 'role' in userInfo && (userInfo.role === 'ADMIN' || userInfo.role === 'STAFF')
-
-    const MessageIcon = randomMessage.icon
-
-    if (!isLoaded || !isSignedIn) {
-        return (
-            <div className="flex justify-center items-center min-h-screen">
-                <Spin size="large" />
-            </div>
-        )
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in')
     }
+  }, [isLoaded, isSignedIn, router])
 
-    return (
-        <div className="pb-6">
-            {/* Hero Section */}
-            <div className="relative overflow-hidden">
-                <div className="bg-gradient-to-br from-[#FA6868] via-[#FAAC68] to-[#FA6868] px-6 py-8 pb-10">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="flex items-center gap-2 mb-5 animate-slide-up">
-                            <MessageIcon className="text-white text-2xl" />
-                            <Text className="text-white/90 text-base font-medium">{randomMessage.text}</Text>
-                        </div>
+  const { data: userInfo } = useQuery({
+    queryKey: ['userInfo'],
+    queryFn: fetchUserInfo,
+    enabled: isSignedIn
+  })
 
-                        <Title level={2} className="!text-white !mb-3 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                            Your Fitness Journey
-                        </Title>
-                        <Paragraph className="text-white/80 !mb-0 text-base animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                            Track your progress and stay motivated
-                        </Paragraph>
-                    </div>
-                </div>
+  const { data: historyData, isLoading: historyLoading } = useInfiniteHistory(10)
+  const { data: contractsData } = useInfiniteContracts(10)
 
-                {/* Decorative wave */}
-                <svg className="w-full" viewBox="0 0 1200 20" preserveAspectRatio="none">
-                    <path d="M0,10 Q300,20 600,10 T1200,10 L1200,20 L0,20 Z" fill="#f8f9fa" />
-                </svg>
-            </div>
+  const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
+  const userInstantId = userInfo && 'instant_id' in userInfo ? userInfo.instant_id : undefined
 
-            {/* Quick Stats Cards */}
-            <div className="grid grid-cols-2 gap-3 mt-5 mb-5 animate-fade-in px-4">
-                <Card
-                    className="!border-0 shadow-sm hover:shadow-md transition-shadow"
-                    styles={{ body: { padding: '20px' } }}
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 bg-gradient-to-br from-[#FA6868] to-[#fc8585] rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-                            <FileTextOutlined className="text-white text-2xl" />
-                        </div>
-                        <div>
-                            <Text className="text-gray-500 text-xs block mb-1">Active</Text>
-                            <Text strong className="text-3xl block leading-none mb-0.5">{activeContractsCount}</Text>
-                            <Text className="text-gray-400 text-xs">Contracts</Text>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card
-                    className="!border-0 shadow-sm hover:shadow-md transition-shadow"
-                    styles={{ body: { padding: '20px' } }}
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 bg-gradient-to-br from-[#5A9CB5] to-[#6BADC5] rounded-2xl flex items-center justify-center shadow-lg shrink-0">
-                            <HistoryOutlined className="text-white text-2xl" />
-                        </div>
-                        <div>
-                            <Text className="text-gray-500 text-xs block mb-1">Upcoming</Text>
-                            <Text strong className="text-3xl block leading-none mb-0.5">{upcomingSessions.length}</Text>
-                            <Text className="text-gray-400 text-xs">Sessions</Text>
-                        </div>
-                    </div>
-                </Card>
-            </div>
-
-            {/* Create Contract Button for ADMIN/STAFF */}
-            {isStaffOrAdmin && (
-                <div className="mb-5 animate-slide-up px-4">
-                    <Button
-                        type="primary"
-                        size="large"
-                        icon={<PlusOutlined />}
-                        onClick={() => setCreateContractOpen(true)}
-                        className="w-full h-14 text-base font-semibold shadow-lg"
-                    >
-                        Create New Contract
-                    </Button>
-                </div>
-            )}
-
-            {/* Upcoming Sessions Section */}
-            <div className="mb-5 px-4">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <Title level={4} className="!mb-1">Upcoming Sessions</Title>
-                        <Text type="secondary" className="text-sm">Next {upcomingSessions.length} sessions</Text>
-                    </div>
-                    {upcomingSessions.length > 0 && (
-                        <Button
-                            type="link"
-                            onClick={() => router.push('/history')}
-                            className="!px-0 !h-auto"
-                        >
-                            View All →
-                        </Button>
-                    )}
-                </div>
-
-                {historyLoading ? (
-                    <div className="flex justify-center py-12">
-                        <Spin size="large" />
-                    </div>
-                ) : upcomingSessions.length === 0 ? (
-                    <Card className="!border-2 !border-dashed">
-                        <Empty
-                            description={
-                                <div className="py-6">
-                                    <Text className="text-gray-500 block mb-3 text-base font-medium">No upcoming sessions yet</Text>
-                                    <Text type="secondary" className="text-sm">
-                                        Book your next training session to get started
-                                    </Text>
-                                </div>
-                            }
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        />
-                    </Card>
-                ) : (
-                    <div className="space-y-4">
-                        {upcomingSessions.map((session, index) => (
-                            <div
-                                key={session.id}
-                                className="animate-slide-up"
-                                style={{ animationDelay: `${index * 0.1}s` }}
-                            >
-                                <SessionCard
-                                    session={session}
-                                    userRole={userRole}
-                                    userInstantId={userInstantId as string}
-                                    onClick={() => {
-                                        // TODO: Open session detail modal
-                                    }}
-                                />
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Create Contract Modal */}
-            <CreateContractModal
-                open={createContractOpen}
-                onClose={() => setCreateContractOpen(false)}
-            />
-        </div>
+  const upcomingSessions = useMemo(() => {
+    if (!historyData) return []
+    const allSessions = historyData.pages.flatMap(page =>
+      'history' in page ? page.history : []
     )
-}
+    const now = Date.now()
+    return allSessions
+      .filter(session => {
+        if (session.status === 'CANCELED' || session.status === 'EXPIRED') return false
+        const sessionTime = session.date + (session.to * 60 * 1000)
+        return sessionTime >= now
+      })
+      .sort((a, b) => {
+        const aTime = a.date + (a.from * 60 * 1000)
+        const bTime = b.date + (b.from * 60 * 1000)
+        return aTime - bTime
+      })
+      .slice(0, 3)
+  }, [historyData])
 
+  const activeContractsCount = useMemo(() => {
+    if (!contractsData) return 0
+    const allContracts = contractsData.pages.flatMap(page =>
+      'contracts' in page ? page.contracts : []
+    )
+    return allContracts.filter(c => c.status === 'ACTIVE').length
+  }, [contractsData])
+
+  const isStaffOrAdmin = userInfo && 'role' in userInfo && (userInfo.role === 'ADMIN' || userInfo.role === 'STAFF')
+
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="pb-6">
+      {/* Header section */}
+      <div className="px-4 pt-5 pb-2">
+        <h1 className="text-xl font-bold text-foreground mb-1">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Track your progress and manage your fitness journey</p>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 gap-3 px-4 mt-3 mb-5 animate-fade-in">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Active</p>
+                <p className="text-2xl font-bold text-foreground leading-none tabular-nums">{activeContractsCount}</p>
+                <p className="text-[10px] text-muted-foreground">Contracts</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                <Clock className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Upcoming</p>
+                <p className="text-2xl font-bold text-foreground leading-none tabular-nums">{upcomingSessions.length}</p>
+                <p className="text-[10px] text-muted-foreground">Sessions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Create Contract Button for ADMIN/STAFF */}
+      {isStaffOrAdmin && (
+        <div className="mb-5 px-4 animate-slide-up">
+          <Button
+            onClick={() => setCreateContractOpen(true)}
+            className="w-full h-12 text-sm font-semibold bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Contract
+          </Button>
+        </div>
+      )}
+
+      {/* Upcoming Sessions */}
+      <div className="px-4 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Upcoming Sessions</h2>
+            <p className="text-xs text-muted-foreground">Next {upcomingSessions.length} sessions</p>
+          </div>
+          {upcomingSessions.length > 0 && (
+            <button
+              onClick={() => router.push('/history')}
+              className="text-xs font-medium text-[var(--color-cta)] hover:underline cursor-pointer"
+            >
+              View All
+            </button>
+          )}
+        </div>
+
+        {historyLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map(i => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    <Skeleton className="w-14 h-14 rounded-md" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : upcomingSessions.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-10 text-center">
+              <Clock className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-foreground mb-1">No upcoming sessions</p>
+              <p className="text-xs text-muted-foreground">Book your next training session to get started</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {upcomingSessions.map((session, index) => (
+              <div
+                key={session.id}
+                className="animate-slide-up"
+                style={{ animationDelay: `${index * 0.08}s` }}
+              >
+                <SessionCard
+                  session={session}
+                  userRole={userRole}
+                  userInstantId={userInstantId as string}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Create Contract Modal */}
+      <CreateContractModal
+        open={createContractOpen}
+        onClose={() => setCreateContractOpen(false)}
+      />
+    </div>
+  )
+}

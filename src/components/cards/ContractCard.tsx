@@ -1,8 +1,36 @@
 // src/components/cards/ContractCard.tsx
 'use client'
 
-import { Card, Space, Typography, Button, Tag, message, Tooltip, Modal } from 'antd'
-import { CalendarOutlined, UserOutlined, DollarOutlined, MailOutlined, PlusOutlined, CrownOutlined, ThunderboltOutlined, HeartOutlined, EyeOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Calendar,
+  User,
+  Mail,
+  Plus,
+  Crown,
+  Zap,
+  Heart,
+  Eye,
+  Loader2,
+  DollarSign
+} from 'lucide-react'
 import type { Contract, Role, ContractStatus } from '@/app/type/api'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatDate } from '@/utils/timeUtils'
@@ -12,8 +40,8 @@ import { useUpdateContractStatus } from '@/hooks/useContracts'
 import { useState } from 'react'
 import CreateSessionModal from '@/components/modals/CreateSessionModal'
 import SessionHistoryModal from '@/components/modals/SessionHistoryModal'
-
-const { Text, Title } = Typography
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 function getCurrentTimestamp() {
   return Date.now()
@@ -29,6 +57,30 @@ interface ContractCardProps {
   onSessionCreated?: () => void
 }
 
+const kindConfig: Record<string, { label: string; icon: typeof DollarSign; color: string; bg: string; border: string }> = {
+  'PT': {
+    label: 'Personal Training',
+    icon: Crown,
+    color: 'text-[#F26076]',
+    bg: 'bg-[#FDE8EB]',
+    border: 'border-l-[#F26076]',
+  },
+  'REHAB': {
+    label: 'Rehabilitation',
+    icon: Heart,
+    color: 'text-[#458B73]',
+    bg: 'bg-[#E8F5EF]',
+    border: 'border-l-[#458B73]',
+  },
+  'PT_MONTHLY': {
+    label: 'PT Monthly',
+    icon: Zap,
+    color: 'text-[#FF9760]',
+    bg: 'bg-[#FFF4EC]',
+    border: 'border-l-[#FF9760]',
+  }
+}
+
 export default function ContractCard({
   contract,
   onClick,
@@ -41,12 +93,17 @@ export default function ContractCard({
   const [loadingStatus, setLoadingStatus] = useState<ContractStatus | null>(null)
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [pendingActivation, setPendingActivation] = useState<{
+    newStartDate: number
+    newEndDate: number
+    durationDays: number
+  } | null>(null)
   const { mutate: updateStatus } = useUpdateContractStatus()
 
-  // Get customer info from user_setting
+  // Get customer info
   const purchasedByUser = contract.purchased_by_user?.[0]
   const customerUserSetting = purchasedByUser?.user_setting?.[0]
-
   const customerName = customerUserSetting
     ? [customerUserSetting.first_name, customerUserSetting.last_name]
       .filter(Boolean)
@@ -54,97 +111,48 @@ export default function ContractCard({
     : purchasedByUser?.email || 'Unknown Customer'
   const customerEmail = purchasedByUser?.email || 'N/A'
 
-  // Get sales person info from user_setting
+  // Get sales person info
   const saleByUser = contract.sale_by_user?.[0]
   const salesUserSetting = saleByUser?.user_setting?.[0]
-
   const salesPerson = salesUserSetting
     ? [salesUserSetting.first_name, salesUserSetting.last_name]
       .filter(Boolean)
       .join(' ') || saleByUser?.email || 'Unknown'
     : saleByUser?.email || 'Unknown'
-  const salesEmail = saleByUser?.email || 'N/A'
 
-  const kindLabels: Record<string, { label: string; icon: typeof DollarOutlined; gradient: string }> = {
-    'PT': {
-      label: 'Personal Training',
-      icon: CrownOutlined,
-      gradient: 'from-purple-500 to-pink-500'
-    },
-    'REHAB': {
-      label: 'Rehabilitation',
-      icon: HeartOutlined,
-      gradient: 'from-blue-500 to-cyan-500'
-    },
-    'PT_MONTHLY': {
-      label: 'PT Monthly',
-      icon: ThunderboltOutlined,
-      gradient: 'from-orange-500 to-red-500'
-    }
-  }
-
-  const kindInfo = kindLabels[contract.kind] || {
+  const kind = kindConfig[contract.kind] || {
     label: contract.kind,
-    icon: DollarOutlined,
-    gradient: 'from-gray-500 to-gray-600'
+    icon: DollarSign,
+    color: 'text-zinc-700',
+    bg: 'bg-zinc-50',
+    border: 'border-l-zinc-400',
   }
-  const KindIcon = kindInfo.icon
+  const KindIcon = kind.icon
   const hasCredits = contract.kind === 'PT' || contract.kind === 'REHAB'
 
-  // Determine if action buttons should be shown
+  // Action buttons logic
   const shouldShowButtons = showActions &&
     userRole &&
     userInstantId &&
     shouldShowContractActionButtons(contract, userRole, userInstantId)
 
-  // Get available action buttons based on status and role
   const actionButtons = shouldShowButtons
     ? getContractActionButtons(contract.status, userRole!)
     : []
 
   const handleStatusChange = (newStatus: ContractStatus) => {
-    // Check if activating before start_date - show confirmation modal
     if (newStatus === 'ACTIVE' && contract.start_date && contract.end_date) {
       const now = getCurrentTimestamp()
-
       if (now < contract.start_date) {
-        // Calculate the new dates
         const contractDuration = contract.end_date - contract.start_date
         const newStartDate = now
         const newEndDate = now + contractDuration
-
-        // Calculate duration in days
         const durationDays = Math.ceil(contractDuration / (1000 * 60 * 60 * 24))
-
-        Modal.confirm({
-          title: 'Contract Date Adjustment',
-          icon: <ExclamationCircleOutlined />,
-          content: (
-            <div>
-              <p>You are activating this contract before its scheduled start date.</p>
-              <p><strong>Current contract dates:</strong></p>
-              <p>• Start: {formatDate(contract.start_date)}</p>
-              <p>• End: {formatDate(contract.end_date)}</p>
-              <p className="mt-3"><strong>New contract dates will be:</strong></p>
-              <p>• Start: {formatDate(newStartDate)} (Today)</p>
-              <p>• End: {formatDate(newEndDate)}</p>
-              <p className="mt-3" style={{ color: '#52c41a' }}>
-                ✓ Contract duration remains unchanged: <strong>{durationDays} days</strong>
-              </p>
-            </div>
-          ),
-          okText: 'Confirm & Activate',
-          okType: 'primary',
-          cancelText: 'Cancel',
-          onOk: () => {
-            executeStatusChange(newStatus)
-          }
-        })
+        setPendingActivation({ newStartDate, newEndDate, durationDays })
+        setConfirmDialogOpen(true)
         return
       }
     }
-
-    // No date adjustment needed, proceed directly
     executeStatusChange(newStatus)
   }
 
@@ -154,12 +162,12 @@ export default function ContractCard({
       { contract_id: contract.id, status: newStatus },
       {
         onSuccess: () => {
-          message.success(`Contract status updated to ${newStatus}`)
+          toast.success(`Contract status updated to ${newStatus}`)
           setLoadingStatus(null)
           onStatusChange?.(contract.id, newStatus)
         },
         onError: (error) => {
-          message.error(error.message || 'Failed to update contract status')
+          toast.error(error.message || 'Failed to update contract status')
           setLoadingStatus(null)
         }
       }
@@ -171,13 +179,9 @@ export default function ContractCard({
     onSessionCreated?.()
   }
 
-  // Check if contract has available credits (for PT/REHAB)
   const hasAvailableCredits = !hasCredits ||
     (contract.credits && (contract.used_credits || 0) < contract.credits)
 
-  // Check if user should see "Create Session" button
-  // CUSTOMER: only for their own active contracts with available credits
-  // ADMIN/STAFF: for any active contract with available credits
   const shouldShowCreateSession = contract.status === 'ACTIVE' &&
     hasAvailableCredits &&
     (
@@ -187,158 +191,181 @@ export default function ContractCard({
     )
 
   return (
-    <Card
-      hoverable={!!onClick}
-      onClick={onClick}
-      className="w-full overflow-hidden animate-fade-in modern-card"
-      styles={{
-        body: { padding: 0 }
-      }}
-    >
-      {/* Gradient Header */}
-      <div className={`bg-linear-to-r ${kindInfo.gradient} p-3 relative overflow-hidden`}>
-        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12" />
-        <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full -ml-10 -mb-10" />
-
-        <div className="relative z-10 flex justify-between items-start gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center shrink-0">
-              <KindIcon className="text-white text-base" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <Text className="text-white font-semibold text-xs block mb-0.5 truncate">{kindInfo.label}</Text>
-              <StatusBadge status={contract.status} type="contract" />
-            </div>
-          </div>
-          {hasCredits && contract.credits !== undefined && (
-            <Tooltip title="Click to view session history" placement="left">
-              <div
-                className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg shrink-0 cursor-pointer hover:bg-white/30 hover:scale-105 active:scale-95 transition-all duration-200 group"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsHistoryModalOpen(true)
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setIsHistoryModalOpen(true)
-                  }
-                }}
-              >
-                <div className="flex items-center gap-1 justify-center">
-                  <Text className="text-white text-xs font-bold leading-none">
-                    {contract.used_credits || 0} / {contract.credits}
-                  </Text>
-                  <EyeOutlined className="text-white/60 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <Text className="text-white/80 text-[10px] block mt-0.5 text-center">Credits Used</Text>
-              </div>
-            </Tooltip>
-          )}
-        </div>
-
-        {/* Amount */}
-        <div className="relative z-10 mt-2">
-          <Text className="text-white/80 text-[10px] block mb-1">Contract Value</Text>
-          <Title level={4} className="text-white !mb-0 !text-base font-bold leading-none">
-            {formatVND(contract.money)}
-          </Title>
-        </div>
-      </div>
-
-      {/* Details Section */}
-      <div className="p-3">
-        <Space orientation="vertical" size={8} className="w-full">
-          {/* Customer Info */}
-          <div className="bg-gray-50 rounded-lg p-2.5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-7 h-7 bg-[#FA6868]/10 rounded-lg flex items-center justify-center shrink-0">
-                <UserOutlined className="text-[#FA6868] text-xs" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <Text className="text-[10px] text-gray-500 block mb-0.5">Customer</Text>
-                <Text strong className="text-xs block truncate">{customerName}</Text>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 ml-9">
-              <MailOutlined className="text-gray-400" style={{ fontSize: '10px' }} />
-              <Text type="secondary" className="text-[10px] truncate">{customerEmail}</Text>
-            </div>
-          </div>
-
-          {/* Sales Info */}
-          <div className="bg-gray-50 rounded-lg p-2.5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-7 h-7 bg-[#5A9CB5]/10 rounded-lg flex items-center justify-center shrink-0">
-                <UserOutlined className="text-[#5A9CB5] text-xs" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <Text className="text-[10px] text-gray-500 block mb-0.5">Sales Rep</Text>
-                <Text strong className="text-xs block truncate">{salesPerson}</Text>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 ml-9">
-              <MailOutlined className="text-gray-400" style={{ fontSize: '10px' }} />
-              <Text type="secondary" className="text-[10px] truncate">{salesEmail}</Text>
-            </div>
-          </div>
-
-          {/* Date Range */}
-          {contract.start_date && (
-            <div className="flex items-center gap-2 px-2 py-2 bg-linear-to-r from-gray-50 to-transparent rounded-lg">
-              <CalendarOutlined className="text-[#FAAC68] text-sm shrink-0" />
-              <div className="flex-1 min-w-0">
-                <Text type="secondary" className="text-[10px] block mb-0.5">Duration</Text>
-                <Text strong className="text-[11px] block truncate">
-                  {formatDate(contract.start_date)} → {contract.end_date ? formatDate(contract.end_date) : 'N/A'}
-                </Text>
-              </div>
-            </div>
-          )}
-        </Space>
-
-        {/* Actions */}
-        {(actionButtons.length > 0 || shouldShowCreateSession) && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <Space size={6} className="w-full" wrap>
-              {actionButtons.map((button) => (
-                <Button
-                  key={button.nextStatus}
-                  type={button.type === 'danger' ? 'default' : button.type}
-                  danger={button.type === 'danger'}
-                  size="small"
-                  loading={loadingStatus === button.nextStatus}
-                  disabled={loadingStatus !== null && loadingStatus !== button.nextStatus}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleStatusChange(button.nextStatus as ContractStatus)
-                  }}
-                  className="flex-1 min-w-[90px] text-xs"
-                >
-                  {button.label}
-                </Button>
-              ))}
-              {shouldShowCreateSession && (
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsSessionModalOpen(true)
-                  }}
-                  className="flex-1 min-w-[120px] text-xs"
-                >
-                  Create Session
-                </Button>
-              )}
-            </Space>
-          </div>
+    <>
+      <Card
+        className={cn(
+          'w-full overflow-hidden border-l-4 animate-fade-in transition-shadow hover:shadow-md cursor-default',
+          kind.border,
+          onClick && 'cursor-pointer'
         )}
-      </div>
+        onClick={onClick}
+      >
+        <CardContent className="p-0">
+          {/* Header */}
+          <div className="px-4 pt-4 pb-3">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={cn('w-8 h-8 rounded-md flex items-center justify-center shrink-0', kind.bg)}>
+                  <KindIcon className={cn('h-4 w-4', kind.color)} />
+                </div>
+                <div className="min-w-0">
+                  <p className={cn('text-xs font-semibold', kind.color)}>{kind.label}</p>
+                  <StatusBadge status={contract.status} type="contract" className="mt-0.5" />
+                </div>
+              </div>
+
+              {/* Credits badge */}
+              {hasCredits && contract.credits !== undefined && (
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsHistoryModalOpen(true)
+                    }}
+                    className={cn(
+                      'flex flex-col items-center px-2.5 py-1.5 rounded-md text-xs shrink-0 cursor-pointer transition-colors',
+                      kind.bg,
+                      'hover:opacity-80'
+                    )}
+                  >
+                    <span className={cn('font-bold tabular-nums', kind.color)}>
+                      {contract.used_credits || 0}/{contract.credits}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">credits</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>View session history</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+
+            {/* Amount */}
+            <p className="text-lg font-bold text-foreground tabular-nums">{formatVND(contract.money)}</p>
+          </div>
+
+          {/* Details */}
+          <div className="px-4 pb-3 space-y-2">
+            {/* Customer */}
+            <div className="flex items-center gap-2.5 py-1.5">
+              <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                <User className="h-3.5 w-3.5 text-blue-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Customer</p>
+                <p className="text-xs font-medium text-foreground truncate">{customerName}</p>
+              </div>
+            </div>
+
+            {/* Sales */}
+            <div className="flex items-center gap-2.5 py-1.5">
+              <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                <User className="h-3.5 w-3.5 text-emerald-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Sales Rep</p>
+                <p className="text-xs font-medium text-foreground truncate">{salesPerson}</p>
+              </div>
+            </div>
+
+            {/* Date Range */}
+            {contract.start_date && (
+              <div className="flex items-center gap-2.5 py-1.5">
+                <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                  <Calendar className="h-3.5 w-3.5 text-amber-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Duration</p>
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {formatDate(contract.start_date)} → {contract.end_date ? formatDate(contract.end_date) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          {(actionButtons.length > 0 || shouldShowCreateSession) && (
+            <div className="px-4 pb-4 pt-2 border-t border-border">
+              <div className="flex flex-wrap gap-2">
+                {actionButtons.map((button) => (
+                  <Button
+                    key={button.nextStatus}
+                    variant={button.type === 'danger' ? 'destructive' : button.type === 'primary' ? 'default' : 'outline'}
+                    size="default"
+                    disabled={loadingStatus !== null && loadingStatus !== button.nextStatus}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleStatusChange(button.nextStatus as ContractStatus)
+                    }}
+                    className={cn(
+                      'flex-1 min-w-[100px] text-sm h-10',
+                      button.type === 'primary' && 'bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]'
+                    )}
+                  >
+                    {loadingStatus === button.nextStatus && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                    {button.label}
+                  </Button>
+                ))}
+                {shouldShowCreateSession && (
+                  <Button
+                    size="default"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsSessionModalOpen(true)
+                    }}
+                    className="flex-1 min-w-[100px] text-sm h-10 bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create Session
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Confirm Activation Dialog */}
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Contract Date Adjustment</AlertDialogTitle>
+            <AlertDialogDescription render={<div />} className="space-y-3 text-sm">
+              <p>You are activating this contract before its scheduled start date.</p>
+              <div>
+                <p className="font-medium text-foreground">Current dates:</p>
+                <p>Start: {contract.start_date && formatDate(contract.start_date)}</p>
+                <p>End: {contract.end_date && formatDate(contract.end_date)}</p>
+              </div>
+              {pendingActivation && (
+                <>
+                  <div>
+                    <p className="font-medium text-foreground">New dates:</p>
+                    <p>Start: {formatDate(pendingActivation.newStartDate)} (Today)</p>
+                    <p>End: {formatDate(pendingActivation.newEndDate)}</p>
+                  </div>
+                  <p className="text-[var(--color-success)] font-medium">
+                    Duration unchanged: {pendingActivation.durationDays} days
+                  </p>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmDialogOpen(false)
+                executeStatusChange('ACTIVE')
+              }}
+              className="bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+            >
+              Confirm & Activate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create Session Modal */}
       <CreateSessionModal
@@ -356,7 +383,6 @@ export default function ContractCard({
         totalCredits={contract.credits}
         usedCredits={contract.used_credits}
       />
-    </Card>
+    </>
   )
 }
-

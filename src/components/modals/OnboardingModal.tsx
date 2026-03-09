@@ -1,128 +1,131 @@
 // src/components/modals/OnboardingModal.tsx
 'use client'
 
-import { Modal, Form, Input, message, Typography, Card } from 'antd'
-import { UserOutlined, SmileOutlined } from '@ant-design/icons'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Smile, User, Loader2, Info } from 'lucide-react'
 import { useCreateUserSetting } from '@/hooks/useUserOnboarding'
-
-const { Text, Title } = Typography
+import { useState, FormEvent } from 'react'
+import { toast } from 'sonner'
 
 interface OnboardingModalProps {
   open: boolean
   onComplete: () => void
 }
 
-interface FormValues {
-  first_name: string
-  last_name: string
-}
-
 export default function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
-  const [form] = Form.useForm<FormValues>()
   const createUserSetting = useCreateUserSetting()
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [errors, setErrors] = useState<{ firstName?: string; lastName?: string }>({})
 
-  const handleSubmit = async (values: FormValues) => {
+  const validate = () => {
+    const newErrors: { firstName?: string; lastName?: string } = {}
+    if (!firstName.trim()) newErrors.firstName = 'First name is required'
+    else if (firstName.trim().length < 2) newErrors.firstName = 'At least 2 characters'
+    if (!lastName.trim()) newErrors.lastName = 'Last name is required'
+    else if (lastName.trim().length < 2) newErrors.lastName = 'At least 2 characters'
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!validate()) return
+
     try {
-      await createUserSetting.mutateAsync(values)
-      message.success('Welcome! Your profile has been created successfully')
-      form.resetFields()
+      await createUserSetting.mutateAsync({
+        first_name: firstName.trim(),
+        last_name: lastName.trim()
+      })
+      toast.success('Welcome! Your profile has been created.')
+      setFirstName('')
+      setLastName('')
       onComplete()
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create profile'
-      message.error(errorMessage)
+      toast.error(error instanceof Error ? error.message : 'Failed to create profile')
     }
   }
 
   return (
-    <Modal
-      title={
-        <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-          <div className="w-10 h-10 bg-linear-to-br from-[#FA6868] to-[#FAAC68] rounded-xl flex items-center justify-center">
-            <SmileOutlined className="text-white text-lg" />
-          </div>
-          <div>
-            <Title level={4} className="mb-0!">Welcome to GoChul Fitness!</Title>
-            <Text type="secondary" className="text-sm">Let's set up your profile</Text>
-          </div>
-        </div>
-      }
-      open={open}
-      onOk={() => form.submit()}
-      confirmLoading={createUserSetting.isPending}
-      width={600}
-      closable={false}
-      maskClosable={false}
-      keyboard={false}
-      okText="Get Started"
-      cancelButtonProps={{ style: { display: 'none' } }}
-      okButtonProps={{
-        size: 'large',
-        className: 'h-11 min-w-[140px]'
-      }}
-      styles={{
-        header: { padding: '20px 20px 0' },
-        body: { padding: '20px' }
-      }}
-    >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        className="mt-2"
+    <Dialog open={open}>
+      <DialogContent
+        className="sm:max-w-md"
+        showCloseButton={false}
       >
-        <Card 
-          className="mb-4 border-gray-200! shadow-sm" 
-          styles={{ body: { padding: '20px' } }}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <UserOutlined className="text-[#FA6868] text-lg" />
-            <Text strong className="text-base">Personal Information</Text>
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[var(--color-cta)] rounded-lg flex items-center justify-center shrink-0">
+              <Smile className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg">Welcome to GoChul Fitness!</DialogTitle>
+              <DialogDescription>Let&apos;s set up your profile</DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="first_name">First Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="first_name"
+                  placeholder="Enter your first name"
+                  value={firstName}
+                  onChange={(e) => { setFirstName(e.target.value); setErrors(p => ({ ...p, firstName: undefined })) }}
+                  disabled={createUserSetting.isPending}
+                  className="pl-9"
+                />
+              </div>
+              {errors.firstName && <p className="text-xs text-destructive">{errors.firstName}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="last_name">Last Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="last_name"
+                  placeholder="Enter your last name"
+                  value={lastName}
+                  onChange={(e) => { setLastName(e.target.value); setErrors(p => ({ ...p, lastName: undefined })) }}
+                  disabled={createUserSetting.isPending}
+                  className="pl-9"
+                />
+              </div>
+              {errors.lastName && <p className="text-xs text-destructive">{errors.lastName}</p>}
+            </div>
           </div>
 
-          <Form.Item
-            name="first_name"
-            label={<Text className="text-sm font-medium">First Name</Text>}
-            rules={[
-              { required: true, message: 'Please enter your first name' },
-              { min: 2, message: 'First name must be at least 2 characters' },
-              { max: 50, message: 'First name must not exceed 50 characters' }
-            ]}
-          >
-            <Input
-              size="large"
-              placeholder="Enter your first name"
-              prefix={<UserOutlined className="text-gray-400" />}
-              disabled={createUserSetting.isPending}
-            />
-          </Form.Item>
+          <div className="flex items-start gap-2 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+            <Info className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>This information helps trainers identify you during sessions.</p>
+          </div>
 
-          <Form.Item
-            name="last_name"
-            label={<Text className="text-sm font-medium">Last Name</Text>}
-            rules={[
-              { required: true, message: 'Please enter your last name' },
-              { min: 2, message: 'Last name must be at least 2 characters' },
-              { max: 50, message: 'Last name must not exceed 50 characters' }
-            ]}
-            className="mb-0!"
-          >
-            <Input
-              size="large"
-              placeholder="Enter your last name"
-              prefix={<UserOutlined className="text-gray-400" />}
+          <DialogFooter>
+            <Button
+              type="submit"
               disabled={createUserSetting.isPending}
-            />
-          </Form.Item>
-        </Card>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <Text className="text-sm text-blue-800">
-            <strong>Note:</strong> This information will be used to personalize your experience 
-            and help trainers identify you during sessions.
-          </Text>
-        </div>
-      </Form>
-    </Modal>
+              className="w-full bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+            >
+              {createUserSetting.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Get Started
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
-

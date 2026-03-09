@@ -1,19 +1,18 @@
 import InstantDBAuthSync from '@/components/InstantAuthDB'
-import AntConfigProvider from '@/providers/AntConfigProvider'
 import ReactQueryProvider from '@/providers/QueryClientProvider'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { Toaster } from 'sonner'
 import { viVN } from '@clerk/localizations'
 import {
   ClerkProvider
 } from '@clerk/nextjs'
 import type { Metadata } from 'next'
-import { Noto_Sans, Geist } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import './globals.css'
-import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
-const notoFont = Noto_Sans({
-  subsets: ['latin']
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
 })
 
 // Disable caching globally
@@ -49,7 +48,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  console.log('RootLayout')
   return (
     <ClerkProvider
       localization={viVN}
@@ -61,12 +59,13 @@ export default function RootLayout({
       signInUrl={'/sign-in'}
     >
       <InstantDBAuthSync />
-      <html lang='en' className={cn("font-sans", geist.variable)}>
-        <body className={`${notoFont.className} antialiased`}>
+      <html lang='en'>
+        <body className={`${inter.variable} font-sans antialiased`}>
           <ReactQueryProvider>
-            <AntConfigProvider>
+            <TooltipProvider>
               {children}
-            </AntConfigProvider>
+              <Toaster position="top-center" richColors closeButton />
+            </TooltipProvider>
           </ReactQueryProvider>
         </body>
       </html>

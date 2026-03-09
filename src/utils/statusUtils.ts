@@ -201,9 +201,43 @@ export function getHistoryStatusText(status: HistoryStatus): string {
 }
 
 /**
- * Get color for contract status badge
+ * Get variant for contract status badge (shadcn Badge)
  * @param status - Contract status
- * @returns Ant Design badge color
+ * @returns Badge variant + class tuple
+ */
+export function getContractStatusVariant(status: ContractStatus): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string } {
+  const variantMap: Record<ContractStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
+    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-600' },
+    'CUSTOMER_REVIEW': { variant: 'secondary', className: 'bg-blue-50 text-blue-700' },
+    'CUSTOMER_CONFIRMED': { variant: 'secondary', className: 'bg-amber-50 text-amber-700' },
+    'ACTIVE': { variant: 'secondary', className: 'bg-emerald-50 text-emerald-700' },
+    'CANCELED': { variant: 'destructive', className: 'bg-red-50 text-red-700' },
+    'EXPIRED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-500' }
+  }
+  return variantMap[status] || variantMap['NEWLY_CREATED']
+}
+
+/**
+ * Get variant for history status badge (shadcn Badge)
+ * @param status - History status
+ * @returns Badge variant + class tuple
+ */
+export function getHistoryStatusVariant(status: HistoryStatus): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string } {
+  const variantMap: Record<HistoryStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
+    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-600' },
+    'PT_CONFIRMED': { variant: 'secondary', className: 'bg-blue-50 text-blue-700' },
+    'USER_CHECKED_IN': { variant: 'secondary', className: 'bg-amber-50 text-amber-700' },
+    'PT_CHECKED_IN': { variant: 'secondary', className: 'bg-emerald-50 text-emerald-700' },
+    'CANCELED': { variant: 'destructive', className: 'bg-red-50 text-red-700' },
+    'EXPIRED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-500' }
+  }
+  return variantMap[status] || variantMap['NEWLY_CREATED']
+}
+
+/**
+ * Get color for contract status badge (legacy compat)
+ * @param status - Contract status
+ * @returns color string
  */
 export function getContractStatusColor(status: ContractStatus): string {
   const colorMap: Record<ContractStatus, string> = {
@@ -218,9 +252,9 @@ export function getContractStatusColor(status: ContractStatus): string {
 }
 
 /**
- * Get color for history status badge
+ * Get color for history status badge (legacy compat)
  * @param status - History status
- * @returns Ant Design badge color
+ * @returns color string
  */
 export function getHistoryStatusColor(status: HistoryStatus): string {
   const colorMap: Record<HistoryStatus, string> = {

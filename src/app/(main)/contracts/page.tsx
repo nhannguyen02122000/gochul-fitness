@@ -1,16 +1,25 @@
 // src/app/contracts/page.tsx
 'use client'
 
-import { Button, Empty, Spin, Typography, Tabs, Badge, Card } from 'antd'
-import { PlusOutlined, FilterOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined } from '@ant-design/icons'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Plus,
+  FileText,
+  CheckCircle2,
+  Clock,
+  Ban,
+  Loader2,
+  Inbox,
+} from 'lucide-react'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import ContractCard from '@/components/cards/ContractCard'
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { GetUserInformationResponse, Contract } from '@/app/type/api'
 import CreateContractModal from '@/components/modals/CreateContractModal'
-
-const { Title, Text } = Typography
 
 async function fetchUserInfo(): Promise<GetUserInformationResponse> {
   const response = await fetch('/api/user/getUserInformation')
@@ -26,165 +35,212 @@ export default function ContractsPage() {
 
   const { data: userInfo } = useQuery({
     queryKey: ['userInfo'],
-    queryFn: fetchUserInfo
+    queryFn: fetchUserInfo,
   })
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteContracts(10)
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteContracts(10)
 
-  const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
-  const userInstantId = userInfo && 'instantUser' in userInfo ? userInfo.instantUser?.[0]?.id : undefined
+  const userRole =
+    userInfo && 'role' in userInfo ? userInfo.role : undefined
+  const userInstantId =
+    userInfo && 'instantUser' in userInfo
+      ? userInfo.instantUser?.[0]?.id
+      : undefined
   const isStaffOrAdmin = userRole === 'ADMIN' || userRole === 'STAFF'
 
-  const allContracts = data?.pages.flatMap(page => 'contracts' in page ? page.contracts : []) || []
+  const allContracts =
+    data?.pages.flatMap((page) =>
+      'contracts' in page ? page.contracts : []
+    ) || []
 
   // Filter out NEWLY_CREATED contracts for CUSTOMER role
-  const visibleContracts = userRole === 'CUSTOMER'
-    ? allContracts.filter(c => c.status !== 'NEWLY_CREATED')
-    : allContracts
+  const visibleContracts =
+    userRole === 'CUSTOMER'
+      ? allContracts.filter((c) => c.status !== 'NEWLY_CREATED')
+      : allContracts
 
   // Group contracts by status
   const contractsByStatus = useMemo(() => {
-    // Helper function to check if contract has available credits
     const hasAvailableCredits = (contract: Contract) => {
-      const hasCreditsField = contract.kind === 'PT' || contract.kind === 'REHAB'
-      if (!hasCreditsField) return true // PT_MONTHLY contracts always have "available credits"
-
-      if (!contract.credits) return false // No credits assigned
-
+      const hasCreditsField =
+        contract.kind === 'PT' || contract.kind === 'REHAB'
+      if (!hasCreditsField) return true
+      if (!contract.credits) return false
       const usedCredits = contract.used_credits || 0
       return usedCredits < contract.credits
     }
 
     return {
       all: visibleContracts,
-      // Active: ACTIVE status AND has available credits
-      active: visibleContracts.filter(c =>
-        c.status === 'ACTIVE' && hasAvailableCredits(c)
+      active: visibleContracts.filter(
+        (c) => c.status === 'ACTIVE' && hasAvailableCredits(c)
       ),
-      pending: visibleContracts.filter(c =>
-        c.status === 'NEWLY_CREATED' ||
-        c.status === 'CUSTOMER_REVIEW' ||
-        c.status === 'CUSTOMER_CONFIRMED'
+      pending: visibleContracts.filter(
+        (c) =>
+          c.status === 'NEWLY_CREATED' ||
+          c.status === 'CUSTOMER_REVIEW' ||
+          c.status === 'CUSTOMER_CONFIRMED'
       ),
-      // Inactive: EXPIRED, CANCELED, or ACTIVE with exhausted credits
-      inactive: visibleContracts.filter(c =>
-        c.status === 'EXPIRED' ||
-        c.status === 'CANCELED' ||
-        (c.status === 'ACTIVE' && !hasAvailableCredits(c))
-      )
+      inactive: visibleContracts.filter(
+        (c) =>
+          c.status === 'EXPIRED' ||
+          c.status === 'CANCELED' ||
+          (c.status === 'ACTIVE' && !hasAvailableCredits(c))
+      ),
     }
   }, [visibleContracts])
 
-  const filteredContracts = contractsByStatus[activeTab as keyof typeof contractsByStatus] || []
+  const filteredContracts =
+    contractsByStatus[activeTab as keyof typeof contractsByStatus] || []
 
-  const tabItems = [
-    {
-      key: 'all',
-      label: (
-        <span className="flex items-center gap-2">
-          <FilterOutlined />
-          All
-          <Badge count={contractsByStatus.all.length} showZero style={{ backgroundColor: '#6b7280' }} />
-        </span>
-      )
+  const emptyMessages: Record<string, { title: string; subtitle: string }> = {
+    all: {
+      title: 'No contracts found',
+      subtitle: 'Create your first contract to get started',
     },
-    {
-      key: 'active',
-      label: (
-        <span className="flex items-center gap-2">
-          <CheckCircleOutlined />
-          Active
-          <Badge count={contractsByStatus.active.length} showZero style={{ backgroundColor: '#10b981' }} />
-        </span>
-      )
+    active: {
+      title: 'No active contracts',
+      subtitle: 'Active contracts will appear here',
     },
-    {
-      key: 'pending',
-      label: (
-        <span className="flex items-center gap-2">
-          <ClockCircleOutlined />
-          Pending
-          <Badge count={contractsByStatus.pending.length} showZero style={{ backgroundColor: '#FAAC68' }} />
-        </span>
-      )
+    pending: {
+      title: 'No pending contracts',
+      subtitle: 'Contracts awaiting review will appear here',
     },
-    {
-      key: 'inactive',
-      label: (
-        <span className="flex items-center gap-2">
-          <StopOutlined />
-          Inactive
-          <Badge count={contractsByStatus.inactive.length} showZero style={{ backgroundColor: '#ef4444' }} />
-        </span>
-      )
-    }
-  ]
+    inactive: {
+      title: 'No inactive contracts',
+      subtitle: 'Expired or canceled contracts will appear here',
+    },
+  }
 
   return (
     <div className="pb-6">
+      {/* Header */}
+      <div className="px-4 pt-5 pb-2">
+        <h1 className="text-xl font-bold text-foreground mb-1">Contracts</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage and track all your contracts
+        </p>
+      </div>
+
       {/* Create Contract Button - ADMIN/STAFF only */}
       {isStaffOrAdmin && (
-        <div className="px-4 mt-4">
+        <div className="px-4 mt-3 mb-4 animate-slide-up">
           <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            size="large"
-            block
             onClick={() => setCreateModalOpen(true)}
+            className="w-full h-12 text-sm font-semibold"
           >
-            Create Contract
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Contract
           </Button>
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 mb-5 mt-4 animate-fade-in px-4">
-        <Card className="!border-0 shadow-sm" styles={{ body: { padding: '12px' } }}>
-          <Text className="text-[10px] text-gray-500 block mb-1">Total</Text>
-          <Text strong className="text-xl block leading-none">{contractsByStatus.all.length}</Text>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-3 gap-2 px-4 mt-3 mb-5 animate-fade-in">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-[10px] text-muted-foreground mb-0.5">Total</p>
+            <p className="text-xl font-bold text-foreground leading-none tabular-nums">
+              {contractsByStatus.all.length}
+            </p>
+          </CardContent>
         </Card>
-        <Card className="!border-0 shadow-sm bg-gradient-to-br from-green-50 to-emerald-50" styles={{ body: { padding: '12px' } }}>
-          <Text className="text-[10px] text-green-600 block mb-1 font-medium">Active</Text>
-          <Text strong className="text-xl block text-green-600 leading-none">{contractsByStatus.active.length}</Text>
+
+        <Card className="bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30">
+          <CardContent className="p-3">
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mb-0.5">
+              Active
+            </p>
+            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none tabular-nums">
+              {contractsByStatus.active.length}
+            </p>
+          </CardContent>
         </Card>
-        <Card className="!border-0 shadow-sm bg-gradient-to-br from-orange-50 to-amber-50" styles={{ body: { padding: '12px' } }}>
-          <Text className="text-[10px] text-orange-600 block mb-1 font-medium">Pending</Text>
-          <Text strong className="text-xl block text-orange-600 leading-none">{contractsByStatus.pending.length}</Text>
+
+        <Card className="bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-800/30">
+          <CardContent className="p-3">
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mb-0.5">
+              Pending
+            </p>
+            <p className="text-xl font-bold text-amber-600 dark:text-amber-400 leading-none tabular-nums">
+              {contractsByStatus.pending.length}
+            </p>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Tabs for filtering */}
-      <div className="mb-3 px-4">
+      {/* Filter Tabs */}
+      <div className="px-4 mb-4">
         <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabItems}
-          className="modern-tabs"
-        />
+          value={activeTab}
+          onValueChange={(val) => setActiveTab(val as string)}
+        >
+          <TabsList className="w-full grid grid-cols-4 h-9">
+            <TabsTrigger value="all" className="text-xs">
+              All
+              <span className="ml-1 text-[10px] opacity-60">
+                {contractsByStatus.all.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="active" className="text-xs">
+              Active
+              <span className="ml-1 text-[10px] opacity-60">
+                {contractsByStatus.active.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs">
+              Pending
+              <span className="ml-1 text-[10px] opacity-60">
+                {contractsByStatus.pending.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="inactive" className="text-xs">
+              Inactive
+              <span className="ml-1 text-[10px] opacity-60">
+                {contractsByStatus.inactive.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Contracts List */}
       <div className="px-4">
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Spin size="large" />
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Skeleton className="w-10 h-10 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : filteredContracts.length === 0 ? (
-          <Card className="!border-2 !border-dashed">
-            <Empty
-              description={
-                <div className="py-6">
-                  <Text className="text-gray-500 block mb-3 text-base font-medium">No contracts in this category</Text>
-                  <Text type="secondary" className="text-sm">
-                    {activeTab === 'active' && 'No active contracts at the moment'}
-                    {activeTab === 'pending' && 'No pending contracts to review'}
-                    {activeTab === 'inactive' && 'No expired or canceled contracts'}
-                    {activeTab === 'all' && 'No contracts found'}
-                  </Text>
-                </div>
-              }
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <Inbox className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                {emptyMessages[activeTab]?.title || 'No contracts'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {emptyMessages[activeTab]?.subtitle || ''}
+              </p>
+            </CardContent>
           </Card>
         ) : (
           <>
@@ -210,12 +266,19 @@ export default function ContractsPage() {
             {hasNextPage && (
               <div className="flex justify-center mt-6">
                 <Button
-                  size="large"
+                  variant="outline"
                   onClick={() => fetchNextPage()}
-                  loading={isFetchingNextPage}
-                  className="min-w-[180px]"
+                  disabled={isFetchingNextPage}
+                  className="min-w-[180px] h-11"
                 >
-                  Load More
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More'
+                  )}
                 </Button>
               </div>
             )}
@@ -231,4 +294,3 @@ export default function ContractsPage() {
     </div>
   )
 }
-

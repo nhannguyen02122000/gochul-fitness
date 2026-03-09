@@ -21,19 +21,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const queryClient = useQueryClient()
   const { isSignedIn } = useAuth()
 
-  // Check if user needs onboarding (only when signed in)
-  console.log('isSignedIn', isSignedIn)
   const { data: checkData } = useCheckUserSetting(!!isSignedIn)
   const needsOnboarding = isSignedIn && checkData && 'exists' in checkData && !checkData.exists
 
   const handleOnboardingComplete = () => {
-    // Invalidate the check query to refetch user setting status
     queryClient.invalidateQueries({ queryKey: userOnboardingKeys.check() })
   }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden w-full">
-      {/* Onboarding Modal - shown when user needs to complete profile */}
       <OnboardingModal
         open={!!needsOnboarding}
         onComplete={handleOnboardingComplete}
@@ -42,7 +38,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <TopBar />
       <main
         ref={mainRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden bg-[#f8f9fa] w-full"
+        className="flex-1 overflow-y-auto overflow-x-hidden bg-background w-full"
         style={{ paddingBottom: '120px' }}
       >
         <PullToRefresh scrollContainerRef={mainRef}>
@@ -56,4 +52,3 @@ export default function MainLayout({ children }: MainLayoutProps) {
     </div>
   )
 }
-

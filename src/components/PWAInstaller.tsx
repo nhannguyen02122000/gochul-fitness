@@ -2,42 +2,37 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Button, message } from 'antd'
-import { DownloadOutlined, CloseOutlined } from '@ant-design/icons'
+import { Download, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 export default function PWAInstaller() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
   const [showInstall, setShowInstall] = useState(false)
 
   useEffect(() => {
-    // Skip service worker registration on localhost
-    const isLocalhost = 
+    const isLocalhost =
       window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1' ||
       window.location.hostname === '[::1]' ||
       window.location.hostname.includes('localhost')
 
     if (isLocalhost) {
-      // Unregister any existing service workers on localhost
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then((registrations) => {
           registrations.forEach((registration) => {
             registration.unregister()
-            console.log('[PWA] Service worker unregistered on localhost')
           })
         })
-        // Clear all caches on localhost
         caches.keys().then((names) => {
           names.forEach((name) => {
             caches.delete(name)
-            console.log('[PWA] Cache deleted on localhost:', name)
           })
         })
       }
       return
     }
 
-    // Register service worker only in production
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker
@@ -51,12 +46,10 @@ export default function PWAInstaller() {
       })
     }
 
-    // Listen for install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      
-      // Check if user has dismissed the install prompt before
+
       const dismissed = localStorage.getItem('pwa-install-dismissed')
       if (!dismissed) {
         setShowInstall(true)
@@ -65,11 +58,10 @@ export default function PWAInstaller() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
 
-    // Hide install prompt if already installed
     window.addEventListener('appinstalled', () => {
       setShowInstall(false)
       setDeferredPrompt(null)
-      message.success('App installed successfully!')
+      toast.success('App installed successfully!')
     })
 
     return () => {
@@ -82,13 +74,11 @@ export default function PWAInstaller() {
 
     deferredPrompt.prompt()
     const { outcome } = await deferredPrompt.userChoice
-    
+
     if (outcome === 'accepted') {
       console.log('User accepted the install prompt')
-    } else {
-      console.log('User dismissed the install prompt')
     }
-    
+
     setDeferredPrompt(null)
     setShowInstall(false)
   }
@@ -102,33 +92,33 @@ export default function PWAInstaller() {
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 animate-slide-up">
-      <div className="bg-white rounded-2xl shadow-2xl p-4 border-2 border-[#FA6868]/20">
+      <div className="bg-white rounded-xl shadow-2xl p-4 border border-border">
         <div className="flex items-start gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-[#FA6868] to-[#FAAC68] rounded-xl flex items-center justify-center shrink-0">
-            <DownloadOutlined className="text-white text-xl" />
+          <div className="w-11 h-11 bg-[var(--color-cta)] rounded-lg flex items-center justify-center shrink-0">
+            <Download className="h-5 w-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-bold text-gray-900 mb-1">
+            <h3 className="text-sm font-semibold text-foreground mb-0.5">
               Install GoChul Fitness
             </h3>
-            <p className="text-sm text-gray-600 mb-3">
-              Install our app for quick access and offline features!
+            <p className="text-xs text-muted-foreground mb-3">
+              Install for quick access and offline features
             </p>
             <div className="flex gap-2">
               <Button
-                type="primary"
-                size="large"
-                icon={<DownloadOutlined />}
+                size="sm"
                 onClick={handleInstallClick}
-                className="flex-1"
+                className="flex-1 bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
               >
+                <Download className="h-4 w-4 mr-1.5" />
                 Install
               </Button>
               <Button
-                size="large"
-                icon={<CloseOutlined />}
+                variant="outline"
+                size="sm"
                 onClick={handleDismiss}
               >
+                <X className="h-4 w-4 mr-1" />
                 Not Now
               </Button>
             </div>
@@ -138,4 +128,3 @@ export default function PWAInstaller() {
     </div>
   )
 }
-

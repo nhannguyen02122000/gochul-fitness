@@ -1,303 +1,225 @@
 // src/components/modals/SessionHistoryModal.tsx
 'use client'
 
-import { Modal, List, Typography, Tag, Empty, Alert, Button, Skeleton, Card, Space } from 'antd'
-import { CalendarOutlined, ClockCircleOutlined, CrownOutlined, HeartOutlined, ThunderboltOutlined, TrophyOutlined } from '@ant-design/icons'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Separator } from '@/components/ui/separator'
+import { Calendar, Clock, Crown, Heart, Zap, Trophy, AlertCircle } from 'lucide-react'
 import type { ContractKind, History } from '@/app/type/api'
 import { useContractHistory } from '@/hooks/useHistory'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatTimeRange } from '@/utils/timeUtils'
 import { useMemo, useState, useEffect } from 'react'
-
-const { Text, Title } = Typography
+import { cn } from '@/lib/utils'
 
 interface SessionHistoryModalProps {
-    open: boolean
-    onClose: () => void
-    contractId: string
-    contractKind: ContractKind
-    totalCredits?: number
-    usedCredits?: number
+  open: boolean
+  onClose: () => void
+  contractId: string
+  contractKind: ContractKind
+  totalCredits?: number
+  usedCredits?: number
+}
+
+const kindConfig: Record<string, { label: string; icon: typeof Crown; color: string; bg: string }> = {
+  'PT': { label: 'Personal Training', icon: Crown, color: 'text-violet-700', bg: 'bg-violet-50' },
+  'REHAB': { label: 'Rehabilitation', icon: Heart, color: 'text-cyan-700', bg: 'bg-cyan-50' },
+  'PT_MONTHLY': { label: 'PT Monthly', icon: Zap, color: 'text-orange-700', bg: 'bg-orange-50' },
 }
 
 export default function SessionHistoryModal({
-    open,
-    onClose,
-    contractId,
-    contractKind,
-    totalCredits,
-    usedCredits
+  open,
+  onClose,
+  contractId,
+  contractKind,
+  totalCredits,
+  usedCredits
 }: SessionHistoryModalProps) {
-    const { data, isLoading, error, refetch } = useContractHistory(open ? contractId : undefined)
-    const [currentTime, setCurrentTime] = useState(() => Date.now())
+  const { data, isLoading, error, refetch } = useContractHistory(open ? contractId : undefined)
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
 
-    // Update current time every minute to keep upcoming status accurate
-    useEffect(() => {
-        if (!open) return
+  useEffect(() => {
+    if (!open) return
+    const interval = setInterval(() => setCurrentTime(Date.now()), 60000)
+    return () => clearInterval(interval)
+  }, [open])
 
-        const interval = setInterval(() => {
-            setCurrentTime(Date.now())
-        }, 60000) // Update every minute
+  const kind = kindConfig[contractKind] || { label: contractKind, icon: Trophy, color: 'text-zinc-700', bg: 'bg-zinc-50' }
+  const KindIcon = kind.icon
 
-        return () => clearInterval(interval)
-    }, [open])
+  const history: History[] = (data && 'history' in data) ? data.history : []
+  const contract = (data && 'contract' in data) ? data.contract : null
+  const hasCredits = contractKind === 'PT' || contractKind === 'REHAB'
 
-    const kindLabels: Record<string, { label: string; icon: typeof CrownOutlined; color: string; bgColor: string; gradient: string }> = {
-        'PT': {
-            label: 'Personal Training',
-            icon: CrownOutlined,
-            color: '#9333ea',
-            bgColor: '#f3e8ff',
-            gradient: 'linear-gradient(135deg, #9333ea 0%, #ec4899 100%)'
-        },
-        'REHAB': {
-            label: 'Rehabilitation',
-            icon: HeartOutlined,
-            color: '#0ea5e9',
-            bgColor: '#e0f2fe',
-            gradient: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)'
-        },
-        'PT_MONTHLY': {
-            label: 'PT Monthly',
-            icon: ThunderboltOutlined,
-            color: '#f97316',
-            bgColor: '#ffedd5',
-            gradient: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)'
-        }
-    }
+  const stats = useMemo(() => {
+    const completed = history.filter((h) => h.status === 'PT_CHECKED_IN' || h.status === 'USER_CHECKED_IN').length
+    const upcoming = history.filter((h) => {
+      const sessionDateTime = h.date + (h.from * 60 * 1000)
+      return sessionDateTime > currentTime && h.status !== 'CANCELED' && h.status !== 'EXPIRED'
+    }).length
+    const remaining = hasCredits && totalCredits ? totalCredits - (usedCredits || 0) : 0
+    return { completed, upcoming, remaining }
+  }, [history, hasCredits, totalCredits, usedCredits, currentTime])
 
-    const kindInfo = kindLabels[contractKind] || {
-        label: contractKind,
-        icon: TrophyOutlined,
-        color: '#6b7280',
-        bgColor: '#f3f4f6',
-        gradient: 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)'
-    }
-    const KindIcon = kindInfo.icon
+  const isUpcoming = (sessionDate: number, sessionFrom: number, status: string): boolean => {
+    const sessionDateTime = sessionDate + (sessionFrom * 60 * 1000)
+    return sessionDateTime > currentTime && status !== 'CANCELED' && status !== 'EXPIRED'
+  }
 
-    const history: History[] = (data && 'history' in data) ? data.history : []
-    const contract = (data && 'contract' in data) ? data.contract : null
-    const hasCredits = contractKind === 'PT' || contractKind === 'REHAB'
-
-    // Calculate summary statistics
-    const stats = useMemo(() => {
-        const completed = history.filter((h: History) => h.status === 'PT_CHECKED_IN' || h.status === 'USER_CHECKED_IN').length
-        const upcoming = history.filter((h: History) => {
-            const sessionDateTime = h.date + (h.from * 60 * 1000)
-            return sessionDateTime > currentTime && h.status !== 'CANCELED' && h.status !== 'EXPIRED'
-        }).length
-        const remaining = hasCredits && totalCredits ? totalCredits - (usedCredits || 0) : 0
-
-        return { completed, upcoming, remaining }
-    }, [history, hasCredits, totalCredits, usedCredits, currentTime])
-
-    // Helper function to check if session is upcoming
-    const isUpcoming = (sessionDate: number, sessionFrom: number, status: string): boolean => {
-        const sessionDateTime = sessionDate + (sessionFrom * 60 * 1000)
-        return sessionDateTime > currentTime && status !== 'CANCELED' && status !== 'EXPIRED'
-    }
-
-    return (
-        <Modal
-            open={open}
-            onCancel={onClose}
-            footer={null}
-            width={600}
-            centered
-            destroyOnClose
-            className="session-history-modal"
-            styles={{
-                body: { padding: 0, maxHeight: '70vh', overflow: 'hidden' }
-            }}
-        >
-            {/* Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-                <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: kindInfo.gradient }}
-                >
-                    <KindIcon className="text-white text-lg" />
-                </div>
-                <div className="flex-1">
-                    <Title level={4} className="!mb-0">Session History</Title>
-                    <Text type="secondary" className="text-xs">{kindInfo.label}</Text>
-                </div>
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
+        {/* Header */}
+        <DialogHeader className="px-5 pt-5 pb-3">
+          <div className="flex items-center gap-3">
+            <div className={cn('w-9 h-9 rounded-md flex items-center justify-center', kind.bg)}>
+              <KindIcon className={cn('h-4 w-4', kind.color)} />
             </div>
+            <div>
+              <DialogTitle>Session History</DialogTitle>
+              <DialogDescription>{kind.label}</DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
 
-            {/* Contract Info Card */}
-            <div className="p-4 pb-0">
-                <Card
-                    className="mb-4"
-                    style={{ background: kindInfo.bgColor, borderColor: kindInfo.color + '20' }}
-                >
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <Text strong className="text-base block mb-1">{kindInfo.label}</Text>
-                            <StatusBadge status={contract?.status || 'ACTIVE'} type="contract" />
-                        </div>
-                        {hasCredits && totalCredits !== undefined && (
-                            <div className="text-right">
-                                <Title level={3} className="!mb-0" style={{ color: kindInfo.color }}>
-                                    {usedCredits || 0} / {totalCredits}
-                                </Title>
-                                <Text type="secondary" className="text-xs">sessions completed</Text>
-                            </div>
-                        )}
+        {/* Credits overview */}
+        {hasCredits && totalCredits !== undefined && (
+          <div className={cn('mx-5 mb-3 rounded-md px-4 py-3 flex items-center justify-between', kind.bg)}>
+            <div>
+              <p className="text-sm font-medium text-foreground">{kind.label}</p>
+              {contract && <StatusBadge status={contract.status} type="contract" />}
+            </div>
+            <div className="text-right">
+              <p className={cn('text-xl font-bold', kind.color)}>
+                {usedCredits || 0} / {totalCredits}
+              </p>
+              <p className="text-[11px] text-muted-foreground">sessions completed</p>
+            </div>
+          </div>
+        )}
+
+        {/* Session list */}
+        <div className="flex-1 overflow-y-auto px-5 pb-3 min-h-0">
+          {isLoading && (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex gap-3 p-3 rounded-md border border-border">
+                  <Skeleton className="w-12 h-12 rounded-md" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <div className="text-center py-8 space-y-3">
+              <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
+              <p className="text-sm text-destructive">{error.message}</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+            </div>
+          )}
+
+          {!isLoading && !error && history.length === 0 && (
+            <div className="text-center py-10">
+              <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground mb-1">No sessions yet</p>
+              <p className="text-xs text-muted-foreground">Sessions for this contract will appear here</p>
+            </div>
+          )}
+
+          {!isLoading && !error && history.length > 0 && (
+            <div className="space-y-2">
+              {history.map((session, index) => {
+                const upcoming = isUpcoming(session.date, session.from, session.status)
+                const dateObj = new Date(session.date)
+                const monthStr = dateObj.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
+                const dayStr = dateObj.getDate()
+                const fullDate = dateObj.toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })
+
+                return (
+                  <div
+                    key={session.id}
+                    className={cn(
+                      'flex items-start gap-3 p-3 rounded-md border transition-colors',
+                      upcoming ? 'border-[var(--color-cta)]/20 bg-blue-50/50' : 'border-border bg-white'
+                    )}
+                    style={{ animationDelay: `${index * 40}ms` }}
+                  >
+                    {/* Date badge */}
+                    <div className={cn(
+                      'w-11 h-11 rounded-md flex flex-col items-center justify-center shrink-0',
+                      upcoming ? kind.bg : 'bg-muted'
+                    )}>
+                      <span className={cn('text-[9px] font-medium', upcoming ? kind.color : 'text-muted-foreground')}>
+                        {monthStr}
+                      </span>
+                      <span className={cn('text-base font-bold leading-none', upcoming ? kind.color : 'text-foreground')}>
+                        {dayStr}
+                      </span>
                     </div>
-                </Card>
-            </div>
 
-            {/* Session List */}
-            <div className="px-4 pb-4" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {/* Loading State */}
-                {isLoading && (
-                    <div className="space-y-3">
-                        {[1, 2, 3].map(i => (
-                            <Card key={i} className="rounded-xl">
-                                <Skeleton active avatar paragraph={{ rows: 2 }} />
-                            </Card>
-                        ))}
-                    </div>
-                )}
-
-                {/* Error State */}
-                {error && (
-                    <Alert
-                        type="error"
-                        message="Failed to load session history"
-                        description={error.message}
-                        showIcon
-                        action={
-                            <Button size="small" danger onClick={() => refetch()}>
-                                Retry
-                            </Button>
-                        }
-                    />
-                )}
-
-                {/* Empty State */}
-                {!isLoading && !error && history.length === 0 && (
-                    <Empty
-                        image={<CalendarOutlined style={{ fontSize: 64, color: '#d1d5db' }} />}
-                        description={
-                            <div>
-                                <Text className="text-base block mb-2">No sessions yet</Text>
-                                <Text type="secondary" className="text-sm">
-                                    Sessions for this contract will appear here
-                                </Text>
-                            </div>
-                        }
-                    />
-                )}
-
-                {/* Session List */}
-                {!isLoading && !error && history.length > 0 && (
-                    <List
-                        dataSource={history}
-                        renderItem={(session: History, index: number) => {
-                            const upcoming = isUpcoming(session.date, session.from, session.status)
-                            const sessionDate = new Date(session.date)
-                            const month = sessionDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase()
-                            const day = sessionDate.getDate()
-                            const fullDate = sessionDate.toLocaleDateString('en-US', {
-                                weekday: 'short',
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                            })
-
-                            return (
-                                <List.Item
-                                    key={session.id}
-                                    className="!border-0 !p-0 mb-3 animate-fade-in"
-                                    style={{
-                                        animationDelay: `${index * 50}ms`,
-                                        animationFillMode: 'backwards'
-                                    }}
-                                >
-                                    <Card
-                                        className="w-full rounded-xl hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
-                                        style={{
-                                            borderColor: upcoming ? kindInfo.color + '40' : '#f0f0f0',
-                                            background: upcoming ? kindInfo.bgColor : 'white'
-                                        }}
-                                    >
-                                        <div className="flex items-start gap-4">
-                                            {/* Date Display */}
-                                            <div
-                                                className="w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0"
-                                                style={{
-                                                    backgroundColor: upcoming ? kindInfo.color + '20' : '#f3f4f6',
-                                                    border: upcoming ? `2px solid ${kindInfo.color}40` : 'none'
-                                                }}
-                                            >
-                                                <Text
-                                                    className="text-xs font-medium leading-none"
-                                                    style={{ color: upcoming ? kindInfo.color : '#6b7280' }}
-                                                >
-                                                    {month}
-                                                </Text>
-                                                <Text
-                                                    strong
-                                                    className="text-2xl leading-none mt-1"
-                                                    style={{ color: upcoming ? kindInfo.color : '#111827' }}
-                                                >
-                                                    {day}
-                                                </Text>
-                                            </div>
-
-                                            {/* Session Details */}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <CalendarOutlined className="text-gray-400 text-sm" />
-                                                    <Text strong className="text-sm">{fullDate}</Text>
-                                                    {upcoming && (
-                                                        <Tag color="orange" className="ml-auto">Upcoming</Tag>
-                                                    )}
-                                                </div>
-
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <ClockCircleOutlined className="text-gray-400 text-sm" />
-                                                    <Text className="text-sm">{formatTimeRange(session.from, session.to)}</Text>
-                                                </div>
-
-                                                <div>
-                                                    <StatusBadge status={session.status} type="history" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Card>
-                                </List.Item>
-                            )
-                        }}
-                    />
-                )}
-            </div>
-
-            {/* Summary Footer */}
-            {!isLoading && !error && history.length > 0 && (
-                <div className="border-t border-gray-100 p-4 bg-gray-50 rounded-b-lg">
-                    <Title level={5} className="mb-3 text-sm">Summary</Title>
-                    <Space direction="vertical" size={8} className="w-full">
-                        <div className="flex justify-between items-center">
-                            <Text type="secondary" className="text-sm">Completed</Text>
-                            <Text strong className="text-sm">{stats.completed} sessions</Text>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <Text type="secondary" className="text-sm">Upcoming</Text>
-                            <Text strong className="text-sm">{stats.upcoming} sessions</Text>
-                        </div>
-                        {hasCredits && totalCredits !== undefined && (
-                            <div className="flex justify-between items-center">
-                                <Text type="secondary" className="text-sm">Remaining Credits</Text>
-                                <Text strong className="text-sm text-green-600">
-                                    {stats.remaining} credits
-                                </Text>
-                            </div>
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-foreground">{fullDate}</span>
+                        {upcoming && (
+                          <Badge variant="secondary" className="text-[9px] bg-amber-50 text-amber-700 px-1 py-0 h-4 border-0">
+                            Upcoming
+                          </Badge>
                         )}
-                    </Space>
+                      </div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{formatTimeRange(session.from, session.to)}</span>
+                      </div>
+                      <StatusBadge status={session.status} type="history" />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Summary footer */}
+        {!isLoading && !error && history.length > 0 && (
+          <div className="border-t border-border px-5 py-3 bg-muted/50">
+            <p className="text-xs font-semibold text-foreground mb-2">Summary</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-lg font-bold text-foreground">{stats.completed}</p>
+                <p className="text-[10px] text-muted-foreground">Completed</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-foreground">{stats.upcoming}</p>
+                <p className="text-[10px] text-muted-foreground">Upcoming</p>
+              </div>
+              {hasCredits && totalCredits !== undefined && (
+                <div>
+                  <p className="text-lg font-bold text-[var(--color-success)]">{stats.remaining}</p>
+                  <p className="text-[10px] text-muted-foreground">Remaining</p>
                 </div>
-            )}
-        </Modal>
-    )
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
 }

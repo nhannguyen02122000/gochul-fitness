@@ -1,5 +1,5 @@
 // src/utils/timeUtils.ts
-import dayjs from 'dayjs'
+import { format, differenceInHours, differenceInMinutes, differenceInDays } from 'date-fns'
 
 /**
  * Convert minutes from midnight to HH:mm format
@@ -27,11 +27,11 @@ export function timeToMinutes(time: string): number {
 /**
  * Format timestamp to readable date
  * @param timestamp - Unix timestamp in milliseconds
- * @param format - dayjs format string (default: "DD/MM/YYYY")
+ * @param formatStr - date-fns format string (default: "dd/MM/yyyy")
  * @returns Formatted date string
  */
-export function formatDate(timestamp: number, format: string = 'DD/MM/YYYY'): string {
-  return dayjs(timestamp).format(format)
+export function formatDate(timestamp: number, formatStr: string = 'dd/MM/yyyy'): string {
+  return format(new Date(timestamp), formatStr)
 }
 
 /**
@@ -40,7 +40,7 @@ export function formatDate(timestamp: number, format: string = 'DD/MM/YYYY'): st
  * @returns Formatted date and time string
  */
 export function formatDateTime(timestamp: number): string {
-  return dayjs(timestamp).format('DD/MM/YYYY HH:mm')
+  return format(new Date(timestamp), 'dd/MM/yyyy HH:mm')
 }
 
 /**
@@ -93,22 +93,22 @@ export function formatTimeRange(from: number, to: number): string {
  * @returns Relative time string (e.g., "2 hours ago", "in 3 days")
  */
 export function getRelativeTime(timestamp: number): string {
-  const now = dayjs()
-  const target = dayjs(timestamp)
-  const diffInHours = target.diff(now, 'hour')
-  const diffInDays = target.diff(now, 'day')
+  const now = new Date()
+  const target = new Date(timestamp)
+  const diffHours = differenceInHours(target, now)
+  const diffDays = differenceInDays(target, now)
 
-  if (Math.abs(diffInHours) < 24) {
-    if (diffInHours === 0) {
-      const diffInMinutes = target.diff(now, 'minute')
-      if (diffInMinutes === 0) return 'now'
-      return diffInMinutes > 0 ? `in ${diffInMinutes} minutes` : `${Math.abs(diffInMinutes)} minutes ago`
+  if (Math.abs(diffHours) < 24) {
+    if (diffHours === 0) {
+      const diffMins = differenceInMinutes(target, now)
+      if (diffMins === 0) return 'now'
+      return diffMins > 0 ? `in ${diffMins} minutes` : `${Math.abs(diffMins)} minutes ago`
     }
-    return diffInHours > 0 ? `in ${diffInHours} hours` : `${Math.abs(diffInHours)} hours ago`
+    return diffHours > 0 ? `in ${diffHours} hours` : `${Math.abs(diffHours)} hours ago`
   }
 
-  if (Math.abs(diffInDays) < 7) {
-    return diffInDays > 0 ? `in ${diffInDays} days` : `${Math.abs(diffInDays)} days ago`
+  if (Math.abs(diffDays) < 7) {
+    return diffDays > 0 ? `in ${diffDays} days` : `${Math.abs(diffDays)} days ago`
   }
 
   return formatDate(timestamp)
@@ -159,4 +159,3 @@ export function isSlotInPast(date: number, slotFrom: number): boolean {
   const slotStartTime = date + (slotFrom * 60 * 1000)
   return slotStartTime < Date.now()
 }
-
