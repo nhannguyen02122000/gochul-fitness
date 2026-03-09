@@ -6,8 +6,11 @@ import {
   ClerkProvider
 } from '@clerk/nextjs'
 import type { Metadata } from 'next'
-import { Noto_Sans } from 'next/font/google'
+import { Noto_Sans, Geist } from 'next/font/google'
 import './globals.css'
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const notoFont = Noto_Sans({
   subsets: ['latin']
@@ -58,7 +61,7 @@ export default function RootLayout({
       signInUrl={'/sign-in'}
     >
       <InstantDBAuthSync />
-      <html lang='en'>
+      <html lang='en' className={cn("font-sans", geist.variable)}>
         <body className={`${notoFont.className} antialiased`}>
           <ReactQueryProvider>
             <AntConfigProvider>

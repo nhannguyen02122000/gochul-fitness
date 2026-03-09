@@ -1,7 +1,7 @@
 // src/app/contracts/page.tsx
 'use client'
 
-import { Button, Empty, Spin, Typography, Select, Tabs, Badge, Card } from 'antd'
+import { Button, Empty, Spin, Typography, Tabs, Badge, Card } from 'antd'
 import { PlusOutlined, FilterOutlined, CheckCircleOutlined, ClockCircleOutlined, StopOutlined } from '@ant-design/icons'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import ContractCard from '@/components/cards/ContractCard'
@@ -31,9 +31,9 @@ export default function ContractsPage() {
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteContracts(10)
 
-  const isStaffOrAdmin = userInfo && 'role' in userInfo && (userInfo.role === 'ADMIN' || userInfo.role === 'STAFF')
   const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
   const userInstantId = userInfo && 'instantUser' in userInfo ? userInfo.instantUser?.[0]?.id : undefined
+  const isStaffOrAdmin = userRole === 'ADMIN' || userRole === 'STAFF'
 
   const allContracts = data?.pages.flatMap(page => 'contracts' in page ? page.contracts : []) || []
 
@@ -122,8 +122,23 @@ export default function ContractsPage() {
 
   return (
     <div className="pb-6">
+      {/* Create Contract Button - ADMIN/STAFF only */}
+      {isStaffOrAdmin && (
+        <div className="px-4 mt-4">
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            size="large"
+            block
+            onClick={() => setCreateModalOpen(true)}
+          >
+            Create Contract
+          </Button>
+        </div>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 mb-5 mt-5 animate-fade-in px-4">
+      <div className="grid grid-cols-3 gap-2 mb-5 mt-4 animate-fade-in px-4">
         <Card className="!border-0 shadow-sm" styles={{ body: { padding: '12px' } }}>
           <Text className="text-[10px] text-gray-500 block mb-1">Total</Text>
           <Text strong className="text-xl block leading-none">{contractsByStatus.all.length}</Text>
@@ -208,18 +223,7 @@ export default function ContractsPage() {
         )}
       </div>
 
-      {/* Floating Action Button for ADMIN/STAFF */}
-      {isStaffOrAdmin && (
-        <button
-          onClick={() => setCreateModalOpen(true)}
-          className="fab"
-          aria-label="Create Contract"
-        >
-          <PlusOutlined className="text-white text-2xl" />
-        </button>
-      )}
-
-      {/* Create Modal */}
+      {/* Create Contract Modal */}
       <CreateContractModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}

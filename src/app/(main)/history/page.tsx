@@ -3,8 +3,8 @@
 
 import type { GetUserInformationResponse } from '@/app/type/api'
 import SessionCard from '@/components/cards/SessionCard'
-import CreateSessionModal from '@/components/modals/CreateSessionModal'
 import { useInfiniteHistory } from '@/hooks/useHistory'
+import CreateSessionModal from '@/components/modals/CreateSessionModal'
 import { CalendarOutlined, CheckCircleOutlined, PlusOutlined, StopOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card, Empty, Tabs, Spin, Typography } from 'antd'
@@ -33,9 +33,6 @@ export default function HistoryPage() {
 
   const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
   const userInstantId = userInfo && 'instantUser' in userInfo ? userInfo.instantUser?.[0]?.id : undefined
-
-  // Allow CUSTOMER, ADMIN, and STAFF to create sessions
-  const canCreateSession = userRole && ['CUSTOMER', 'ADMIN', 'STAFF'].includes(userRole)
 
   const allHistory = data?.pages.flatMap(page => 'history' in page ? page.history : []) || []
 
@@ -154,10 +151,28 @@ export default function HistoryPage() {
     }
   ]
 
+  // All roles can create sessions
+  const canCreateSession = !!userRole
+
   return (
     <div className="pb-6">
+      {/* Create Session Button */}
+      {canCreateSession && (
+        <div className="px-4 mt-4">
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            size="large"
+            block
+            onClick={() => setCreateModalOpen(true)}
+          >
+            Create Session
+          </Button>
+        </div>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 mt-5 mb-5 animate-fade-in px-4">
+      <div className="grid grid-cols-3 gap-2 mt-4 mb-5 animate-fade-in px-4">
         <Card className="!border-0 shadow-sm" styles={{ body: { padding: '12px' } }}>
           <Text className="text-[10px] text-gray-500 block mb-1">Total</Text>
           <Text strong className="text-xl block leading-none">{categorizedSessions.all.length}</Text>
@@ -247,18 +262,7 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {/* Floating Action Button for CUSTOMER/ADMIN/STAFF */}
-      {canCreateSession && (
-        <button
-          onClick={() => setCreateModalOpen(true)}
-          className="fab"
-          aria-label="Create Session"
-        >
-          <PlusOutlined className="text-white text-2xl" />
-        </button>
-      )}
-
-      {/* Create Modal */}
+      {/* Create Session Modal */}
       <CreateSessionModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
