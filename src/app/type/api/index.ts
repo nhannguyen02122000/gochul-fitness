@@ -140,7 +140,16 @@ export type DeleteContractResponse = DeleteContractSuccessResponse | ApiErrorRes
 // /api/contract/getAll
 // ============================================================================
 
-export interface GetAllContractsRequest {
+export interface ContractFilters {
+    statuses?: ContractStatus[]
+    kind?: ContractKind
+    start_date?: number
+    end_date?: number
+    sale_by_name?: string
+    purchased_by_name?: string
+}
+
+export interface GetAllContractsRequest extends ContractFilters {
     page?: string | number
     limit?: string | number
 }

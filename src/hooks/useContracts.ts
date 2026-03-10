@@ -9,27 +9,56 @@ import type {
     UpdateContractRequest,
     UpdateContractResponse,
     UpdateContractStatusRequest,
-    UpdateContractStatusResponse
+    UpdateContractStatusResponse,
+    ContractFilters,
 } from '@/app/type/api'
 
 // Query Keys
 export const contractKeys = {
     all: ['contracts'] as const,
     lists: () => [...contractKeys.all, 'list'] as const,
-    list: (page?: number, limit?: number) =>
-        [...contractKeys.lists(), { page, limit }] as const,
+    list: (page?: number, limit?: number, filters?: ContractFilters) =>
+        [...contractKeys.lists(), { page, limit, filters }] as const,
     details: () => [...contractKeys.all, 'detail'] as const,
-    detail: (id: string) => [...contractKeys.details(), id] as const
+    detail: (id: string) => [...contractKeys.details(), id] as const,
 }
 
 // Fetch all contracts
 async function fetchContracts(
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    filters?: ContractFilters
 ): Promise<GetAllContractsResponse> {
-    const response = await fetch(
-        `/api/contract/getAll?page=${page}&limit=${limit}`
-    )
+    const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+    })
+
+    if (filters?.statuses && filters.statuses.length > 0) {
+        params.append('statuses', filters.statuses.join(','))
+    }
+
+    if (filters?.kind) {
+        params.append('kind', filters.kind)
+    }
+
+    if (filters?.start_date !== undefined) {
+        params.append('start_date', filters.start_date.toString())
+    }
+
+    if (filters?.end_date !== undefined) {
+        params.append('end_date', filters.end_date.toString())
+    }
+
+    if (filters?.sale_by_name?.trim()) {
+        params.append('sale_by_name', filters.sale_by_name.trim())
+    }
+
+    if (filters?.purchased_by_name?.trim()) {
+        params.append('purchased_by_name', filters.purchased_by_name.trim())
+    }
+
+    const response = await fetch(`/api/contract/getAll?${params.toString()}`)
     if (!response.ok) {
         throw new Error('Failed to fetch contracts')
     }
@@ -115,37 +144,20 @@ async function updateContractStatus(
  * @example
  * const { data, isLoading, error } = useContracts(1, 10)
  */
-export function useContracts(page: number = 1, limit: number = 10) {
+export function useContracts(page: number = 1, limit: number = 10, filters?: ContractFilters) {
     return useQuery({
-        queryKey: contractKeys.list(page, limit),
-        queryFn: () => fetchContracts(page, limit)
+        queryKey: contractKeys.list(page, limit, filters),
+        queryFn: () => fetchContracts(page, limit, filters)
     })
 }
 
 /**
  * Hook to fetch contracts with infinite scrolling
- * @example
- * const { 
- *   data, 
- *   isLoading, 
- *   error, 
- *   fetchNextPage, 
- *   hasNextPage, 
- *   isFetchingNextPage 
- * } = useInfiniteContracts(10)
- * 
- * // Access all contracts across pages:
- * const allContracts = data?.pages.flatMap(page => page.contracts) ?? []
- * 
- * // Load more:
- * <Button onClick={() => fetchNextPage()} disabled={!hasNextPage || isFetchingNextPage}>
- *   {isFetchingNextPage ? 'Loading...' : hasNextPage ? 'Load More' : 'No more data'}
- * </Button>
  */
-export function useInfiniteContracts(limit: number = 10) {
+export function useInfiniteContracts(limit: number = 10, filters?: ContractFilters) {
     return useInfiniteQuery({
-        queryKey: [...contractKeys.lists(), 'infinite', { limit }],
-        queryFn: ({ pageParam = 1 }) => fetchContracts(pageParam, limit),
+        queryKey: [...contractKeys.lists(), 'infinite', { limit, filters }],
+        queryFn: ({ pageParam = 1 }) => fetchContracts(pageParam, limit, filters),
         getNextPageParam: (lastPage) => {
             // Check if there are more pages to load
             if ('pagination' in lastPage && lastPage.pagination.hasMore) {
@@ -159,9 +171,6 @@ export function useInfiniteContracts(limit: number = 10) {
 
 /**
  * Hook to create a new contract
- * @example
- * const { mutate, isPending } = useCreateContract()
- * mutate({ kind: 'PT', status: 'ACTIVE', money: 5000 })
  */
 export function useCreateContract() {
     const queryClient = useQueryClient()
@@ -177,9 +186,6 @@ export function useCreateContract() {
 
 /**
  * Hook to update an existing contract
- * @example
- * const { mutate, isPending } = useUpdateContract()
- * mutate({ contract_id: '123', status: 'COMPLETED' })
  */
 export function useUpdateContract() {
     const queryClient = useQueryClient()
@@ -195,9 +201,6 @@ export function useUpdateContract() {
 
 /**
  * Hook to delete a contract
- * @example
- * const { mutate, isPending } = useDeleteContract()
- * mutate({ contract_id: '123' })
  */
 export function useDeleteContract() {
     const queryClient = useQueryClient()
@@ -213,9 +216,6 @@ export function useDeleteContract() {
 
 /**
  * Hook to update contract status
- * @example
- * const { mutate, isPending } = useUpdateContractStatus()
- * mutate({ contract_id: '123', status: 'CUSTOMER_REVIEW' })
  */
 export function useUpdateContractStatus() {
     const queryClient = useQueryClient()
@@ -228,4 +228,3 @@ export function useUpdateContractStatus() {
         }
     })
 }
-

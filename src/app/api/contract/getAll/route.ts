@@ -2,11 +2,54 @@
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
-import type { History } from '@/app/type/api'
+import type { ContractStatus, ContractKind } from '@/app/type/api'
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+const CONTRACT_STATUS_VALUES: ContractStatus[] = [
+  'NEWLY_CREATED',
+  'CUSTOMER_REVIEW',
+  'CUSTOMER_CONFIRMED',
+  'ACTIVE',
+  'CANCELED',
+  'EXPIRED'
+]
+
+const CONTRACT_KIND_VALUES: ContractKind[] = ['PT', 'REHAB', 'PT_MONTHLY']
+
+type FilterWhereValue =
+  | string
+  | number
+  | boolean
+  | {
+    $in?: string[]
+    $gte?: number
+    $lte?: number
+  }
+
+type ContractWhere = Record<string, FilterWhereValue>
+
+function normalizeKeyword(value: string | null): string {
+  return (value || '').trim().toLowerCase()
+}
+
+function getFullName(firstName?: string, lastName?: string): string {
+  return [firstName, lastName].filter(Boolean).join(' ').trim().toLowerCase()
+}
+
+function parsePositiveInt(value: string | null, fallback: number): number {
+  const parsed = Number.parseInt(value || '', 10)
+  if (Number.isNaN(parsed) || parsed <= 0) return fallback
+  return parsed
+}
+
+function parseTimestamp(value: string | null): number | null {
+  if (!value) return null
+  const parsed = Number.parseInt(value, 10)
+  return Number.isNaN(parsed) ? null : parsed
+}
 
 export async function GET(request: Request) {
   try {
@@ -20,11 +63,47 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get pagination parameters from query string
+    // Get pagination and filter parameters from query string
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const page = parsePositiveInt(searchParams.get('page'), 1)
+    const limit = parsePositiveInt(searchParams.get('limit'), 10)
     const offset = (page - 1) * limit
+
+    const statusesParam = searchParams.get('statuses')
+    const kindParam = searchParams.get('kind')
+    const startDateParam = searchParams.get('start_date')
+    const endDateParam = searchParams.get('end_date')
+    const saleByNameParam = searchParams.get('sale_by_name')
+    const purchasedByNameParam = searchParams.get('purchased_by_name')
+
+    const statusesFilter = statusesParam
+      ? statusesParam
+        .split(',')
+        .map((status) => status.trim())
+        .filter(Boolean) as ContractStatus[]
+      : []
+
+    if (statusesFilter.some((status) => !CONTRACT_STATUS_VALUES.includes(status))) {
+      return NextResponse.json(
+        { error: 'Invalid statuses filter' },
+        { status: 400 }
+      )
+    }
+
+    const kindFilterRaw = kindParam?.trim()
+    const kindFilter = kindFilterRaw
+      ? (kindFilterRaw as ContractKind)
+      : undefined
+
+    if (kindFilter && !CONTRACT_KIND_VALUES.includes(kindFilter)) {
+      return NextResponse.json(
+        { error: 'Invalid kind filter' },
+        { status: 400 }
+      )
+    }
+
+    const startDate = parseTimestamp(startDateParam)
+    const endDate = parseTimestamp(endDateParam)
 
     // Get user settings to check role
     const userData = await instantServer.query({
@@ -58,136 +137,150 @@ export async function GET(request: Request) {
 
     const role = userSetting.role
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let contracts: any[] = []
+    // Build contract where clause (DB-level filtering)
+    const contractWhere: ContractWhere = {}
 
-    // Role-based query
-    if (role === 'ADMIN') {
-      // ADMIN: Get all contracts
-      const data = await instantServer.query({
-        contract: {
-          $: {
-            limit: limit + 1, // Fetch one extra to check if there are more
-            offset: offset
-          },
-          users: {}, // Customer who owns the contract
-          sale_by_user: {
-            user_setting: {} // Get user_setting for sales person
-          }, // Staff who sold the contract
-          purchased_by_user: {
-            user_setting: {} // Get user_setting for customer
-          }, // User who purchased the contract
-          history: {}
-        }
-      })
-      contracts = data.contract || []
-
-    } else if (role === 'STAFF') {
-      // STAFF: Get only contracts they sold
-      const data = await instantServer.query({
-        contract: {
-          $: {
-            where: {
-              sale_by: userInstantId
-            },
-            limit: limit + 1, // Fetch one extra to check if there are more
-            offset: offset
-          },
-          users: {}, // Customer who owns the contract
-          sale_by_user: {
-            user_setting: {} // Get user_setting for sales person
-          }, // Staff who sold the contract (themselves)
-          purchased_by_user: {
-            user_setting: {} // Get user_setting for customer
-          }, // User who purchased the contract
-          history: {}
-        }
-      })
-      contracts = data.contract || []
-
+    // Role scope
+    if (role === 'STAFF') {
+      contractWhere.sale_by = userInstantId
     } else if (role === 'CUSTOMER') {
-      // CUSTOMER: Get only their own contracts (where they are the purchaser)
-      const data = await instantServer.query({
-        contract: {
-          $: {
-            where: {
-              purchased_by: userInstantId
-            },
-            limit: limit + 1, // Fetch one extra to check if there are more
-            offset: offset
-          },
-          users: {}, // Customer who owns the contract
-          sale_by_user: {
-            user_setting: {} // Get user_setting for sales person
-          }, // Staff who sold the contract
-          purchased_by_user: {
-            user_setting: {} // Get user_setting for customer
-          }, // User who purchased the contract
-          history: {}
-        }
-      })
-      contracts = data.contract || []
-
-    } else {
+      contractWhere.purchased_by = userInstantId
+    } else if (role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Invalid role' },
         { status: 403 }
       )
     }
 
-    // Check if there are more pages (we fetched limit + 1)
+    // Basic filters
+    if (kindFilter) {
+      contractWhere.kind = kindFilter
+    }
+
+    if (statusesFilter.length === 1) {
+      contractWhere.status = statusesFilter[0]
+    } else if (statusesFilter.length > 1) {
+      contractWhere.status = { $in: statusesFilter }
+    }
+
+    if (startDate !== null || endDate !== null) {
+      const createdAtRange: { $gte?: number; $lte?: number } = {}
+      if (startDate !== null) createdAtRange.$gte = startDate
+      if (endDate !== null) createdAtRange.$lte = endDate
+      contractWhere.created_at = createdAtRange
+    }
+
+    // Name filters -> resolve to user IDs, then apply as DB-level id filters
+    const saleByKeyword = normalizeKeyword(saleByNameParam)
+    const purchasedByKeyword = normalizeKeyword(purchasedByNameParam)
+
+    const shouldResolveSaleByIds =
+      saleByKeyword.length > 0 && (role === 'ADMIN' || role === 'CUSTOMER')
+    const shouldResolvePurchasedByIds =
+      purchasedByKeyword.length > 0 && (role === 'ADMIN' || role === 'STAFF')
+
+    if (shouldResolveSaleByIds || shouldResolvePurchasedByIds) {
+      const userSettingsData = await instantServer.query({
+        user_setting: {
+          users: {}
+        }
+      })
+
+      const saleByIds: string[] = []
+      const purchasedByIds: string[] = []
+
+      userSettingsData.user_setting.forEach((setting) => {
+        const id = setting.users?.[0]?.id
+        if (!id) return
+
+        const fullName = getFullName(setting.first_name, setting.last_name)
+
+        if (shouldResolveSaleByIds && fullName.includes(saleByKeyword)) {
+          saleByIds.push(id)
+        }
+
+        if (
+          shouldResolvePurchasedByIds &&
+          fullName.includes(purchasedByKeyword)
+        ) {
+          purchasedByIds.push(id)
+        }
+      })
+
+      if (shouldResolveSaleByIds) {
+        if (saleByIds.length === 0) {
+          return NextResponse.json({
+            contracts: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              hasMore: false
+            },
+            role
+          })
+        }
+        contractWhere.sale_by = { $in: saleByIds }
+      }
+
+      if (shouldResolvePurchasedByIds) {
+        if (purchasedByIds.length === 0) {
+          return NextResponse.json({
+            contracts: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              hasMore: false
+            },
+            role
+          })
+        }
+        contractWhere.purchased_by = { $in: purchasedByIds }
+      }
+    }
+
+    // Query paginated contracts directly at DB level
+    const pagedData = await instantServer.query({
+      contract: {
+        $: {
+          where: contractWhere as never,
+          limit: limit + 1,
+          offset
+        },
+        users: {},
+        sale_by_user: {
+          user_setting: {}
+        },
+        purchased_by_user: {
+          user_setting: {}
+        },
+        history: {}
+      }
+    })
+
+    let contracts = pagedData.contract || []
     const hasMore = contracts.length > limit
     if (hasMore) {
       contracts = contracts.slice(0, limit)
     }
 
-    // Collect all unique user IDs from contracts
-    const userIds = new Set<string>()
-    contracts.forEach(contract => {
-      if (contract.purchased_by) userIds.add(contract.purchased_by)
-      if (contract.sale_by) userIds.add(contract.sale_by)
-    })
-
-    // Fetch user_setting data for all users
-    const userSettingsData = await instantServer.query({
-      user_setting: {
-        users: {}
-      }
-    })
-
-    // Create a map of user_id -> user_setting
-    const userSettingsMap = new Map()
-    userSettingsData.user_setting.forEach((setting: any) => {
-      const userId = setting.users?.[0]?.id
-      if (userId) {
-        userSettingsMap.set(userId, setting)
-      }
-    })
-
-    // Attach user_setting data to the users in contracts
-    contracts.forEach(contract => {
-      if (contract.purchased_by_user?.[0]) {
-        const userId = contract.purchased_by_user[0].id
-        const userSetting = userSettingsMap.get(userId)
-        if (userSetting) {
-          contract.purchased_by_user[0].user_setting = [userSetting]
-        }
-      }
-      if (contract.sale_by_user?.[0]) {
-        const userId = contract.sale_by_user[0].id
-        const userSetting = userSettingsMap.get(userId)
-        if (userSetting) {
-          contract.sale_by_user[0].user_setting = [userSetting]
+    // Lightweight total query (same filters, no heavy nested relations)
+    const totalData = await instantServer.query({
+      contract: {
+        $: {
+          where: contractWhere as never
         }
       }
     })
+    const total = totalData.contract?.length || 0
 
     // Calculate used_credits for each contract
     // used_credits = number of history records with status PT_CHECKED_IN
-    contracts.forEach(contract => {
-      const usedCreditsCount = contract.history?.filter(
-        (h: History) => h.status === 'PT_CHECKED_IN'
-      ).length || 0
+    contracts.forEach((contract) => {
+      const usedCreditsCount =
+        contract.history?.filter((h) => h.status === 'PT_CHECKED_IN')
+          .length || 0
 
       contract.used_credits = usedCreditsCount
     })
@@ -197,12 +290,11 @@ export async function GET(request: Request) {
       pagination: {
         page,
         limit,
-        total: contracts.length,
+        total,
         hasMore
       },
       role
     })
-
   } catch (error) {
     console.error('Error fetching contracts:', error)
     return NextResponse.json(
