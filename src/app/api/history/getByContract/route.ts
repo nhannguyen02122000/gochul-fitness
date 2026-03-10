@@ -121,17 +121,15 @@ export async function GET(request: Request) {
         const expiredHistoryIds: string[] = []
 
         for (const session of history) {
-            // Skip if already expired or canceled
-            if (session.status === 'EXPIRED' || session.status === 'CANCELED') {
+            // New rule: only NEWLY_CREATED sessions can be auto-expired
+            if (session.status !== 'NEWLY_CREATED') {
                 continue
             }
 
-            // Calculate session end time: date + to (minutes from midnight) * 60000
             const sessionEndTime = session.date + (session.to * 60 * 1000)
 
             if (sessionEndTime < now) {
                 expiredHistoryIds.push(session.id)
-                // Update the status in the list for immediate response
                 session.status = 'EXPIRED'
             }
         }

@@ -22,6 +22,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useClerk } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
 import type { GetUserInformationResponse } from '@/app/type/api'
+import { isCompletedHistoryStatus } from '@/utils/statusUtils'
 import { useUpdateUserBasicInfo } from '@/hooks/useUser'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import { useInfiniteHistory } from '@/hooks/useHistory'
@@ -69,7 +70,7 @@ export default function ProfilePage() {
       totalContracts: allContracts.length,
       activeContracts: allContracts.filter((c) => c.status === 'ACTIVE').length,
       completedSessions: allHistory.filter(
-        (h) => h.status === 'PT_CHECKED_IN'
+        (h) => isCompletedHistoryStatus(h.status)
       ).length,
       totalSessions: allHistory.length,
       upcomingSessions: allHistory.filter((h) => {

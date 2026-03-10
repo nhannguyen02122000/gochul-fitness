@@ -1,6 +1,9 @@
 // src/utils/statusUtils.ts
 import type { ContractStatus, HistoryStatus, Role, Contract, History } from '@/app/type/api'
 
+// Temporary compatibility while historical records may still contain legacy lifecycle values.
+const LEGACY_COMPLETED_STATUSES = ['PT_CHECKED_IN', 'USER_CHECKED_IN'] as const
+
 export interface ActionButton {
   label: string
   nextStatus: ContractStatus | HistoryStatus
@@ -69,9 +72,8 @@ export function getContractActionButtons(
 
 /**
  * Get available action buttons for history/session based on current status and user role
- * @param status - Current history status
- * @param role - User role
- * @returns Array of available action buttons
+ * NEW FLOW: NEWLY_CREATED -> CHECKED_IN with dual check-in timestamps handled by API.
+ * This helper only supports Cancel as status transition; check-in is driven by UI + API.
  */
 export function getHistoryActionButtons(
   status: HistoryStatus,
@@ -79,51 +81,25 @@ export function getHistoryActionButtons(
 ): ActionButton[] {
   const buttons: ActionButton[] = []
 
-  if (role === 'ADMIN') {
-    // ADMIN can perform transitions, but must wait for CUSTOMER to check in first
-    switch (status) {
-      case 'NEWLY_CREATED':
-        buttons.push({ label: 'Confirm', nextStatus: 'PT_CONFIRMED', type: 'primary' })
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-        break
-      case 'PT_CONFIRMED':
-        // Wait for CUSTOMER to check in - no check-in button for ADMIN
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-        break
-      case 'USER_CHECKED_IN':
-        buttons.push({ label: 'Check In', nextStatus: 'PT_CHECKED_IN', type: 'primary' })
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-        break
-      case 'PT_CHECKED_IN':
-      case 'CANCELED':
-      case 'EXPIRED':
-        // No actions for terminal statuses
-        break
-    }
-  } else if (role === 'STAFF') {
-    // STAFF can: NEWLY_CREATED → PT_CONFIRMED, USER_CHECKED_IN → PT_CHECKED_IN
-    // STAFF must wait for CUSTOMER to check in at PT_CONFIRMED status
-    if (status === 'NEWLY_CREATED') {
-      buttons.push({ label: 'Confirm', nextStatus: 'PT_CONFIRMED', type: 'primary' })
-    } else if (status === 'USER_CHECKED_IN') {
-      buttons.push({ label: 'Check In', nextStatus: 'PT_CHECKED_IN', type: 'primary' })
-    }
-    // STAFF can cancel except PT_CHECKED_IN, EXPIRED, CANCELED
-    if (status !== 'PT_CHECKED_IN' && status !== 'EXPIRED' && status !== 'CANCELED') {
-      buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-    }
-  } else if (role === 'CUSTOMER') {
-    // CUSTOMER can: PT_CONFIRMED → USER_CHECKED_IN
-    if (status === 'PT_CONFIRMED') {
-      buttons.push({ label: 'Check In', nextStatus: 'USER_CHECKED_IN', type: 'primary' })
-    }
-    // CUSTOMER can cancel except PT_CHECKED_IN, EXPIRED, CANCELED
-    if (status !== 'PT_CHECKED_IN' && status !== 'EXPIRED' && status !== 'CANCELED') {
+  if (status === 'CHECKED_IN' || status === 'EXPIRED' || status === 'CANCELED') {
+    return buttons
+  }
+
+  if (status === 'NEWLY_CREATED') {
+    if (role === 'ADMIN' || role === 'STAFF' || role === 'CUSTOMER') {
       buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
     }
   }
 
   return buttons
+}
+
+/**
+ * Temporary compatibility helper for completed history statuses.
+ * Remove legacy mappings after data migration is complete.
+ */
+export function isCompletedHistoryStatus(status: string): boolean {
+  return status === 'CHECKED_IN' || LEGACY_COMPLETED_STATUSES.includes(status as (typeof LEGACY_COMPLETED_STATUSES)[number])
 }
 
 /**
@@ -162,8 +138,8 @@ export function canCancelContract(status: ContractStatus): boolean {
  * @returns true if history can be canceled
  */
 export function canCancelHistory(status: HistoryStatus): boolean {
-  // Cannot cancel PT_CHECKED_IN, EXPIRED, or CANCELED
-  return status !== 'PT_CHECKED_IN' && status !== 'EXPIRED' && status !== 'CANCELED'
+  // Only NEWLY_CREATED can be canceled in the new lifecycle
+  return status === 'NEWLY_CREATED'
 }
 
 /**
@@ -190,10 +166,8 @@ export function getContractStatusText(status: ContractStatus): string {
  */
 export function getHistoryStatusText(status: HistoryStatus): string {
   const statusMap: Record<HistoryStatus, string> = {
-    'NEWLY_CREATED': 'Newly Created',
-    'PT_CONFIRMED': 'PT Confirmed',
-    'USER_CHECKED_IN': 'User Checked In',
-    'PT_CHECKED_IN': 'PT Checked In',
+    'NEWLY_CREATED': 'Pending check in',
+    'CHECKED_IN': 'Completed',
     'CANCELED': 'Canceled',
     'EXPIRED': 'Expired'
   }
@@ -224,10 +198,8 @@ export function getContractStatusVariant(status: ContractStatus): { variant: 'de
  */
 export function getHistoryStatusVariant(status: HistoryStatus): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string } {
   const variantMap: Record<HistoryStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-600' },
-    'PT_CONFIRMED': { variant: 'secondary', className: 'bg-blue-50 text-blue-700' },
-    'USER_CHECKED_IN': { variant: 'secondary', className: 'bg-amber-50 text-amber-700' },
-    'PT_CHECKED_IN': { variant: 'secondary', className: 'bg-emerald-50 text-emerald-700' },
+    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-amber-50 text-amber-700' },
+    'CHECKED_IN': { variant: 'secondary', className: 'bg-emerald-50 text-emerald-700' },
     'CANCELED': { variant: 'destructive', className: 'bg-red-50 text-red-700' },
     'EXPIRED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-500' }
   }
@@ -258,10 +230,8 @@ export function getContractStatusColor(status: ContractStatus): string {
  */
 export function getHistoryStatusColor(status: HistoryStatus): string {
   const colorMap: Record<HistoryStatus, string> = {
-    'NEWLY_CREATED': 'default',
-    'PT_CONFIRMED': 'processing',
-    'USER_CHECKED_IN': 'warning',
-    'PT_CHECKED_IN': 'success',
+    'NEWLY_CREATED': 'warning',
+    'CHECKED_IN': 'success',
     'CANCELED': 'error',
     'EXPIRED': 'default'
   }
@@ -319,4 +289,3 @@ export function shouldShowHistoryActionButtons(
 
   return false
 }
-

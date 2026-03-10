@@ -17,6 +17,7 @@ import type { ContractKind, History } from '@/app/type/api'
 import { useContractHistory } from '@/hooks/useHistory'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatTimeRange } from '@/utils/timeUtils'
+import { isCompletedHistoryStatus } from '@/utils/statusUtils'
 import { useMemo, useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -60,7 +61,7 @@ export default function SessionHistoryModal({
   const hasCredits = contractKind === 'PT' || contractKind === 'REHAB'
 
   const stats = useMemo(() => {
-    const completed = history.filter((h) => h.status === 'PT_CHECKED_IN' || h.status === 'USER_CHECKED_IN').length
+    const completed = history.filter((h) => isCompletedHistoryStatus(h.status)).length
     const upcoming = history.filter((h) => {
       const sessionDateTime = h.date + (h.from * 60 * 1000)
       return sessionDateTime > currentTime && h.status !== 'CANCELED' && h.status !== 'EXPIRED'

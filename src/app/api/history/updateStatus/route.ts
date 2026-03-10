@@ -4,13 +4,19 @@ import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import type { HistoryStatus } from '@/app/type/api'
 
-
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+const ALLOWED_HISTORY_STATUS: HistoryStatus[] = [
+  'NEWLY_CREATED',
+  'CHECKED_IN',
+  'CANCELED',
+  'EXPIRED'
+]
+
 export async function POST(request: Request) {
   try {
-    // Check if user is signed in
     const { userId } = await auth()
 
     if (!userId) {
@@ -20,7 +26,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get user settings to check role
     const userData = await instantServer.query({
       user_setting: {
         $: {
@@ -52,11 +57,9 @@ export async function POST(request: Request) {
 
     const role = userSetting.role
 
-    // Parse request body
     const body = await request.json()
     const { history_id, status } = body
 
-    // Validate required fields
     if (!history_id || typeof history_id !== 'string') {
       return NextResponse.json(
         { error: 'Missing or invalid required field: history_id must be a string' },
@@ -71,7 +74,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if history exists
+    if (!ALLOWED_HISTORY_STATUS.includes(status as HistoryStatus)) {
+      return NextResponse.json(
+        { error: 'Invalid history status' },
+        { status: 400 }
+      )
+    }
+
     const historyData = await instantServer.query({
       history: {
         $: {
@@ -97,16 +106,22 @@ export async function POST(request: Request) {
       )
     }
 
+    const contract = history.contract?.[0]
     const currentStatus = history.status as HistoryStatus
-    const newStatus = status as HistoryStatus
+    const requestedStatus = status as HistoryStatus
 
-    // Calculate session end time: date + (to * 60 * 1000)
-    const sessionEndTime = history.date + (history.to * 60 * 1000)
+    if (!contract) {
+      return NextResponse.json(
+        { error: 'History record has no associated contract' },
+        { status: 400 }
+      )
+    }
+
     const now = Date.now()
+    const sessionEndTime = history.date + (history.to * 60 * 1000)
 
-    // Check if session has expired
-    if (sessionEndTime < now) {
-      // Auto-set to EXPIRED
+    // New rule: only NEWLY_CREATED can become EXPIRED by time
+    if (currentStatus === 'NEWLY_CREATED' && sessionEndTime < now) {
       await instantServer.transact([
         instantServer.tx.history[history_id].update({
           status: 'EXPIRED'
@@ -119,81 +134,105 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate status transitions based on role
-    if (role === 'ADMIN') {
-      // ADMIN can force any status change
-      // No restrictions
-    } else if (newStatus === 'CANCELED') {
-      // Anyone can cancel from any status except PT_CHECKED_IN, EXPIRED, CANCELED
-      if (currentStatus === 'PT_CHECKED_IN' || currentStatus === 'EXPIRED' || currentStatus === 'CANCELED') {
+    if (currentStatus === 'CANCELED' || currentStatus === 'EXPIRED') {
+      return NextResponse.json(
+        { error: `Cannot update a session with status ${currentStatus}` },
+        { status: 400 }
+      )
+    }
+
+    // CUSTOMER scope must match purchased contract
+    if (role === 'CUSTOMER' && contract.purchased_by !== userInstantId) {
+      return NextResponse.json(
+        { error: 'Forbidden - You can only update sessions for contracts you purchased' },
+        { status: 403 }
+      )
+    }
+
+    // Handle cancel
+    if (requestedStatus === 'CANCELED') {
+      if (currentStatus !== 'NEWLY_CREATED') {
         return NextResponse.json(
-          { error: `Cannot cancel a session with status ${currentStatus}` },
+          { error: 'Only NEWLY_CREATED sessions can be canceled' },
           { status: 400 }
         )
       }
-      // Verify user has permission to cancel
-      const contract = history.contract?.[0]
-      const contractPurchasedBy = contract?.purchased_by
-      const isCustomerOwner = contractPurchasedBy === userInstantId
-      const isStaff = role === 'STAFF'
 
-      if (!isCustomerOwner && !isStaff) {
+      if (history.user_check_in_time || history.staff_check_in_time) {
         return NextResponse.json(
-          { error: 'Forbidden - You do not have permission to cancel this session' },
-          { status: 403 }
+          { error: 'Cannot cancel after check-in has started' },
+          { status: 400 }
         )
       }
-      // Allowed to cancel
-    } else {
-      // Validate workflow transitions
-      if (role === 'STAFF') {
-        // STAFF can: NEWLY_CREATED → PT_CONFIRMED, USER_CHECKED_IN → PT_CHECKED_IN
-        if (currentStatus === 'NEWLY_CREATED' && newStatus === 'PT_CONFIRMED') {
-          // Allowed
-        } else if (currentStatus === 'USER_CHECKED_IN' && newStatus === 'PT_CHECKED_IN') {
-          // Allowed
-        } else {
-          return NextResponse.json(
-            { error: 'Invalid status transition for STAFF role' },
-            { status: 403 }
-          )
-        }
-      } else if (role === 'CUSTOMER') {
-        // Verify this is the customer who purchased the contract
-        const contract = history.contract?.[0]
-        const contractPurchasedBy = contract?.purchased_by
-        if (contractPurchasedBy !== userInstantId) {
-          return NextResponse.json(
-            { error: 'Forbidden - You can only update sessions for contracts you purchased' },
-            { status: 403 }
-          )
-        }
 
-        // CUSTOMER can: PT_CONFIRMED → USER_CHECKED_IN
-        if (currentStatus === 'PT_CONFIRMED' && newStatus === 'USER_CHECKED_IN') {
-          // Allowed
-        } else {
+      await instantServer.transact([
+        instantServer.tx.history[history_id].update({
+          status: 'CANCELED'
+        })
+      ])
+    } else if (requestedStatus === 'CHECKED_IN') {
+      if (currentStatus === 'CHECKED_IN') {
+        return NextResponse.json(
+          { error: 'Session is already CHECKED_IN' },
+          { status: 400 }
+        )
+      }
+
+      if (currentStatus !== 'NEWLY_CREATED') {
+        return NextResponse.json(
+          { error: 'Only NEWLY_CREATED sessions can be checked in' },
+          { status: 400 }
+        )
+      }
+
+      const updateData: {
+        status: HistoryStatus
+        user_check_in_time?: number
+        staff_check_in_time?: number
+      } = {
+        status: 'NEWLY_CREATED'
+      }
+
+      if (role === 'CUSTOMER') {
+        if (history.user_check_in_time) {
           return NextResponse.json(
-            { error: 'Invalid status transition for CUSTOMER role' },
-            { status: 403 }
+            { error: 'Customer has already checked in' },
+            { status: 400 }
           )
         }
+        updateData.user_check_in_time = now
+      } else if (role === 'STAFF' || role === 'ADMIN') {
+        if (history.staff_check_in_time) {
+          return NextResponse.json(
+            { error: 'Staff has already checked in' },
+            { status: 400 }
+          )
+        }
+        updateData.staff_check_in_time = now
       } else {
         return NextResponse.json(
           { error: 'Invalid role' },
           { status: 403 }
         )
       }
+
+      const nextUserCheckInTime = updateData.user_check_in_time ?? history.user_check_in_time
+      const nextStaffCheckInTime = updateData.staff_check_in_time ?? history.staff_check_in_time
+
+      if (nextUserCheckInTime && nextStaffCheckInTime) {
+        updateData.status = 'CHECKED_IN'
+      }
+
+      await instantServer.transact([
+        instantServer.tx.history[history_id].update(updateData)
+      ])
+    } else {
+      return NextResponse.json(
+        { error: 'Invalid transition request' },
+        { status: 400 }
+      )
     }
 
-    // Update the history status
-    await instantServer.transact([
-      instantServer.tx.history[history_id].update({
-        status: newStatus
-      })
-    ])
-
-    // Query the updated history to return it
     const updatedHistoryData = await instantServer.query({
       history: {
         $: {
@@ -223,7 +262,6 @@ export async function POST(request: Request) {
       { history: updatedHistory },
       { status: 200 }
     )
-
   } catch (error) {
     console.error('Error updating history status:', error)
     return NextResponse.json(
@@ -232,4 +270,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

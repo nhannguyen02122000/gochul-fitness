@@ -98,13 +98,20 @@ export default function SessionCard({
   const isUpcoming = checkIfUpcoming(session.date, session.from, session.status)
 
   // Action buttons
-  const shouldShowButtons = userRole &&
+  const shouldShowButtons = Boolean(
+    userRole &&
     userInstantId &&
     shouldShowHistoryActionButtons(session, userRole, userInstantId)
+  )
 
   const actionButtons = shouldShowButtons
     ? getHistoryActionButtons(session.status, userRole!)
     : []
+
+  const isCustomerOwner = userRole === 'CUSTOMER' && contract?.purchased_by === userInstantId
+  const canCustomerCheckIn = Boolean(isCustomerOwner && !session.user_check_in_time)
+  const canStaffCheckIn = Boolean((userRole === 'STAFF' || userRole === 'ADMIN') && !session.staff_check_in_time)
+  const canCheckIn = session.status === 'NEWLY_CREATED' && (canCustomerCheckIn || canStaffCheckIn)
 
   const handleStatusChange = (newStatus: HistoryStatus) => {
     setLoadingStatus(newStatus)
@@ -186,20 +193,46 @@ export default function SessionCard({
                     <User className="h-3 w-3 text-blue-600" />
                   </div>
                   <span className="text-xs text-muted-foreground truncate">{customerName}</span>
+                  {session.user_check_in_time && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-blue-50 text-blue-700 border-0">
+                      Customer checked in
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-5 h-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
                     <User className="h-3 w-3 text-emerald-600" />
                   </div>
                   <span className="text-xs text-muted-foreground truncate">{trainerName}</span>
+                  {session.staff_check_in_time && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 border-0">
+                      Staff checked in
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Actions */}
-            {actionButtons.length > 0 && (
+            {(actionButtons.length > 0 || canCheckIn) && (
               <div className="px-3 pb-3 pt-2 border-t border-border">
                 <div className="flex flex-wrap gap-2">
+                  {canCheckIn && (
+                    <Button
+                      variant="default"
+                      size="default"
+                      disabled={loadingStatus !== null && loadingStatus !== 'CHECKED_IN'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleStatusChange('CHECKED_IN')
+                      }}
+                      className="flex-1 min-w-[100px] text-sm h-10 bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+                    >
+                      {loadingStatus === 'CHECKED_IN' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                      Check-in
+                    </Button>
+                  )}
+
                   {actionButtons.map((button) => (
                     <Button
                       key={button.nextStatus}

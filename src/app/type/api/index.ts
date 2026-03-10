@@ -18,9 +18,7 @@ export type ContractStatus =
 
 export type HistoryStatus =
     | 'NEWLY_CREATED'
-    | 'PT_CONFIRMED'
-    | 'USER_CHECKED_IN'
-    | 'PT_CHECKED_IN'
+    | 'CHECKED_IN'
     | 'CANCELED'
     | 'EXPIRED'
 
@@ -50,6 +48,8 @@ export interface History {
     from: number
     to: number
     teach_by: string
+    user_check_in_time?: number
+    staff_check_in_time?: number
     users?: User[]
     contract?: Contract
 }
@@ -61,7 +61,7 @@ export interface Contract {
     end_date?: number
     kind: ContractKind
     credits?: number
-    used_credits?: number // Number of history records with status PT_CHECKED_IN
+    used_credits?: number // Number of history records with status CHECKED_IN
     status: ContractStatus
     money: number
     sale_by?: string

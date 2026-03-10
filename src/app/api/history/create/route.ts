@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import { id } from '@instantdb/admin'
-import type { History } from '@/app/type/api'
+import { isCompletedHistoryStatus } from '@/utils/statusUtils'
 
 
 // Disable caching for this route
@@ -112,7 +112,8 @@ export async function POST(request: Request) {
         },
         users: {},
         sale_by_user: {},
-        purchased_by_user: {}
+        purchased_by_user: {},
+        history: {}
       }
     })
 
@@ -178,9 +179,9 @@ export async function POST(request: Request) {
         )
       }
 
-      // Count history records with PT_CHECKED_IN status for this contract
+      // Count history records with CHECKED_IN status for this contract
       const usedCredits = contract.history?.filter(
-        (h: History) => h.status === 'PT_CHECKED_IN'
+        (h) => isCompletedHistoryStatus(h.status)
       ).length || 0
 
       if (usedCredits >= contract.credits) {

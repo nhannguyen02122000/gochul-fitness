@@ -200,7 +200,7 @@ export function useCreateHistory() {
  * const { mutate, isPending } = useUpdateHistory()
  * mutate({ 
  *   history_id: '123', 
- *   status: 'PT_CONFIRMED',
+ *   status: 'CHECKED_IN',
  *   from: 480,
  *   to: 540
  * })
@@ -239,7 +239,7 @@ export function useDeleteHistory() {
  * Hook to update history status
  * @example
  * const { mutate, isPending } = useUpdateHistoryStatus()
- * mutate({ history_id: '123', status: 'PT_CONFIRMED' })
+ * mutate({ history_id: '123', status: 'CHECKED_IN' })
  */
 export function useUpdateHistoryStatus() {
     const queryClient = useQueryClient()

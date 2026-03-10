@@ -23,7 +23,9 @@ const _schema = i.schema({
       status: i.string(),
       from: i.number(),
       to: i.number(),
-      teach_by: i.string() // References $users.id
+      teach_by: i.string(), // References $users.id
+      user_check_in_time: i.number().optional(),
+      staff_check_in_time: i.number().optional()
     }),
     user_setting: i.entity({
       role: i.string(), // CUSTOMER, STAFF, ADMIN

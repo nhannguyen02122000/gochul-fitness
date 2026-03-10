@@ -20,6 +20,7 @@ import { useInfiniteHistory } from '@/hooks/useHistory'
 import CreateSessionModal from '@/components/modals/CreateSessionModal'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { isCompletedHistoryStatus } from '@/utils/statusUtils'
 
 async function fetchUserInfo(): Promise<GetUserInformationResponse> {
   const response = await fetch('/api/user/getUserInformation')
@@ -63,16 +64,14 @@ export default function HistoryPage() {
 
   // Categorize sessions
   const categorizedSessions = useMemo(() => {
-    // Upcoming: NEWLY_CREATED, PT_CONFIRMED, USER_CHECKED_IN, PT_CHECKED_IN where session end time hasn't passed
+    // Upcoming: NEWLY_CREATED or CHECKED_IN where session end time hasn't passed
     const upcoming = allHistory
       .filter((session) => {
         const sessionEndTime = session.date + session.to * 60 * 1000
         return (
           sessionEndTime >= now &&
           (session.status === 'NEWLY_CREATED' ||
-            session.status === 'PT_CONFIRMED' ||
-            session.status === 'USER_CHECKED_IN' ||
-            session.status === 'PT_CHECKED_IN')
+            isCompletedHistoryStatus(session.status))
         )
       })
       .sort((a, b) => {
@@ -81,11 +80,11 @@ export default function HistoryPage() {
         return aTime - bTime
       })
 
-    // Past: Only PT_CHECKED_IN status where session end time has passed
+    // Past: Only CHECKED_IN status where session end time has passed
     const past = allHistory
       .filter((session) => {
         const sessionEndTime = session.date + session.to * 60 * 1000
-        return session.status === 'PT_CHECKED_IN' && sessionEndTime < now
+        return isCompletedHistoryStatus(session.status) && sessionEndTime < now
       })
       .sort((a, b) => {
         const aTime = a.date + a.from * 60 * 1000
@@ -93,15 +92,13 @@ export default function HistoryPage() {
         return bTime - aTime
       })
 
-    // Overdue: NEWLY_CREATED, PT_CONFIRMED, USER_CHECKED_IN where session end time has passed
+    // Overdue: NEWLY_CREATED where session end time has passed
     const overdue = allHistory
       .filter((session) => {
         const sessionEndTime = session.date + session.to * 60 * 1000
         return (
           sessionEndTime < now &&
-          (session.status === 'NEWLY_CREATED' ||
-            session.status === 'PT_CONFIRMED' ||
-            session.status === 'USER_CHECKED_IN')
+          session.status === 'NEWLY_CREATED'
         )
       })
       .sort((a, b) => {

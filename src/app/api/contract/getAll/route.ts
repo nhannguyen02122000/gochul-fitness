@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import type { ContractStatus, ContractKind } from '@/app/type/api'
+import { isCompletedHistoryStatus } from '@/utils/statusUtils'
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
@@ -276,10 +277,10 @@ export async function GET(request: Request) {
     const total = totalData.contract?.length || 0
 
     // Calculate used_credits for each contract
-    // used_credits = number of history records with status PT_CHECKED_IN
+    // used_credits = number of history records with status CHECKED_IN
     contracts.forEach((contract) => {
       const usedCreditsCount =
-        contract.history?.filter((h) => h.status === 'PT_CHECKED_IN')
+        contract.history?.filter((h) => isCompletedHistoryStatus(h.status))
           .length || 0
 
       contract.used_credits = usedCreditsCount
