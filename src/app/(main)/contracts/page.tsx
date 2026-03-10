@@ -310,7 +310,8 @@ export default function ContractsPage() {
       <Dialog open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
         <DialogContent
           showCloseButton={false}
-          className="top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:max-w-none max-h-[85dvh] overflow-hidden flex flex-col"
+          overlayClassName="bg-black/20 supports-backdrop-filter:backdrop-blur-0 data-open:fade-in-0 data-closed:fade-out-0 duration-300"
+          className="top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:max-w-none max-h-[85dvh] overflow-hidden flex flex-col transition-transform duration-300 ease-out data-open:animate-none data-closed:animate-none data-open:translate-y-0 data-closed:translate-y-full"
         >
           <DialogHeader className="px-0 pt-0 pb-2">
             <DialogTitle>Filter contracts</DialogTitle>
