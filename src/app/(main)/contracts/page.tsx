@@ -479,23 +479,23 @@ export default function ContractsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30">
+        <Card className="bg-[var(--color-success-bg)]/60 border-[var(--color-success)]/25">
           <CardContent className="p-3">
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mb-0.5">
+            <p className="text-[10px] text-[var(--color-success)] font-medium mb-0.5">
               Active
             </p>
-            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none tabular-nums">
+            <p className="text-xl font-bold text-[var(--color-success)] leading-none tabular-nums">
               {contractsByStatus.active}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-800/30">
+        <Card className="bg-[var(--color-warning-bg)]/70 border-[var(--color-warning)]/25">
           <CardContent className="p-3">
-            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mb-0.5">
+            <p className="text-[10px] text-[var(--color-warning)] font-medium mb-0.5">
               Pending
             </p>
-            <p className="text-xl font-bold text-amber-600 dark:text-amber-400 leading-none tabular-nums">
+            <p className="text-xl font-bold text-[var(--color-warning)] leading-none tabular-nums">
               {contractsByStatus.pending}
             </p>
           </CardContent>

@@ -109,7 +109,7 @@ export default function OnboardingModal({ open, onComplete }: OnboardingModalPro
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="flex items-start gap-2 rounded-md bg-[var(--color-info-bg)] p-3 text-sm text-[var(--color-warning)]">
             <Info className="h-4 w-4 mt-0.5 shrink-0" />
             <p>This information helps trainers identify you during sessions.</p>
           </div>

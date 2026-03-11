@@ -98,8 +98,8 @@ export default function HomePage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-lg bg-[var(--color-cta)]/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-[var(--color-cta)]" />
               </div>
               <div>
                 <p className="text-[11px] text-muted-foreground">Active</p>
@@ -113,8 +113,8 @@ export default function HomePage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                <Clock className="h-5 w-5 text-emerald-600" />
+              <div className="w-10 h-10 rounded-lg bg-[var(--color-success-bg)] flex items-center justify-center shrink-0">
+                <Clock className="h-5 w-5 text-[var(--color-success)]" />
               </div>
               <div>
                 <p className="text-[11px] text-muted-foreground">Upcoming</p>

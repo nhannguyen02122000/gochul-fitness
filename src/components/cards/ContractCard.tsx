@@ -61,23 +61,23 @@ const kindConfig: Record<string, { label: string; icon: typeof DollarSign; color
   'PT': {
     label: 'Personal Training',
     icon: Crown,
-    color: 'text-[#F26076]',
-    bg: 'bg-[#FDE8EB]',
-    border: 'border-l-[#F26076]',
+    color: 'text-[var(--color-pt)]',
+    bg: 'bg-[var(--color-pt-bg)]',
+    border: 'border-l-[var(--color-pt)]',
   },
   'REHAB': {
     label: 'Rehabilitation',
     icon: Heart,
-    color: 'text-[#458B73]',
-    bg: 'bg-[#E8F5EF]',
-    border: 'border-l-[#458B73]',
+    color: 'text-[var(--color-rehab)]',
+    bg: 'bg-[var(--color-rehab-bg)]',
+    border: 'border-l-[var(--color-rehab)]',
   },
   'PT_MONTHLY': {
     label: 'PT Monthly',
     icon: Zap,
-    color: 'text-[#FF9760]',
-    bg: 'bg-[#FFF4EC]',
-    border: 'border-l-[#FF9760]',
+    color: 'text-[var(--color-pt-monthly)]',
+    bg: 'bg-[var(--color-pt-monthly-bg)]',
+    border: 'border-l-[var(--color-pt-monthly)]',
   }
 }
 
@@ -248,8 +248,8 @@ export default function ContractCard({
           <div className="px-4 pb-3 space-y-2">
             {/* Customer */}
             <div className="flex items-center gap-2.5 py-1.5">
-              <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
-                <User className="h-3.5 w-3.5 text-blue-600" />
+              <div className="w-7 h-7 rounded-md bg-[var(--color-pt-bg)] flex items-center justify-center shrink-0">
+                <User className="h-3.5 w-3.5 text-[var(--color-pt)]" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Customer</p>
@@ -259,8 +259,8 @@ export default function ContractCard({
 
             {/* Sales */}
             <div className="flex items-center gap-2.5 py-1.5">
-              <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
-                <User className="h-3.5 w-3.5 text-emerald-600" />
+              <div className="w-7 h-7 rounded-md bg-[var(--color-success-bg)] flex items-center justify-center shrink-0">
+                <User className="h-3.5 w-3.5 text-[var(--color-success)]" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Sales Rep</p>
@@ -271,8 +271,8 @@ export default function ContractCard({
             {/* Date Range */}
             {contract.start_date && (
               <div className="flex items-center gap-2.5 py-1.5">
-                <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
-                  <Calendar className="h-3.5 w-3.5 text-amber-600" />
+                <div className="w-7 h-7 rounded-md bg-[var(--color-warning-bg)] flex items-center justify-center shrink-0">
+                  <Calendar className="h-3.5 w-3.5 text-[var(--color-warning)]" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Duration</p>

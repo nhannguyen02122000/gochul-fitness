@@ -64,7 +64,7 @@ export default function TimeSlotPicker({
               className={cn(
                 'relative flex items-center justify-center h-12 rounded-md border text-sm font-medium transition-colors',
                 isSelected && 'bg-[var(--color-cta)] text-white border-[var(--color-cta)] shadow-sm',
-                !isSelected && !isDisabled && 'bg-white text-foreground border-border hover:border-[var(--color-cta)] hover:bg-blue-50/50 cursor-pointer',
+                !isSelected && !isDisabled && 'bg-white text-foreground border-border hover:border-[var(--color-cta)] hover:bg-[var(--color-info-bg)]/60 cursor-pointer',
                 isDisabled && !isSelected && 'bg-muted text-muted-foreground border-border cursor-not-allowed',
                 isOccupied && !isSelected && 'bg-striped'
               )}

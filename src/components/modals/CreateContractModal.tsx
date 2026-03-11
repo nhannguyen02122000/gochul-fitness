@@ -126,8 +126,8 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleCancel()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-5 pt-5 pb-3">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-5 gap-4">
+        <DialogHeader className="p-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-[var(--color-cta)] rounded-md flex items-center justify-center shrink-0">
               <FileText className="h-4 w-4 text-white" />
@@ -139,11 +139,11 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 pb-3 space-y-4">
+        <form id="create-contract-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-0 space-y-4">
           {/* Customer */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
-              <User className="h-4 w-4 text-blue-600" />
+              <User className="h-4 w-4 text-[var(--color-cta)]" />
               <span className="text-sm font-medium">Customer</span>
             </div>
             <UserSearchSelect
@@ -157,7 +157,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
           {/* Contract Type */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
-              <Crown className="h-4 w-4 text-violet-600" />
+              <Crown className="h-4 w-4 text-[var(--color-cta)]" />
               <span className="text-sm font-medium">Contract Type</span>
             </div>
             <Select
@@ -174,21 +174,21 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
               <SelectContent>
                 <SelectItem value="PT">
                   <span className="flex items-center gap-2">
-                    <Crown className="h-3.5 w-3.5 text-violet-600" />
+                    <Crown className="h-3.5 w-3.5 text-[var(--color-cta)]" />
                     Personal Training
                     <span className="text-[10px] text-muted-foreground">(credits)</span>
                   </span>
                 </SelectItem>
                 <SelectItem value="REHAB">
                   <span className="flex items-center gap-2">
-                    <Heart className="h-3.5 w-3.5 text-cyan-600" />
+                    <Heart className="h-3.5 w-3.5 text-[var(--color-success)]" />
                     Rehabilitation
                     <span className="text-[10px] text-muted-foreground">(credits)</span>
                   </span>
                 </SelectItem>
                 <SelectItem value="PT_MONTHLY">
                   <span className="flex items-center gap-2">
-                    <Zap className="h-3.5 w-3.5 text-orange-600" />
+                    <Zap className="h-3.5 w-3.5 text-[var(--color-warning)]" />
                     PT Monthly
                     <span className="text-[10px] text-muted-foreground">(unlimited)</span>
                   </span>
@@ -216,7 +216,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
           {/* Amount */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-emerald-600" />
+              <DollarSign className="h-4 w-4 text-[var(--color-success)]" />
               <span className="text-sm font-medium">Contract Amount</span>
             </div>
             <div className="relative">
@@ -240,7 +240,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
           {/* Duration */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
-              <CalendarIcon className="h-4 w-4 text-amber-600" />
+              <CalendarIcon className="h-4 w-4 text-[var(--color-warning)]" />
               <span className="text-sm font-medium">Contract Duration</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -295,14 +295,15 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
           </div>
         </form>
 
-        <DialogFooter className="px-5 pb-5 pt-3 border-t border-border">
-          <Button variant="outline" onClick={handleCancel} className="flex-1 h-11 text-sm font-semibold">
+        <DialogFooter className="!mx-0 !mb-0 p-0 pt-4 border-t border-border flex-row gap-3 [&>button]:flex-1">
+          <Button variant="outline" onClick={handleCancel} className="h-12 text-sm font-semibold">
             Cancel
           </Button>
           <Button
-            onClick={(e) => handleSubmit(e as any)}
+            type="submit"
+            form="create-contract-form"
             disabled={createContract.isPending}
-            className="flex-1 h-11 text-sm font-semibold bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+            className="h-12 text-sm font-semibold bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
           >
             {createContract.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Create Contract

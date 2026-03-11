@@ -26,12 +26,11 @@ import {
   Clock,
   FileText,
   Loader2,
-  Info,
 } from 'lucide-react'
 import { useCreateHistory, useTrainerSchedule } from '@/hooks/useHistory'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import TimeSlotPicker from '@/components/common/TimeSlotPicker'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -52,12 +51,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [dateOpen, setDateOpen] = useState(false)
 
-  // Set preselected contract when modal opens
-  useEffect(() => {
-    if (open && preselectedContractId && !contractId) {
-      setContractId(preselectedContractId)
-    }
-  }, [open, preselectedContractId, contractId])
+  const effectiveContractId = contractId || preselectedContractId || ''
 
   // Get active contracts
   const activeContracts = useMemo(() => {
@@ -78,10 +72,10 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
 
   // Get trainer ID from selected contract
   const selectedTrainerId = useMemo(() => {
-    if (!contractId) return undefined
-    const contract = activeContracts.find(c => c.id === contractId)
+    if (!effectiveContractId) return undefined
+    const contract = activeContracts.find(c => c.id === effectiveContractId)
     return contract?.sale_by
-  }, [contractId, activeContracts])
+  }, [effectiveContractId, activeContracts])
 
   // Get selected date timestamp
   const selectedDate = useMemo(() => {
@@ -122,7 +116,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!contractId) e.contractId = 'Please select a contract'
+    if (!effectiveContractId) e.contractId = 'Please select a contract'
     if (!date) e.date = 'Please select a date'
     if (from === undefined || to === undefined) e.timeSlot = 'Please select a time slot'
     setErrors(e)
@@ -137,7 +131,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
       d.setHours(0, 0, 0, 0)
 
       await createHistory.mutateAsync({
-        contract_id: contractId,
+        contract_id: effectiveContractId,
         date: d.getTime(),
         from: from!,
         to: to!
@@ -171,8 +165,8 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleCancel()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-5 pt-5 pb-3">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-5 gap-4">
+        <DialogHeader className="p-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-[var(--color-cta)] rounded-md flex items-center justify-center shrink-0">
               <CalendarIcon className="h-4 w-4 text-white" />
@@ -184,15 +178,15 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-4">
+        <div className="flex-1 overflow-y-auto p-0 space-y-4">
           {/* Contract selection */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
-              <FileText className="h-4 w-4 text-blue-600" />
+              <FileText className="h-4 w-4 text-[var(--color-cta)]" />
               <span className="text-sm font-medium">Active Contract</span>
             </div>
             <Select
-              value={contractId || undefined}
+              value={effectiveContractId || undefined}
               onValueChange={(v) => {
                 setContractId(v ?? '')
                 setFrom(undefined)
@@ -215,7 +209,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
           {/* Date */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
-              <Clock className="h-4 w-4 text-amber-600" />
+              <Clock className="h-4 w-4 text-[var(--color-warning)]" />
               <span className="text-sm font-medium">Date & Time</span>
             </div>
             <div className="space-y-1.5">
@@ -253,7 +247,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
             <div className="space-y-1.5 mt-3">
               <div className="flex items-center gap-2">
                 <Label className="text-xs">Time Slot</Label>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-violet-50 text-violet-700 border-0">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-[var(--color-info-bg)] text-[var(--color-warning)] border-0">
                   90 min
                 </Badge>
               </div>
@@ -281,14 +275,14 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
           </div>
         </div>
 
-        <DialogFooter className="px-5 pb-5 pt-3 border-t border-border">
-          <Button variant="outline" onClick={handleCancel} className="flex-1 h-11 text-sm font-semibold">
+        <DialogFooter className="!mx-0 !mb-0 p-0 pt-4 border-t border-border flex-row gap-3 [&>button]:flex-1">
+          <Button variant="outline" onClick={handleCancel} className="h-12 text-sm font-semibold">
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={createHistory.isPending}
-            className="flex-1 h-11 text-sm font-semibold bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+            className="h-12 text-sm font-semibold bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
           >
             {createHistory.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Create Session

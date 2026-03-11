@@ -31,9 +31,9 @@ interface SessionHistoryModalProps {
 }
 
 const kindConfig: Record<string, { label: string; icon: typeof Crown; color: string; bg: string }> = {
-  'PT': { label: 'Personal Training', icon: Crown, color: 'text-violet-700', bg: 'bg-violet-50' },
-  'REHAB': { label: 'Rehabilitation', icon: Heart, color: 'text-cyan-700', bg: 'bg-cyan-50' },
-  'PT_MONTHLY': { label: 'PT Monthly', icon: Zap, color: 'text-orange-700', bg: 'bg-orange-50' },
+  'PT': { label: 'Personal Training', icon: Crown, color: 'text-[var(--color-pt)]', bg: 'bg-[var(--color-pt-bg)]' },
+  'REHAB': { label: 'Rehabilitation', icon: Heart, color: 'text-[var(--color-rehab)]', bg: 'bg-[var(--color-rehab-bg)]' },
+  'PT_MONTHLY': { label: 'PT Monthly', icon: Zap, color: 'text-[var(--color-pt-monthly)]', bg: 'bg-[var(--color-pt-monthly-bg)]' },
 }
 
 export default function SessionHistoryModal({
@@ -158,7 +158,7 @@ export default function SessionHistoryModal({
                     key={session.id}
                     className={cn(
                       'flex items-start gap-3 p-3 rounded-md border transition-colors',
-                      upcoming ? 'border-[var(--color-cta)]/20 bg-blue-50/50' : 'border-border bg-white'
+                      upcoming ? 'border-[var(--color-cta)]/20 bg-[var(--color-info-bg)]/60' : 'border-border bg-white'
                     )}
                     style={{ animationDelay: `${index * 40}ms` }}
                   >
@@ -180,7 +180,7 @@ export default function SessionHistoryModal({
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-foreground">{fullDate}</span>
                         {upcoming && (
-                          <Badge variant="secondary" className="text-[9px] bg-amber-50 text-amber-700 px-1 py-0 h-4 border-0">
+                          <Badge variant="secondary" className="text-[9px] bg-[var(--color-warning-bg)] text-[var(--color-warning)] px-1 py-0 h-4 border-0">
                             Upcoming
                           </Badge>
                         )}

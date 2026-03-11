@@ -29,7 +29,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden w-full">
+    <div className="flex flex-col h-dvh min-h-0 overflow-hidden w-full">
       <OnboardingModal
         open={!!needsOnboarding}
         onComplete={handleOnboardingComplete}
@@ -38,7 +38,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <TopBar />
       <main
         ref={mainRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden bg-background w-full"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background w-full [overscroll-behavior-y:contain]"
         style={{ paddingBottom: '120px' }}
       >
         <PullToRefresh scrollContainerRef={mainRef}>

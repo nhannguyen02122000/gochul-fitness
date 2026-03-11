@@ -27,7 +27,23 @@ alwaysApply: true
 - UI: Mobile-first pages under `src/app/(main)/**`, shadcn-style components under `src/components/ui/**`.
 - PWA support: service worker and manifest (`public/sw.js`, `public/manifest.json`).
 
-## 2) Role model and access model
+## 2) System design colors (mandatory)
+
+### Source of truth
+- The canonical app palette is defined in `src/theme/colors.ts` and must be treated as the single source of truth.
+- Main design colors:
+  - `primary`: `#F26076`
+  - `secondary`: `#FF9760`
+  - `accent`: `#458B73`
+  - `warning`: `#FFD150`
+
+### Compliance rules
+- New UI work must use theme tokens from `src/theme/colors.ts` (or mapped Tailwind/theme tokens derived from it), not ad-hoc hex values.
+- Do not replace these four main colors without an explicit design-system change request.
+- If a new semantic color token is required, add it in `src/theme/colors.ts` first, then adopt it in UI.
+- Keep contrast/readability requirements when applying brand colors to text, backgrounds, badges, and interactive states.
+
+## 3) Role model and access model
 
 ### Roles
 - `ADMIN`
@@ -39,7 +55,7 @@ alwaysApply: true
 - `STAFF`: trainer-oriented scope (commonly by `sale_by` or `teach_by`) and limited lifecycle transitions.
 - `CUSTOMER`: typically limited to contracts they purchased (`purchased_by === userInstantId`) and related sessions.
 
-## 3) Core data model
+## 4) Core data model
 
 ### InstantDB entities
 - `$users`
@@ -70,7 +86,7 @@ alwaysApply: true
 - `contract.used_credits` is computed in `GET /api/contract/getAll` from count of completed history rows.
 - Completion semantics for credits use `isCompletedHistoryStatus()` and currently count only `CHECKED_IN`.
 
-## 4) Lifecycle state machines
+## 5) Lifecycle state machines
 
 ### Contract statuses
 `NEWLY_CREATED -> CUSTOMER_REVIEW -> CUSTOMER_CONFIRMED -> CUSTOMER_PAID -> PT_CONFIRMED -> ACTIVE -> EXPIRED`
@@ -110,7 +126,7 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Cannot cancel once check-in has started.
 - Auto-expire rule applies only to `NEWLY_CREATED` when session end time is in the past.
 
-## 5) Functional flows by page
+## 6) Functional flows by page
 
 ### `/` Dashboard (`src/app/(main)/page.tsx`)
 - Requires signed-in user (redirect to `/sign-in` if not authenticated).
@@ -151,7 +167,7 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - `/sign-in`: Clerk sign-in UI route.
 - `/offline`: fallback page for PWA offline mode.
 
-## 6) API contract map and special constraints
+## 7) API contract map and special constraints
 
 All route handlers typically set:
 - `export const dynamic = 'force-dynamic'`
@@ -233,7 +249,7 @@ All route handlers typically set:
 - `POST /api/user/updateBasicInfo`
   - Updates current user setting names
 
-## 7) Technical constraints and invariants
+## 8) Technical constraints and invariants
 
 - Time-slot model:
   - `from` and `to` are numeric minute offsets (e.g. 480 = 08:00)
@@ -248,7 +264,7 @@ All route handlers typically set:
 - Cache behavior:
   - API handlers are forced dynamic; client cache managed by React Query invalidation
 
-## 8) Cleanup status (applied)
+## 9) Cleanup status (applied)
 
 The previously tracked 9 inconsistency items have been aligned in code:
 
@@ -262,14 +278,15 @@ The previously tracked 9 inconsistency items have been aligned in code:
 8. Legacy completion fallback removed; only `CHECKED_IN` is counted as completed.
 9. Rulebook and main docs were refreshed to match current runtime behavior.
 
-## 9) Change checklist for future modifications
+## 10) Change checklist for future modifications
 
-When changing any page, API, status, role rule, or data field, update in same PR:
+When changing any page, API, status, role rule, data field, or design token, update in same PR:
 
 - This file `.cursor/rules/gochul-fitness-rules.mdc`
 - `src/app/type/api/index.ts`
 - Affected API route handlers under `src/app/api/**`
 - Relevant hooks under `src/hooks/**`
 - Relevant UI pages/components under `src/app/(main)/**` and `src/components/**`
+- `src/theme/colors.ts` when color or design-token behavior changes
 
 Do not merge behavior changes without synchronized rulebook updates.

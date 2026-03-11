@@ -38,20 +38,20 @@ const kindConfig: Record<string, { label: string; icon: typeof Clock; color: str
   'PT': {
     label: 'PT Session',
     icon: Crown,
-    color: 'text-[#F26076]',
-    bg: 'bg-[#FDE8EB]',
+    color: 'text-[var(--color-pt)]',
+    bg: 'bg-[var(--color-pt-bg)]',
   },
   'REHAB': {
     label: 'Rehab Session',
     icon: Heart,
-    color: 'text-[#458B73]',
-    bg: 'bg-[#E8F5EF]',
+    color: 'text-[var(--color-rehab)]',
+    bg: 'bg-[var(--color-rehab-bg)]',
   },
   'PT_MONTHLY': {
     label: 'PT Monthly',
     icon: Zap,
-    color: 'text-[#FF9760]',
-    bg: 'bg-[#FFF4EC]',
+    color: 'text-[var(--color-pt-monthly)]',
+    bg: 'bg-[var(--color-pt-monthly-bg)]',
   }
 }
 
@@ -150,7 +150,7 @@ export default function SessionCard({
           {/* Date column */}
           <div className={cn(
             'flex flex-col items-center justify-center px-3 py-4 min-w-[60px] border-r border-border',
-            isUpcoming ? 'bg-blue-50' : 'bg-muted/50'
+            isUpcoming ? 'bg-[var(--color-info-bg)]' : 'bg-muted/50'
           )}>
             <span className="text-[10px] font-medium text-muted-foreground">{monthStr}</span>
             <span className="text-xl font-bold text-foreground leading-none mt-0.5">{dayStr}</span>
@@ -173,7 +173,7 @@ export default function SessionCard({
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {isUpcoming && (
-                    <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0 border-0">
+                    <Badge variant="secondary" className="text-[10px] bg-[var(--color-info-bg)] text-[var(--color-warning)] px-1.5 py-0 border-0">
                       Upcoming
                     </Badge>
                   )}
@@ -189,23 +189,23 @@ export default function SessionCard({
               {/* People */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                    <User className="h-3 w-3 text-blue-600" />
+                  <div className="w-5 h-5 rounded bg-[var(--color-pt-bg)] flex items-center justify-center shrink-0">
+                    <User className="h-3 w-3 text-[var(--color-pt)]" />
                   </div>
                   <span className="text-xs text-muted-foreground truncate">{customerName}</span>
                   {session.user_check_in_time && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-blue-50 text-blue-700 border-0">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-[var(--color-info-bg)] text-[var(--color-warning)] border-0">
                       Customer checked in
                     </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                    <User className="h-3 w-3 text-emerald-600" />
+                  <div className="w-5 h-5 rounded bg-[var(--color-success-bg)] flex items-center justify-center shrink-0">
+                    <User className="h-3 w-3 text-[var(--color-success)]" />
                   </div>
                   <span className="text-xs text-muted-foreground truncate">{trainerName}</span>
                   {session.staff_check_in_time && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-emerald-50 text-emerald-700 border-0">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-[var(--color-success-bg)] text-[var(--color-success)] border-0">
                       Staff checked in
                     </Badge>
                   )}

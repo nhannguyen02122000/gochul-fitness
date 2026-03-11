@@ -189,23 +189,23 @@ export default function HistoryPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200/50 dark:border-blue-800/30">
+        <Card className="bg-[var(--color-info-bg)]/60 border-[var(--color-warning)]/25">
           <CardContent className="p-3">
-            <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium mb-0.5">
+            <p className="text-[10px] text-[var(--color-warning)] font-medium mb-0.5">
               Upcoming
             </p>
-            <p className="text-xl font-bold text-blue-600 dark:text-blue-400 leading-none tabular-nums">
+            <p className="text-xl font-bold text-[var(--color-warning)] leading-none tabular-nums">
               {categorizedSessions.upcoming.length}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30">
+        <Card className="bg-[var(--color-success-bg)]/60 border-[var(--color-success)]/25">
           <CardContent className="p-3">
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mb-0.5">
+            <p className="text-[10px] text-[var(--color-success)] font-medium mb-0.5">
               Completed
             </p>
-            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none tabular-nums">
+            <p className="text-xl font-bold text-[var(--color-success)] leading-none tabular-nums">
               {categorizedSessions.completed}
             </p>
           </CardContent>

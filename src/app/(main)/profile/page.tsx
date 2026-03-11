@@ -153,20 +153,20 @@ export default function ProfilePage() {
     { bg: string; text: string; label: string; icon: string }
   > = {
     ADMIN: {
-      bg: 'bg-red-100 dark:bg-red-900/30',
-      text: 'text-red-700 dark:text-red-300',
+      bg: 'bg-[var(--color-warning-bg)]',
+      text: 'text-[var(--color-warning)]',
       label: 'Admin',
       icon: '👑',
     },
     STAFF: {
-      bg: 'bg-blue-100 dark:bg-blue-900/30',
-      text: 'text-blue-700 dark:text-blue-300',
+      bg: 'bg-[var(--color-pt-bg)]',
+      text: 'text-[var(--color-pt)]',
       label: 'Staff',
       icon: '⚡',
     },
     CUSTOMER: {
-      bg: 'bg-emerald-100 dark:bg-emerald-900/30',
-      text: 'text-emerald-700 dark:text-emerald-300',
+      bg: 'bg-[var(--color-success-bg)]',
+      text: 'text-[var(--color-success)]',
       label: 'Member',
       icon: '💪',
     },
@@ -178,29 +178,29 @@ export default function ProfilePage() {
       label: 'Active Contracts',
       value: stats.activeContracts,
       icon: FileText,
-      color: 'text-blue-600 dark:text-blue-400',
-      bg: 'bg-blue-100 dark:bg-blue-900/30',
+      color: 'text-[var(--color-pt)]',
+      bg: 'bg-[var(--color-pt-bg)]',
     },
     {
       label: 'Completed',
       value: stats.completedSessions,
       icon: CheckCircle2,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+      color: 'text-[var(--color-success)]',
+      bg: 'bg-[var(--color-success-bg)]',
     },
     {
       label: 'Upcoming',
       value: stats.upcomingSessions,
       icon: Clock,
-      color: 'text-amber-600 dark:text-amber-400',
-      bg: 'bg-amber-100 dark:bg-amber-900/30',
+      color: 'text-[var(--color-warning)]',
+      bg: 'bg-[var(--color-warning-bg)]',
     },
     {
       label: 'Total Sessions',
       value: stats.totalSessions,
       icon: Trophy,
-      color: 'text-purple-600 dark:text-purple-400',
-      bg: 'bg-purple-100 dark:bg-purple-900/30',
+      color: 'text-[var(--color-pt-monthly)]',
+      bg: 'bg-[var(--color-pt-monthly-bg)]',
     },
   ]
 
@@ -219,7 +219,7 @@ export default function ProfilePage() {
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <div className="absolute bottom-0.5 right-0.5 w-5 h-5 bg-emerald-400 border-[3px] border-background rounded-full" />
+                <div className="absolute bottom-0.5 right-0.5 w-5 h-5 bg-[var(--color-success)] border-[3px] border-background rounded-full" />
               </div>
 
               {/* Name & Email */}
