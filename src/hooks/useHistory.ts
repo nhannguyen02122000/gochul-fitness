@@ -7,7 +7,7 @@ import type {
     DeleteHistoryResponse,
     GetAllHistoryResponse,
     GetHistoryByContractResponse,
-    GetTrainerScheduleResponse,
+    GetOccupiedTimeSlotsResponse,
     UpdateHistoryRequest,
     UpdateHistoryResponse,
     UpdateHistoryStatusRequest,
@@ -258,10 +258,10 @@ export function useUpdateHistoryStatus() {
 }
 
 // Fetch trainer schedule (occupied time slots)
-async function fetchTrainerSchedule(
+async function fetchOccupiedTimeSlots(
     userId: string,
     date: number
-): Promise<GetTrainerScheduleResponse> {
+): Promise<GetOccupiedTimeSlotsResponse> {
     const params = new URLSearchParams({
         user_id: userId,
         date: date.toString()
@@ -269,7 +269,7 @@ async function fetchTrainerSchedule(
 
     const response = await fetch(`/api/history/getOccupiedTimeSlots?${params.toString()}`)
     if (!response.ok) {
-        throw new Error('Failed to fetch trainer schedule')
+        throw new Error('Failed to fetch occupied time slots')
     }
     return response.json()
 }
@@ -286,7 +286,7 @@ async function fetchTrainerSchedule(
 export function useTrainerSchedule(userId: string | undefined, date: number | undefined) {
     return useQuery({
         queryKey: ['history', 'trainer-schedule', userId, date],
-        queryFn: () => fetchTrainerSchedule(userId!, date!),
+        queryFn: () => fetchOccupiedTimeSlots(userId!, date!),
         enabled: !!userId && !!date,
         staleTime: 1000 * 30 // 30 seconds - keep data fresh for scheduling
     })

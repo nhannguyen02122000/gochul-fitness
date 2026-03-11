@@ -190,11 +190,16 @@ export async function GET(request: Request) {
       contractWhere.status = { $in: statusesFilter }
     }
 
-    if (startDate !== null || endDate !== null) {
-      const createdAtRange: { $gte?: number; $lte?: number } = {}
-      if (startDate !== null) createdAtRange.$gte = startDate
-      if (endDate !== null) createdAtRange.$lte = endDate
-      contractWhere.created_at = createdAtRange
+    if (startDate !== null) {
+      contractWhere.start_date = {
+        $gte: startDate
+      }
+    }
+
+    if (endDate !== null) {
+      contractWhere.end_date = {
+        $lte: endDate
+      }
     }
 
     // Name filters -> resolve to user IDs, then apply as DB-level id filters

@@ -12,7 +12,7 @@
 - Schedule training sessions with time slots
 - View upcoming and past sessions
 - Real-time trainer availability
-- Session status tracking (Upcoming, Confirmed, Completed, Cancelled)
+- Session status tracking (`NEWLY_CREATED`, `CHECKED_IN`, `CANCELED`, `EXPIRED`)
 
 ### 3. **User Dashboard**
 - Personalized greeting and role-based access
@@ -164,18 +164,17 @@
 ## 🔧 Advanced Features
 
 ### Session Management
-- **Time Slot System**: 30-minute intervals
-- **Trainer Availability**: Real-time checking
-- **Conflict Prevention**: No double bookings
-- **Status Workflow**: From creation to completion
+- **Time Slot System**: minute-offset time ranges (`from`, `to`) with `from < to`
+- **Trainer Availability**: real-time occupied-slot checking
+- **Conflict Prevention**: overlap detection (`newFrom < existingTo && newTo > existingFrom`)
+- **Status Workflow**: dual check-in flow to reach `CHECKED_IN`
 
 ### Contract Workflow
-1. **Creation**: Admin creates contract
-2. **Customer Review**: Customer reviews and accepts
-3. **Active**: Ready for session booking
-4. **In Progress**: Sessions being used
-5. **Completed**: All sessions finished
-6. **Cancelled**: Contract terminated
+1. **Creation**: `NEWLY_CREATED`
+2. **Customer Review**: `CUSTOMER_REVIEW` → `CUSTOMER_CONFIRMED`
+3. **Payment/Staff Confirmation**: `CUSTOMER_PAID` → `PT_CONFIRMED`
+4. **Active**: `ACTIVE` (ready for session booking)
+5. **Terminal**: `EXPIRED` or `CANCELED`
 
 ### Search & Filter
 - **User Search**: Find customers and trainers

@@ -1,6 +1,6 @@
 # GoChul Fitness - Modern PWA Fitness Management App
 
-A mobile-first Progressive Web App for managing personal training contracts and sessions. Built with Next.js, React Query, and Ant Design.
+A mobile-first Progressive Web App for managing personal training contracts and sessions. Built with Next.js, TanStack Query, Clerk, and InstantDB with a shadcn/ui + Tailwind UI stack.
 
 ## ✨ Key Features
 
@@ -57,8 +57,8 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 
 ### Frontend
 - **Framework**: Next.js 15 (App Router)
-- **UI Library**: Ant Design 5
-- **Styling**: Tailwind CSS v4
+- **UI Library**: shadcn/ui (Radix primitives)
+- **Styling**: Tailwind CSS
 - **State Management**: TanStack Query (React Query)
 - **Authentication**: Clerk
 - **Language**: TypeScript
@@ -95,7 +95,7 @@ gochul-fitness/
 │   │   ├── PullToRefresh.tsx # Pull-to-refresh
 │   │   └── PWAInstaller.tsx  # PWA installer
 │   ├── hooks/                # Custom React hooks
-│   ├── theme/                # Ant Design theme
+│   ├── theme/                # Design tokens/colors
 │   └── utils/                # Utility functions
 ├── public/
 │   ├── sw.js                 # Service worker
@@ -117,7 +117,7 @@ gochul-fitness/
 - **Text**: `#1f2937` (Dark Gray)
 
 ### Components
-- Custom Ant Design theme (`src/theme/antd-theme.ts`)
+- Shared design tokens (`src/theme/colors.ts`)
 - Tailwind CSS utilities for layouts
 - Mobile-first responsive design
 - Smooth animations and transitions

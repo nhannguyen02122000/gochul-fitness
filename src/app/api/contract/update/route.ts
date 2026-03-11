@@ -2,7 +2,18 @@
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
+import type { ContractStatus } from '@/app/type/api'
 
+const CONTRACT_STATUS_VALUES: ContractStatus[] = [
+    'NEWLY_CREATED',
+    'CUSTOMER_REVIEW',
+    'CUSTOMER_CONFIRMED',
+    'CUSTOMER_PAID',
+    'PT_CONFIRMED',
+    'ACTIVE',
+    'CANCELED',
+    'EXPIRED'
+]
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
@@ -103,6 +114,14 @@ export async function POST(request: Request) {
                     { status: 400 }
                 )
             }
+
+            if (!CONTRACT_STATUS_VALUES.includes(status as ContractStatus)) {
+                return NextResponse.json(
+                    { error: 'Invalid field: status must be a valid ContractStatus' },
+                    { status: 400 }
+                )
+            }
+
             updateData.status = status
         }
 
@@ -176,7 +195,7 @@ export async function POST(request: Request) {
 
         // Build transaction with links if sale_by or purchased_by are being updated
         const transaction = instantServer.tx.contract[contract_id].update(updateData)
-        
+
         // Add links if the user references are being updated
         if (sale_by !== undefined) {
             transaction.link({ sale_by_user: sale_by })

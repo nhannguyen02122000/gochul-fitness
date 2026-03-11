@@ -2,7 +2,14 @@
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
+import type { HistoryStatus } from '@/app/type/api'
 
+const HISTORY_STATUS_VALUES: HistoryStatus[] = [
+  'NEWLY_CREATED',
+  'CHECKED_IN',
+  'CANCELED',
+  'EXPIRED'
+]
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
@@ -153,6 +160,14 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
+
+      if (!HISTORY_STATUS_VALUES.includes(status as HistoryStatus)) {
+        return NextResponse.json(
+          { error: 'Invalid field: status must be a valid HistoryStatus' },
+          { status: 400 }
+        )
+      }
+
       updateData.status = status
     }
 

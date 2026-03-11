@@ -1,8 +1,6 @@
 // src/utils/statusUtils.ts
 import type { ContractStatus, HistoryStatus, Role, Contract, History } from '@/app/type/api'
 
-// Temporary compatibility while historical records may still contain legacy lifecycle values.
-const LEGACY_COMPLETED_STATUSES = ['PT_CHECKED_IN', 'USER_CHECKED_IN'] as const
 
 export interface ActionButton {
   label: string
@@ -107,11 +105,10 @@ export function getHistoryActionButtons(
 }
 
 /**
- * Temporary compatibility helper for completed history statuses.
- * Remove legacy mappings after data migration is complete.
+ * Completed history status helper.
  */
 export function isCompletedHistoryStatus(status: string): boolean {
-  return status === 'CHECKED_IN' || LEGACY_COMPLETED_STATUSES.includes(status as (typeof LEGACY_COMPLETED_STATUSES)[number])
+  return status === 'CHECKED_IN'
 }
 
 /**

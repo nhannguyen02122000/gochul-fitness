@@ -1,20 +1,59 @@
 // src/app/api/history/getOccupiedTimeSlots/route.ts
+import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
-
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
 export async function GET(request: Request) {
   try {
+    const { userId } = await auth()
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in' },
+        { status: 401 }
+      )
+    }
+
+    const userData = await instantServer.query({
+      user_setting: {
+        $: {
+          where: {
+            clerk_id: userId
+          }
+        },
+        users: {}
+      }
+    })
+
+    const userSetting = userData.user_setting[0]
+
+    if (!userSetting) {
+      return NextResponse.json(
+        { error: 'User settings not found' },
+        { status: 404 }
+      )
+    }
+
+    const requesterInstantId = userSetting.users?.[0]?.id
+
+    if (!requesterInstantId) {
+      return NextResponse.json(
+        { error: 'User instant ID not found' },
+        { status: 404 }
+      )
+    }
+
     // Get query parameters
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('user_id')
+    const trainerUserId = searchParams.get('user_id')
     const dateParam = searchParams.get('date')
 
     // Validate required parameters
-    if (!userId) {
+    if (!trainerUserId) {
       return NextResponse.json(
         { error: 'Missing required parameter: user_id' },
         { status: 400 }
@@ -37,13 +76,33 @@ export async function GET(request: Request) {
       )
     }
 
-    // Query existing history records for that user (teach_by) on the same date
+    const role = userSetting.role
+
+    // Role validation:
+    // - ADMIN can query any trainer
+    // - STAFF can query their own schedule
+    // - CUSTOMER can query any trainer for booking availability
+    if (role === 'STAFF' && requesterInstantId !== trainerUserId) {
+      return NextResponse.json(
+        { error: 'Forbidden - STAFF can only query their own schedule' },
+        { status: 403 }
+      )
+    }
+
+    if (role !== 'ADMIN' && role !== 'STAFF' && role !== 'CUSTOMER') {
+      return NextResponse.json(
+        { error: 'Forbidden - Invalid user role' },
+        { status: 403 }
+      )
+    }
+
+    // Query existing history records for that trainer (teach_by) on the same date
     const existingHistoryData = await instantServer.query({
       history: {
         $: {
           where: {
-            teach_by: userId,
-            date: date
+            teach_by: trainerUserId,
+            date
           }
         }
       }
@@ -51,36 +110,19 @@ export async function GET(request: Request) {
 
     const existingHistory = existingHistoryData.history || []
 
-    console.log('=== DEBUG: getOccupiedTimeSlots ===')
-    console.log('User ID:', userId)
-    console.log('Date:', date, '(', new Date(date).toISOString(), ')')
-    console.log('Total history records found:', existingHistory.length)
-    console.log('History records:', existingHistory.map(h => ({
-      id: h.id,
-      status: h.status,
-      from: h.from,
-      to: h.to
-    })))
-    console.log('===================================')
-
     // Filter out canceled and expired sessions, and extract time ranges
     const occupiedSlots = existingHistory
-      .filter(session => {
-        const isActive = session.status !== 'CANCELED' && session.status !== 'EXPIRED'
-        console.log(`Session ${session.id}: status=${session.status}, isActive=${isActive}`)
-        return isActive
-      })
-      .map(session => ({
+      .filter(
+        (session) => session.status !== 'CANCELED' && session.status !== 'EXPIRED'
+      )
+      .map((session) => ({
         from: session.from,
         to: session.to
       }))
 
-    console.log('Occupied slots after filtering:', occupiedSlots)
-
     return NextResponse.json({
       occupied_slots: occupiedSlots
     })
-
   } catch (error) {
     console.error('Error fetching occupied time slots:', error)
     return NextResponse.json(

@@ -1,0 +1,275 @@
+---
+description: GoChul Fitness long-run project rulebook for architecture, APIs, routes, constraints, and maintenance invariants
+globs:
+  - src/**
+  - instant.schema.ts
+  - README.md
+alwaysApply: true
+---
+
+# GoChul Fitness Rulebook
+
+## 0) Mandatory maintenance policy
+
+- Every code change or requirement change **must** be reflected in this rule file in the same PR/change-set.
+- If implementation and this file diverge, implementation is source of truth short-term, then this file must be updated immediately.
+- Do not introduce new API behavior, statuses, roles, or data fields without updating:
+  - this rule file
+  - API types in `src/app/type/api/index.ts`
+  - affected route handlers and hooks
+
+## 1) System architecture
+
+- Framework: Next.js App Router with server route handlers under `src/app/api/**`.
+- Auth: Clerk server auth in route handlers via `auth()` and user profile via `currentUser()`.
+- Data layer: InstantDB admin SDK (`instantServer`) with schema in `instant.schema.ts`.
+- Client data-fetching: TanStack Query hooks (`src/hooks/useContracts.ts`, `src/hooks/useHistory.ts`, `src/hooks/useUser.ts`).
+- UI: Mobile-first pages under `src/app/(main)/**`, shadcn-style components under `src/components/ui/**`.
+- PWA support: service worker and manifest (`public/sw.js`, `public/manifest.json`).
+
+## 2) Role model and access model
+
+### Roles
+- `ADMIN`
+- `STAFF`
+- `CUSTOMER`
+
+### Effective scoping rules in APIs
+- `ADMIN`: full read/write across contracts and history (except endpoint-specific guards).
+- `STAFF`: trainer-oriented scope (commonly by `sale_by` or `teach_by`) and limited lifecycle transitions.
+- `CUSTOMER`: typically limited to contracts they purchased (`purchased_by === userInstantId`) and related sessions.
+
+## 3) Core data model
+
+### InstantDB entities
+- `$users`
+  - `email` unique/indexed optional
+- `user_setting`
+  - `role`, `clerk_id`, `first_name`, `last_name`
+- `contract`
+  - `created_at`, optional `start_date`, optional `end_date`
+  - `kind`: `PT | REHAB | PT_MONTHLY`
+  - optional `credits`
+  - `status`: contract lifecycle status
+  - `money`, `sale_by`, `purchased_by`
+- `history`
+  - `date`, `from`, `to` (time-slot model)
+  - `status`: history lifecycle status
+  - `teach_by`
+  - optional `user_check_in_time`, optional `staff_check_in_time`
+
+### Links
+- `contract` 1 -> many `history` via `historyContract`
+- `history` many -> one `$users` via `historyUser` label `users`
+- `user_setting` one -> one `$users` via `userSettings`
+- `contract` one -> one `$users` via `contractUser` label `users`
+- `contract` trainer link via `sale_by_user`
+- `contract` customer link via `purchased_by_user`
+
+### Derived fields and runtime semantics
+- `contract.used_credits` is computed in `GET /api/contract/getAll` from count of completed history rows.
+- Completion semantics for credits use `isCompletedHistoryStatus()` and currently count only `CHECKED_IN`.
+
+## 4) Lifecycle state machines
+
+### Contract statuses
+`NEWLY_CREATED -> CUSTOMER_REVIEW -> CUSTOMER_CONFIRMED -> CUSTOMER_PAID -> PT_CONFIRMED -> ACTIVE -> EXPIRED`
+
+Terminal side branch: `CANCELED`
+
+#### Transition enforcement (`POST /api/contract/updateStatus`)
+- `ADMIN`: can force any status.
+- `STAFF`: only
+  - `NEWLY_CREATED -> CUSTOMER_REVIEW`
+  - `CUSTOMER_PAID -> PT_CONFIRMED`
+  - `PT_CONFIRMED -> ACTIVE`
+- `CUSTOMER`: only
+  - `CUSTOMER_REVIEW -> CUSTOMER_CONFIRMED`
+  - `CUSTOMER_CONFIRMED -> CUSTOMER_PAID`
+- Non-admin cancel rules:
+  - cannot cancel `ACTIVE`
+  - cannot cancel already `CANCELED`/`EXPIRED`
+  - customer can cancel only own purchased contracts
+
+#### Auto-expire contract rules
+- On contract list and status update paths, contracts may be auto-set to `EXPIRED` if:
+  - pre-active status and `end_date < now`, or
+  - status `ACTIVE` and no available credits (for `PT`/`REHAB`)
+
+### History statuses
+`NEWLY_CREATED -> CHECKED_IN`
+
+Terminal side branches: `CANCELED`, `EXPIRED`
+
+#### Check-in model (`POST /api/history/updateStatus`)
+- Requested `CHECKED_IN` is dual-check-in workflow:
+  - customer sets `user_check_in_time`
+  - staff/admin sets `staff_check_in_time`
+  - only when both exist, status becomes `CHECKED_IN`
+- Only `NEWLY_CREATED` can be canceled.
+- Cannot cancel once check-in has started.
+- Auto-expire rule applies only to `NEWLY_CREATED` when session end time is in the past.
+
+## 5) Functional flows by page
+
+### `/` Dashboard (`src/app/(main)/page.tsx`)
+- Requires signed-in user (redirect to `/sign-in` if not authenticated).
+- Fetches user info, contracts, history.
+- Shows quick stats:
+  - active contracts count
+  - upcoming sessions count
+- Shows create-contract CTA for `ADMIN`/`STAFF`.
+- Shows next sessions list and navigation to `/history`.
+
+### `/contracts` (`src/app/(main)/contracts/page.tsx`)
+- Role-aware list with infinite pagination via `useInfiniteContracts`.
+- Filter drawer:
+  - statuses multi-select
+  - kind
+  - contract-period date range (`start_date` maps to `contract.start_date >=`, `end_date` maps to `contract.end_date <=`)
+  - role-dependent name search (`sale_by_name`, `purchased_by_name`)
+- Summary counts for total/active/pending/inactive.
+- Create-contract modal available for `ADMIN`/`STAFF`.
+
+### `/history` (`src/app/(main)/history/page.tsx`)
+- Infinite session list via `useInfiniteHistory`.
+- Session categories/tabs:
+  - upcoming
+  - past
+  - overdue
+  - inactive
+- Role-authenticated users can open create-session modal.
+- Uses session temporal logic (`date + to*60*1000`) for categorization.
+
+### `/profile` (`src/app/(main)/profile/page.tsx`)
+- Displays merged Clerk + user setting profile.
+- Allows first/last name updates via `POST /api/user/updateBasicInfo`.
+- Shows derived stats from contracts/history queries.
+- Supports Clerk sign-out.
+
+### `/sign-in` and `/offline`
+- `/sign-in`: Clerk sign-in UI route.
+- `/offline`: fallback page for PWA offline mode.
+
+## 6) API contract map and special constraints
+
+All route handlers typically set:
+- `export const dynamic = 'force-dynamic'`
+- `export const revalidate = 0`
+
+### Contract APIs
+- `POST /api/contract/create`
+  - Roles: `ADMIN`, `STAFF`
+  - Required: `kind`, `money`, `purchased_by`
+  - Defaults: `status = NEWLY_CREATED`, `created_at = Date.now()`
+  - Links trainer (`sale_by_user`) and customer (`purchased_by_user`)
+- `POST /api/contract/update`
+  - Role: `ADMIN` only
+  - Partial field update; optional relink when `sale_by`/`purchased_by` changes
+- `POST /api/contract/delete`
+  - Role: `ADMIN` only
+  - Soft delete by setting status `CANCELED`
+- `GET /api/contract/getAll`
+  - Role-scoped query
+  - Supports pagination and filters: statuses, kind, date range, name keyword filters
+  - Name filters resolve to user IDs by scanning `user_setting`
+  - Computes `used_credits`
+  - Auto-expires contracts in response path
+- `POST /api/contract/updateStatus`
+  - Role-based transition guard and cancellation guard
+  - Auto-expire check before transition
+  - If activating before `start_date`, shifts `start_date` to now and preserves duration by moving `end_date`
+
+### History APIs
+- `POST /api/history/create`
+  - Role: all authenticated users with ownership rules
+  - Requires: `contract_id`, `date`, `from`, `to`
+  - Contract must be `ACTIVE`
+  - Contract may auto-expire if ended
+  - For `PT`/`REHAB`, verifies credits remaining based on completed sessions
+  - Enforces trainer schedule conflict check on same day and overlapping time range
+  - Creates `NEWLY_CREATED` history, links contract and creator user
+- `POST /api/history/update`
+  - `ADMIN`: any history
+  - `CUSTOMER`: only history of purchased contracts
+  - Non-admin/non-customer path: creator-owned update check
+  - Validates time range and conflict when schedule fields change
+  - Blocks updates when contract not active or expired (and may auto-expire contract)
+- `POST /api/history/delete`
+  - Soft delete to `CANCELED`
+  - Role checks similar to history update ownership model
+- `GET /api/history/getAll`
+  - Role-scoped retrieval:
+    - admin all
+    - staff by `teach_by`
+    - customer by purchased contracts expansion
+  - Supports filters: statuses, `start_date`, `end_date`
+  - Auto-expires only `NEWLY_CREATED` past sessions
+- `GET /api/history/getByContract`
+  - Requires `contract_id`
+  - Access by role and relation to contract
+  - Auto-expires only `NEWLY_CREATED` past sessions
+  - Returns sorted history newest-first
+- `POST /api/history/updateStatus`
+  - Status transition endpoint for cancel/check-in workflow
+  - Enforces dual check-in semantics for `CHECKED_IN`
+- `GET /api/history/getOccupiedTimeSlots`
+  - Requires `user_id`, `date`
+  - Returns active occupied ranges excluding `CANCELED` and `EXPIRED`
+  - Used by scheduling UI via `useTrainerSchedule`
+
+### User APIs
+- `GET /api/user/getUserInformation`
+  - Returns merged Clerk user + `user_setting` + `instantUser`
+- `GET /api/user/checkUserSetting`
+  - Returns existence flag and optional setting
+- `POST /api/user/createUserSetting`
+  - Creates default `CUSTOMER` role setting
+  - Requires `first_name`, `last_name`
+  - Links to existing `$users` by email
+- `GET /api/user/getByRole`
+  - Requester must be `ADMIN` or `STAFF`
+  - Requires `role` query param
+- `POST /api/user/updateBasicInfo`
+  - Updates current user setting names
+
+## 7) Technical constraints and invariants
+
+- Time-slot model:
+  - `from` and `to` are numeric minute offsets (e.g. 480 = 08:00)
+  - valid range requires `from < to`
+- Session overlap rule:
+  - conflict if `newFrom < existingTo && newTo > existingFrom`
+  - ignores canceled and expired sessions
+- Soft delete policy:
+  - Contract/history delete endpoints cancel via status update, no hard delete
+- Role resolution dependency:
+  - Most APIs require `user_setting` existing and linked to an Instant `$users` row
+- Cache behavior:
+  - API handlers are forced dynamic; client cache managed by React Query invalidation
+
+## 8) Cleanup status (applied)
+
+The previously tracked 9 inconsistency items have been aligned in code:
+
+1. Occupied-slot API naming aligned in shared API types/hook usage (`GetOccupiedTimeSlots*`).
+2. Stale missing-route references removed from active contracts/interfaces.
+3. `GET /api/history/getOccupiedTimeSlots` now enforces Clerk auth + role checks.
+4. Dashboard user shape now uses `instantUser?.[0]?.id` consistently.
+5. `POST /api/contract/update` and `POST /api/history/update` now validate status enums strictly.
+6. `GET /api/history/getAll` pagination now returns `total` as full filtered count.
+7. Contract date filters now apply to contract period fields (`start_date`, `end_date`) instead of `created_at`.
+8. Legacy completion fallback removed; only `CHECKED_IN` is counted as completed.
+9. Rulebook and main docs were refreshed to match current runtime behavior.
+
+## 9) Change checklist for future modifications
+
+When changing any page, API, status, role rule, or data field, update in same PR:
+
+- This file `.cursor/rules/gochul-fitness-rules.mdc`
+- `src/app/type/api/index.ts`
+- Affected API route handlers under `src/app/api/**`
+- Relevant hooks under `src/hooks/**`
+- Relevant UI pages/components under `src/app/(main)/**` and `src/components/**`
+
+Do not merge behavior changes without synchronized rulebook updates.

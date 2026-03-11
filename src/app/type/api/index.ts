@@ -335,7 +335,7 @@ export type GetUsersByRoleResponse = GetUsersByRoleSuccessResponse | ApiErrorRes
 // /api/history/getOccupiedTimeSlots
 // ============================================================================
 
-export interface GetTrainerScheduleRequest {
+export interface GetOccupiedTimeSlotsRequest {
     user_id: string
     date: number
 }
@@ -345,11 +345,11 @@ export interface OccupiedSlot {
     to: number
 }
 
-export interface GetTrainerScheduleSuccessResponse {
+export interface GetOccupiedTimeSlotsSuccessResponse {
     occupied_slots: OccupiedSlot[]
 }
 
-export type GetTrainerScheduleResponse = GetTrainerScheduleSuccessResponse | ApiErrorResponse
+export type GetOccupiedTimeSlotsResponse = GetOccupiedTimeSlotsSuccessResponse | ApiErrorResponse
 
 // ============================================================================
 // /api/user/checkUserSetting

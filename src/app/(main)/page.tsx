@@ -42,7 +42,10 @@ export default function HomePage() {
   const { data: contractsData } = useInfiniteContracts(10)
 
   const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
-  const userInstantId = userInfo && 'instant_id' in userInfo ? userInfo.instant_id : undefined
+  const userInstantId =
+    userInfo && 'instantUser' in userInfo
+      ? userInfo.instantUser?.[0]?.id
+      : undefined
 
   const upcomingSessions = useMemo(() => {
     if (!historyData) return []

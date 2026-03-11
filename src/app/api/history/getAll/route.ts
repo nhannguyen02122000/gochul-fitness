@@ -62,13 +62,42 @@ export async function GET(request: Request) {
     const role = userSetting.role
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let history: any[] = []
+    let pagedHistory: any[] = []
+    let total = 0
 
-    if (role === 'ADMIN') {
-      const data = await instantServer.query({
+    if (role === 'ADMIN' || role === 'STAFF') {
+      const historyWhere: Record<string, unknown> = {}
+
+      if (role === 'STAFF') {
+        historyWhere.teach_by = userInstantId
+      }
+
+      if (statusesFilter && statusesFilter.length > 0) {
+        historyWhere.status =
+          statusesFilter.length === 1 ? statusesFilter[0] : { $in: statusesFilter }
+      }
+
+      if (startDate !== null || endDate !== null) {
+        const dateRange: { $gte?: number; $lte?: number } = {}
+        if (startDate !== null) dateRange.$gte = startDate
+        if (endDate !== null) dateRange.$lte = endDate
+        historyWhere.date = dateRange
+      }
+
+      const totalData = await instantServer.query({
         history: {
           $: {
-            limit: limit + 1,
+            where: historyWhere as never
+          }
+        }
+      })
+      total = (totalData.history || []).length
+
+      const pagedData = await instantServer.query({
+        history: {
+          $: {
+            where: historyWhere as never,
+            limit,
             offset
           },
           users: {},
@@ -83,30 +112,7 @@ export async function GET(request: Request) {
           }
         }
       })
-      history = data.history || []
-    } else if (role === 'STAFF') {
-      const data = await instantServer.query({
-        history: {
-          $: {
-            where: {
-              teach_by: userInstantId
-            },
-            limit: limit + 1,
-            offset
-          },
-          users: {},
-          contract: {
-            users: {},
-            sale_by_user: {
-              user_setting: {}
-            },
-            purchased_by_user: {
-              user_setting: {}
-            }
-          }
-        }
-      })
-      history = data.history || []
+      pagedHistory = pagedData.history || []
     } else if (role === 'CUSTOMER') {
       const contractsData = await instantServer.query({
         contract: {
@@ -128,12 +134,13 @@ export async function GET(request: Request) {
         }
       })
 
-      const allHistory: Array<Record<string, unknown>> = []
+      const flattenedHistory: Array<Record<string, unknown>> = []
       contractsData.contract?.forEach(contract => {
         if (contract.history && contract.history.length > 0) {
           contract.history.forEach(h => {
-            const { history: _, ...contractWithoutHistory } = contract
-            allHistory.push({
+            const contractWithoutHistory: Record<string, unknown> = { ...contract }
+            delete contractWithoutHistory.history
+            flattenedHistory.push({
               ...h,
               contract: [contractWithoutHistory]
             })
@@ -141,7 +148,22 @@ export async function GET(request: Request) {
         }
       })
 
-      history = allHistory.slice(offset, offset + limit + 1)
+      let filteredHistory = flattenedHistory
+
+      if (statusesFilter && statusesFilter.length > 0) {
+        filteredHistory = filteredHistory.filter(h => statusesFilter.includes(h.status as string))
+      }
+
+      if (startDate !== null) {
+        filteredHistory = filteredHistory.filter(h => (h.date as number) >= startDate)
+      }
+
+      if (endDate !== null) {
+        filteredHistory = filteredHistory.filter(h => (h.date as number) <= endDate)
+      }
+
+      total = filteredHistory.length
+      pagedHistory = filteredHistory.slice(offset, offset + limit)
     } else {
       return NextResponse.json(
         { error: 'Invalid role' },
@@ -149,25 +171,11 @@ export async function GET(request: Request) {
       )
     }
 
-    let filteredHistory = history
-
-    if (statusesFilter && statusesFilter.length > 0) {
-      filteredHistory = filteredHistory.filter(h => statusesFilter.includes(h.status))
-    }
-
-    if (startDate !== null) {
-      filteredHistory = filteredHistory.filter(h => h.date >= startDate)
-    }
-
-    if (endDate !== null) {
-      filteredHistory = filteredHistory.filter(h => h.date <= endDate)
-    }
-
     // New expiry rule: only expire NEWLY_CREATED records
     const now = Date.now()
     const expiredHistoryIds: string[] = []
 
-    for (const session of filteredHistory) {
+    for (const session of pagedHistory) {
       if (session.status !== 'NEWLY_CREATED') {
         continue
       }
@@ -187,17 +195,14 @@ export async function GET(request: Request) {
       await instantServer.transact(transactions)
     }
 
-    const hasMore = filteredHistory.length > limit
-    if (hasMore) {
-      filteredHistory = filteredHistory.slice(0, limit)
-    }
+    const hasMore = offset + limit < total
 
     return NextResponse.json({
-      history: filteredHistory,
+      history: pagedHistory,
       pagination: {
         page,
         limit,
-        total: filteredHistory.length,
+        total,
         hasMore
       },
       role
