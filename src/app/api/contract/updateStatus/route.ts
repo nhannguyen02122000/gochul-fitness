@@ -3,11 +3,37 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import type { ContractStatus } from '@/app/type/api'
+import { isCompletedHistoryStatus, isPreActiveContractStatus } from '@/utils/statusUtils'
 
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+function hasAvailableCredits(contract: Record<string, unknown>): boolean {
+  const kind = typeof contract.kind === 'string' ? contract.kind : undefined
+  const credits = typeof contract.credits === 'number' ? contract.credits : undefined
+  const history = Array.isArray(contract.history)
+    ? contract.history
+    : []
+
+  if (kind !== 'PT' && kind !== 'REHAB') {
+    return true
+  }
+
+  if (!credits || credits <= 0) {
+    return false
+  }
+
+  const usedCredits = history.filter((item) => {
+    if (!item || typeof item !== 'object') return false
+    const status = (item as Record<string, unknown>).status
+    return isCompletedHistoryStatus(typeof status === 'string' ? status : '')
+  }).length
+
+  return usedCredits < credits
+}
+
 export async function POST(request: Request) {
   try {
     // Check if user is signed in
@@ -98,10 +124,35 @@ export async function POST(request: Request) {
     const currentStatus = contract.status as ContractStatus
     const newStatus = status as ContractStatus
 
-    // Check if contract has expired
+    const validStatuses: ContractStatus[] = [
+      'NEWLY_CREATED',
+      'CUSTOMER_REVIEW',
+      'CUSTOMER_CONFIRMED',
+      'CUSTOMER_PAID',
+      'PT_CONFIRMED',
+      'ACTIVE',
+      'CANCELED',
+      'EXPIRED'
+    ]
+
+    if (!validStatuses.includes(newStatus)) {
+      return NextResponse.json(
+        { error: 'Invalid status value' },
+        { status: 400 }
+      )
+    }
+
+    // Auto-expire checks before transition validation
     const now = Date.now()
-    if (contract.end_date && contract.end_date < now) {
-      // Auto-set to EXPIRED
+    const shouldExpireByDate =
+      isPreActiveContractStatus(currentStatus) &&
+      !!contract.end_date &&
+      contract.end_date < now
+
+    const shouldExpireByCredits =
+      currentStatus === 'ACTIVE' && !hasAvailableCredits(contract)
+
+    if (shouldExpireByDate || shouldExpireByCredits) {
       await instantServer.transact([
         instantServer.tx.contract[contract_id].update({
           status: 'EXPIRED'
@@ -117,9 +168,8 @@ export async function POST(request: Request) {
     // Validate status transitions based on role
     if (role === 'ADMIN') {
       // ADMIN can force any status change
-      // No restrictions
     } else if (newStatus === 'CANCELED') {
-      // Anyone can cancel from any status except ACTIVE, CANCELED, EXPIRED
+      // Non-admin can cancel only pre-ACTIVE and non-terminal statuses
       if (currentStatus === 'ACTIVE') {
         return NextResponse.json(
           { error: 'Cannot cancel an ACTIVE contract. Only ADMIN can perform this action.' },
@@ -138,59 +188,49 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
-      // For CUSTOMER, verify ownership
+
       if (role === 'CUSTOMER' && contract.purchased_by !== userInstantId) {
         return NextResponse.json(
           { error: 'Forbidden - You can only cancel contracts you purchased' },
           { status: 403 }
         )
       }
-      // Allowed to cancel
-    } else {
-      // Validate workflow transitions
-      if (role === 'STAFF') {
-        // STAFF can: NEWLY_CREATED → CUSTOMER_REVIEW
-        if (currentStatus === 'NEWLY_CREATED' && newStatus === 'CUSTOMER_REVIEW') {
-          // Allowed
-        } else {
-          return NextResponse.json(
-            { error: 'Invalid status transition for STAFF role' },
-            { status: 403 }
-          )
-        }
-      } else if (role === 'CUSTOMER') {
-        // Verify this is the customer who purchased the contract
-        if (contract.purchased_by !== userInstantId) {
-          return NextResponse.json(
-            { error: 'Forbidden - You can only update contracts you purchased' },
-            { status: 403 }
-          )
-        }
+    } else if (role === 'STAFF') {
+      // STAFF can: NEWLY_CREATED -> CUSTOMER_REVIEW -> (customer steps) -> CUSTOMER_PAID -> PT_CONFIRMED -> ACTIVE
+      const isAllowedStaffTransition =
+        (currentStatus === 'NEWLY_CREATED' && newStatus === 'CUSTOMER_REVIEW') ||
+        (currentStatus === 'CUSTOMER_PAID' && newStatus === 'PT_CONFIRMED') ||
+        (currentStatus === 'PT_CONFIRMED' && newStatus === 'ACTIVE')
 
-        // CUSTOMER can: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED, CUSTOMER_CONFIRMED → ACTIVE
-        if (currentStatus === 'CUSTOMER_REVIEW' && newStatus === 'CUSTOMER_CONFIRMED') {
-          // Allowed
-        } else if (currentStatus === 'CUSTOMER_CONFIRMED' && newStatus === 'ACTIVE') {
-          // Check not expired before activating
-          if (contract.end_date && contract.end_date < now) {
-            return NextResponse.json(
-              { error: 'Cannot activate an expired contract' },
-              { status: 400 }
-            )
-          }
-          // Allowed
-        } else {
-          return NextResponse.json(
-            { error: 'Invalid status transition for CUSTOMER role' },
-            { status: 403 }
-          )
-        }
-      } else {
+      if (!isAllowedStaffTransition) {
         return NextResponse.json(
-          { error: 'Invalid role' },
+          { error: 'Invalid status transition for STAFF role' },
           { status: 403 }
         )
       }
+    } else if (role === 'CUSTOMER') {
+      if (contract.purchased_by !== userInstantId) {
+        return NextResponse.json(
+          { error: 'Forbidden - You can only update contracts you purchased' },
+          { status: 403 }
+        )
+      }
+
+      const isAllowedCustomerTransition =
+        (currentStatus === 'CUSTOMER_REVIEW' && newStatus === 'CUSTOMER_CONFIRMED') ||
+        (currentStatus === 'CUSTOMER_CONFIRMED' && newStatus === 'CUSTOMER_PAID')
+
+      if (!isAllowedCustomerTransition) {
+        return NextResponse.json(
+          { error: 'Invalid status transition for CUSTOMER role' },
+          { status: 403 }
+        )
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Invalid role' },
+        { status: 403 }
+      )
     }
 
     // Handle date adjustments when activating a contract before its start_date

@@ -64,6 +64,8 @@ const CONTRACT_STATUSES: { value: ContractStatus; label: string }[] = [
   { value: 'NEWLY_CREATED', label: 'Newly Created' },
   { value: 'CUSTOMER_REVIEW', label: 'Customer Review' },
   { value: 'CUSTOMER_CONFIRMED', label: 'Customer Confirmed' },
+  { value: 'CUSTOMER_PAID', label: 'Payment Completed by Customer' },
+  { value: 'PT_CONFIRMED', label: 'PT Confirmed Receipt' },
   { value: 'EXPIRED', label: 'Expired' },
   { value: 'CANCELED', label: 'Canceled' },
 ]
@@ -211,7 +213,9 @@ export default function ContractsPage() {
         (c) =>
           c.status === 'NEWLY_CREATED' ||
           c.status === 'CUSTOMER_REVIEW' ||
-          c.status === 'CUSTOMER_CONFIRMED'
+          c.status === 'CUSTOMER_CONFIRMED' ||
+          c.status === 'CUSTOMER_PAID' ||
+          c.status === 'PT_CONFIRMED'
       ).length,
       inactive: allContracts.filter(
         (c) =>

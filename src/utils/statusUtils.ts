@@ -34,34 +34,46 @@ export function getContractActionButtons(
         buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'CUSTOMER_CONFIRMED':
-        // No buttons - waiting for CUSTOMER to activate
+        // No buttons - waiting for CUSTOMER payment completion
+        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+        break
+      case 'CUSTOMER_PAID':
+        buttons.push({ label: 'PT Confirm Receipt', nextStatus: 'PT_CONFIRMED', type: 'primary' })
+        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+        break
+      case 'PT_CONFIRMED':
+        buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
         buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'ACTIVE':
-        // No status change buttons for active contracts
-        break
       case 'CANCELED':
       case 'EXPIRED':
-        // No actions for terminal statuses
+        // No actions for terminal/active statuses
         break
     }
   } else if (role === 'STAFF') {
-    // STAFF can: NEWLY_CREATED → CUSTOMER_REVIEW
+    // STAFF can: NEWLY_CREATED → CUSTOMER_REVIEW, CUSTOMER_PAID → PT_CONFIRMED, PT_CONFIRMED → ACTIVE
     if (status === 'NEWLY_CREATED') {
       buttons.push({ label: 'Send to Customer', nextStatus: 'CUSTOMER_REVIEW', type: 'primary' })
+    } else if (status === 'CUSTOMER_PAID') {
+      buttons.push({ label: 'PT Confirm Receipt', nextStatus: 'PT_CONFIRMED', type: 'primary' })
+    } else if (status === 'PT_CONFIRMED') {
+      buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
     }
-    // STAFF can cancel any status except ACTIVE, CANCELED, EXPIRED
+
+    // STAFF can cancel any pre-ACTIVE status except terminal statuses
     if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED') {
       buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
     }
   } else if (role === 'CUSTOMER') {
-    // CUSTOMER can: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → ACTIVE
+    // CUSTOMER can: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → CUSTOMER_PAID
     if (status === 'CUSTOMER_REVIEW') {
-      buttons.push({ label: 'Payment Confirm', nextStatus: 'CUSTOMER_CONFIRMED', type: 'primary' })
+      buttons.push({ label: 'Confirm Details', nextStatus: 'CUSTOMER_CONFIRMED', type: 'primary' })
     } else if (status === 'CUSTOMER_CONFIRMED') {
-      buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
+      buttons.push({ label: 'Payment Completed', nextStatus: 'CUSTOMER_PAID', type: 'primary' })
     }
-    // CUSTOMER can cancel any status except ACTIVE, CANCELED, EXPIRED
+
+    // CUSTOMER can cancel any pre-ACTIVE status except terminal statuses
     if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED') {
       buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
     }
@@ -103,6 +115,19 @@ export function isCompletedHistoryStatus(status: string): boolean {
 }
 
 /**
+ * Returns true for statuses that are in workflow before ACTIVE.
+ */
+export function isPreActiveContractStatus(status: ContractStatus): boolean {
+  return (
+    status === 'NEWLY_CREATED' ||
+    status === 'CUSTOMER_REVIEW' ||
+    status === 'CUSTOMER_CONFIRMED' ||
+    status === 'CUSTOMER_PAID' ||
+    status === 'PT_CONFIRMED'
+  )
+}
+
+/**
  * Check if user can view a contract based on status and role
  * @param status - Contract status
  * @param role - User role
@@ -128,8 +153,8 @@ export function canViewContract(status: ContractStatus, role: Role): boolean {
  * @returns true if contract can be canceled
  */
 export function canCancelContract(status: ContractStatus): boolean {
-  // Can cancel any status except ACTIVE
-  return status !== 'ACTIVE'
+  // Can cancel any pre-ACTIVE status except terminal statuses
+  return status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED'
 }
 
 /**
@@ -152,6 +177,8 @@ export function getContractStatusText(status: ContractStatus): string {
     'NEWLY_CREATED': 'Newly Created',
     'CUSTOMER_REVIEW': 'Customer Review',
     'CUSTOMER_CONFIRMED': 'Customer Confirmed',
+    'CUSTOMER_PAID': 'Payment Completed by Customer',
+    'PT_CONFIRMED': 'PT Confirmed Receipt',
     'ACTIVE': 'Active',
     'CANCELED': 'Canceled',
     'EXPIRED': 'Expired'
@@ -184,6 +211,8 @@ export function getContractStatusVariant(status: ContractStatus): { variant: 'de
     'NEWLY_CREATED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-600' },
     'CUSTOMER_REVIEW': { variant: 'secondary', className: 'bg-blue-50 text-blue-700' },
     'CUSTOMER_CONFIRMED': { variant: 'secondary', className: 'bg-amber-50 text-amber-700' },
+    'CUSTOMER_PAID': { variant: 'secondary', className: 'bg-indigo-50 text-indigo-700' },
+    'PT_CONFIRMED': { variant: 'secondary', className: 'bg-purple-50 text-purple-700' },
     'ACTIVE': { variant: 'secondary', className: 'bg-emerald-50 text-emerald-700' },
     'CANCELED': { variant: 'destructive', className: 'bg-red-50 text-red-700' },
     'EXPIRED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-500' }
@@ -216,6 +245,8 @@ export function getContractStatusColor(status: ContractStatus): string {
     'NEWLY_CREATED': 'default',
     'CUSTOMER_REVIEW': 'processing',
     'CUSTOMER_CONFIRMED': 'warning',
+    'CUSTOMER_PAID': 'processing',
+    'PT_CONFIRMED': 'warning',
     'ACTIVE': 'success',
     'CANCELED': 'error',
     'EXPIRED': 'default'

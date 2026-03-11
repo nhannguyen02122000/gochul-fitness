@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import type { ContractStatus, ContractKind } from '@/app/type/api'
-import { isCompletedHistoryStatus } from '@/utils/statusUtils'
+import { isCompletedHistoryStatus, isPreActiveContractStatus } from '@/utils/statusUtils'
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
@@ -13,6 +13,8 @@ const CONTRACT_STATUS_VALUES: ContractStatus[] = [
   'NEWLY_CREATED',
   'CUSTOMER_REVIEW',
   'CUSTOMER_CONFIRMED',
+  'CUSTOMER_PAID',
+  'PT_CONFIRMED',
   'ACTIVE',
   'CANCELED',
   'EXPIRED'
@@ -50,6 +52,30 @@ function parseTimestamp(value: string | null): number | null {
   if (!value) return null
   const parsed = Number.parseInt(value, 10)
   return Number.isNaN(parsed) ? null : parsed
+}
+
+function hasAvailableCreditsForContract(contract: Record<string, unknown>): boolean {
+  const kind = typeof contract.kind === 'string' ? contract.kind : undefined
+  const credits = typeof contract.credits === 'number' ? contract.credits : undefined
+  const history = Array.isArray(contract.history)
+    ? contract.history
+    : []
+
+  if (kind !== 'PT' && kind !== 'REHAB') {
+    return true
+  }
+
+  if (!credits || credits <= 0) {
+    return false
+  }
+
+  const usedCredits = history.filter((item) => {
+    if (!item || typeof item !== 'object') return false
+    const status = (item as Record<string, unknown>).status
+    return isCompletedHistoryStatus(typeof status === 'string' ? status : '')
+  }).length
+
+  return usedCredits < credits
 }
 
 export async function GET(request: Request) {
@@ -276,15 +302,38 @@ export async function GET(request: Request) {
     })
     const total = totalData.contract?.length || 0
 
-    // Calculate used_credits for each contract
-    // used_credits = number of history records with status CHECKED_IN
+    // Calculate used_credits and auto-expire eligible contracts in current page
+    const now = Date.now()
+    const contractsToExpire: string[] = []
+
     contracts.forEach((contract) => {
       const usedCreditsCount =
-        contract.history?.filter((h) => isCompletedHistoryStatus(h.status))
+        contract.history?.filter((h) => isCompletedHistoryStatus(h.status || ''))
           .length || 0
 
       contract.used_credits = usedCreditsCount
+
+      const shouldExpireByDate =
+        isPreActiveContractStatus(contract.status) &&
+        !!contract.end_date &&
+        contract.end_date < now
+
+      const shouldExpireByCredits =
+        contract.status === 'ACTIVE' && !hasAvailableCreditsForContract(contract)
+
+      if (shouldExpireByDate || shouldExpireByCredits) {
+        contractsToExpire.push(contract.id)
+        contract.status = 'EXPIRED'
+      }
     })
+
+    if (contractsToExpire.length > 0) {
+      await instantServer.transact(
+        contractsToExpire.map((contractId) =>
+          instantServer.tx.contract[contractId].update({ status: 'EXPIRED' })
+        )
+      )
+    }
 
     return NextResponse.json({
       contracts,
