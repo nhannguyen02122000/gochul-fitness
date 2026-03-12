@@ -202,11 +202,16 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
               <div className="space-y-1.5 mt-3">
                 <Label>Number of Credits</Label>
                 <Input
-                  type="number"
-                  min={1}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="Enter number of sessions"
                   value={credits}
-                  onChange={(e) => { setCredits(e.target.value); setErrors(p => ({ ...p, credits: '' })) }}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^\d]/g, '')
+                    setCredits(raw)
+                    setErrors(p => ({ ...p, credits: '' }))
+                  }}
                 />
                 {errors.credits && <p className="text-xs text-destructive">{errors.credits}</p>}
               </div>
