@@ -83,8 +83,9 @@ alwaysApply: true
 - `contract` customer link via `purchased_by_user`
 
 ### Derived fields and runtime semantics
-- `contract.used_credits` is computed in `GET /api/contract/getAll` from count of completed history rows.
-- Completion semantics for credits use `isCompletedHistoryStatus()` and currently count only `CHECKED_IN`.
+- `contract.used_credits` is computed in `GET /api/contract/getAll` from history rows whose status is `NEWLY_CREATED` or `CHECKED_IN`.
+- Credit availability checks in `POST /api/history/create` and `POST /api/contract/updateStatus` use the same `NEWLY_CREATED` + `CHECKED_IN` semantics.
+- `isCompletedHistoryStatus()` is a completed-session helper for analytics/UI categorization and currently returns true only for `CHECKED_IN`.
 
 ## 5) Lifecycle state machines
 
@@ -106,11 +107,35 @@ Terminal side branch: `CANCELED`
   - cannot cancel `ACTIVE`
   - cannot cancel already `CANCELED`/`EXPIRED`
   - customer can cancel only own purchased contracts
+  - API allows cancel from `PT_CONFIRMED` for non-admin, but UI action buttons intentionally do not expose Cancel at `PT_CONFIRMED`
+
+#### Contract action-button runtime behavior (`src/utils/statusUtils.ts`, `src/components/cards/ContractCard.tsx`)
+- Action rendering requires `shouldShowContractActionButtons()`:
+  - `ADMIN` and `STAFF`: can see action area for all contracts.
+  - `CUSTOMER`: can see actions only when `contract.purchased_by === userInstantId`.
+- Button generation source of truth is `getContractActionButtons()`:
+  - `ADMIN`
+    - `NEWLY_CREATED`: `Send to Customer`, `Cancel`
+    - `CUSTOMER_REVIEW`: `Cancel`
+    - `CUSTOMER_CONFIRMED`: `Cancel`
+    - `CUSTOMER_PAID`: `PT Confirm Receipt`, `Cancel`
+    - `PT_CONFIRMED`, `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
+  - `STAFF`
+    - `NEWLY_CREATED`: `Send to Customer` and `Cancel`
+    - `CUSTOMER_PAID`: `PT Confirm Receipt` and `Cancel`
+    - `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`: `Cancel`
+    - `PT_CONFIRMED`, `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
+  - `CUSTOMER`
+    - `CUSTOMER_REVIEW`: `Confirm Details` and `Cancel`
+    - `CUSTOMER_CONFIRMED`: `Payment Completed` and `Cancel`
+    - `PT_CONFIRMED`: `Activate` only
+    - `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
+- Activation confirmation dialog appears when requested next status is `ACTIVE` and contract has both `start_date` and `end_date`, and current timestamp differs from `start_date`.
 
 #### Auto-expire contract rules
 - On contract list and status update paths, contracts may be auto-set to `EXPIRED` if:
   - pre-active status and `end_date < now`, or
-  - status `ACTIVE` and no available credits (for `PT`/`REHAB`)
+  - status `ACTIVE` and no available credits (for `PT`/`REHAB`), where consumed credits are counted from history with status `NEWLY_CREATED` or `CHECKED_IN`
 
 ### History statuses
 `NEWLY_CREATED -> CHECKED_IN`
@@ -119,12 +144,27 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 
 #### Check-in model (`POST /api/history/updateStatus`)
 - Requested `CHECKED_IN` is dual-check-in workflow:
-  - customer sets `user_check_in_time`
-  - staff/admin sets `staff_check_in_time`
-  - only when both exist, status becomes `CHECKED_IN`
-- Only `NEWLY_CREATED` can be canceled.
-- Cannot cancel once check-in has started.
+  - customer request sets `user_check_in_time`.
+  - staff/admin request sets `staff_check_in_time`.
+  - status stays `NEWLY_CREATED` until both timestamps exist; then status becomes `CHECKED_IN`.
+- Duplicate side check-ins are blocked:
+  - customer cannot set `user_check_in_time` twice.
+  - staff/admin cannot set `staff_check_in_time` twice.
+- Cancel behavior:
+  - only sessions currently in `NEWLY_CREATED` can be canceled.
+  - because first-side check-in keeps status as `NEWLY_CREATED`, cancel is still technically allowed until the session reaches `CHECKED_IN`.
 - Auto-expire rule applies only to `NEWLY_CREATED` when session end time is in the past.
+
+#### Session action-button runtime behavior (`src/utils/statusUtils.ts`, `src/components/cards/SessionCard.tsx`)
+- Action visibility requires `shouldShowHistoryActionButtons()`:
+  - `ADMIN` and `STAFF`: visible for all sessions.
+  - `CUSTOMER`: visible only when session contract is owned by user.
+- For `NEWLY_CREATED`, `getHistoryActionButtons()` provides `Cancel` for all roles.
+- `SessionCard` separately renders a `Check-in` button for `NEWLY_CREATED` sessions:
+  - customer can request check-in only when owner and `user_check_in_time` is empty.
+  - staff/admin can request check-in only when `staff_check_in_time` is empty.
+  - check-in button is disabled when caller side already checked in.
+- For `CHECKED_IN`, `CANCELED`, and `EXPIRED`, no action buttons are rendered.
 
 ## 6) Functional flows by page
 
@@ -175,7 +215,17 @@ Terminal side branches: `CANCELED`, `EXPIRED`
   - Sales Rep label row renders `salesPerson` in the value text element.
   - Both value elements apply `truncate`, so long names/emails are visually clipped in-card.
 - Contract action buttons in card use `getContractActionButtons()` from `src/utils/statusUtils.ts` as source of truth.
-  - At `PT_CONFIRMED`: only `CUSTOMER` sees `Activate`; `ADMIN` and `STAFF` see no action buttons.
+- Action button render gate uses `shouldShowContractActionButtons()`:
+  - `ADMIN` and `STAFF` can see contract actions for all cards.
+  - `CUSTOMER` can see actions only for own purchased contracts.
+- Runtime button map:
+  - `CUSTOMER_REVIEW`: `CUSTOMER` sees `Confirm Details`, `ADMIN/STAFF` see cancel-only.
+  - `CUSTOMER_CONFIRMED`: `CUSTOMER` sees `Payment Completed`, `ADMIN/STAFF` see cancel-only.
+  - `CUSTOMER_PAID`: `ADMIN/STAFF` see `PT Confirm Receipt` and cancel; `CUSTOMER` sees no action.
+  - `PT_CONFIRMED`: only `CUSTOMER` sees `Activate`; `ADMIN` and `STAFF` see no action buttons.
+- Create Session button behavior:
+  - shown only when contract is `ACTIVE` and user is `ADMIN`/`STAFF`, or `CUSTOMER` owner.
+  - for `PT`/`REHAB`, requires `used_credits < credits`; for `PT_MONTHLY`, credit-cap check is bypassed.
 
 ### `/history` (`src/app/(main)/history/page.tsx`)
 - Infinite session list via `useInfiniteHistory`.
@@ -186,6 +236,14 @@ Terminal side branches: `CANCELED`, `EXPIRED`
   - inactive
 - Role-authenticated users can open create-session modal.
 - Uses session temporal logic (`date + to*60*1000`) for categorization.
+- Categorization rules:
+  - upcoming: `NEWLY_CREATED` or `CHECKED_IN` whose end time has not passed.
+  - past: `CHECKED_IN` whose end time has passed.
+  - overdue: `NEWLY_CREATED` whose end time has passed.
+  - inactive: `CANCELED` or `EXPIRED`.
+- `SessionCard` actions are available only for `NEWLY_CREATED` and role/ownership-permitted users:
+  - Check-in action participates in dual-check-in API semantics.
+  - Cancel action calls `POST /api/history/updateStatus` with `CANCELED`.
 
 ### `/profile` (`src/app/(main)/profile/page.tsx`)
 - Displays merged Clerk + user setting profile.
@@ -219,12 +277,14 @@ All route handlers typically set:
   - Role-scoped query
   - Supports pagination and filters: statuses, kind, date range, name keyword filters
   - Name filters resolve to user IDs by scanning `user_setting`
-  - Computes `used_credits`
+  - Computes `used_credits` from history statuses `NEWLY_CREATED` + `CHECKED_IN`
   - Auto-expires contracts in response path
+  - Enforces customer visibility invariant by excluding `NEWLY_CREATED` contracts for `CUSTOMER` even when query params request it
 - `POST /api/contract/updateStatus`
   - Role-based transition guard and cancellation guard
   - Auto-expire check before transition
-  - If activating before `start_date`, shifts `start_date` to now and preserves duration by moving `end_date`
+  - Auto-expire-by-credits uses history statuses `NEWLY_CREATED` + `CHECKED_IN` for `PT`/`REHAB`
+  - If activating and timestamp differs from existing `start_date`, shifts `start_date` to now and preserves duration by moving `end_date`
 
 ### History APIs
 - `POST /api/history/create`
@@ -232,7 +292,7 @@ All route handlers typically set:
   - Requires: `contract_id`, `date`, `from`, `to`
   - Contract must be `ACTIVE`
   - Contract may auto-expire if ended
-  - For `PT`/`REHAB`, verifies credits remaining based on completed sessions
+  - For `PT`/`REHAB`, verifies credits remaining using history statuses `NEWLY_CREATED` + `CHECKED_IN`
   - Enforces trainer schedule conflict check on same day and overlapping time range
   - Creates `NEWLY_CREATED` history, links contract and creator user
 - `POST /api/history/update`
@@ -259,6 +319,8 @@ All route handlers typically set:
 - `POST /api/history/updateStatus`
   - Status transition endpoint for cancel/check-in workflow
   - Enforces dual check-in semantics for `CHECKED_IN`
+  - Allows cancel only when current status is `NEWLY_CREATED` (including partial check-in state)
+  - Returns `last_check_in_by` as `CUSTOMER`, `STAFF`, or `ADMIN` when a check-in request succeeds
 - `GET /api/history/getOccupiedTimeSlots`
   - Requires `user_id`, `date`
   - Returns active occupied ranges excluding `CANCELED` and `EXPIRED`
@@ -305,7 +367,7 @@ The previously tracked 9 inconsistency items have been aligned in code:
 5. `POST /api/contract/update` and `POST /api/history/update` now validate status enums strictly.
 6. `GET /api/history/getAll` pagination now returns `total` as full filtered count.
 7. Contract date filters now apply to contract period fields (`start_date`, `end_date`) instead of `created_at`.
-8. Legacy completion fallback removed; only `CHECKED_IN` is counted as completed.
+8. Legacy completion fallback removed; only `CHECKED_IN` is counted as completed for completion analytics/category logic, while credit consumption currently uses `NEWLY_CREATED` + `CHECKED_IN`.
 9. Rulebook and main docs were refreshed to match current runtime behavior.
 
 ## 10) Change checklist for future modifications
