@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import type { ContractStatus, ContractKind } from '@/app/type/api'
-import { isCompletedHistoryStatus, isPreActiveContractStatus } from '@/utils/statusUtils'
+import { isPreActiveContractStatus } from '@/utils/statusUtils'
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
@@ -54,6 +54,10 @@ function parseTimestamp(value: string | null): number | null {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+function isCreditUsedHistoryStatus(status: unknown): boolean {
+  return status === 'NEWLY_CREATED' || status === 'CHECKED_IN'
+}
+
 function hasAvailableCreditsForContract(contract: Record<string, unknown>): boolean {
   const kind = typeof contract.kind === 'string' ? contract.kind : undefined
   const credits = typeof contract.credits === 'number' ? contract.credits : undefined
@@ -72,7 +76,7 @@ function hasAvailableCreditsForContract(contract: Record<string, unknown>): bool
   const usedCredits = history.filter((item) => {
     if (!item || typeof item !== 'object') return false
     const status = (item as Record<string, unknown>).status
-    return isCompletedHistoryStatus(typeof status === 'string' ? status : '')
+    return isCreditUsedHistoryStatus(typeof status === 'string' ? status : '')
   }).length
 
   return usedCredits < credits
@@ -313,7 +317,7 @@ export async function GET(request: Request) {
 
     contracts.forEach((contract) => {
       const usedCreditsCount =
-        contract.history?.filter((h) => isCompletedHistoryStatus(h.status || ''))
+        contract.history?.filter((h) => isCreditUsedHistoryStatus(h.status || ''))
           .length || 0
 
       contract.used_credits = usedCreditsCount

@@ -63,7 +63,7 @@ export interface Contract {
     end_date?: number
     kind: ContractKind
     credits?: number
-    used_credits?: number // Number of history records with status CHECKED_IN
+    used_credits?: number // Number of history records with status NEWLY_CREATED or CHECKED_IN
     status: ContractStatus
     money: number
     sale_by?: string

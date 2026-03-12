@@ -3,12 +3,16 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import type { ContractStatus } from '@/app/type/api'
-import { isCompletedHistoryStatus, isPreActiveContractStatus } from '@/utils/statusUtils'
+import { isPreActiveContractStatus } from '@/utils/statusUtils'
 
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+function isCreditUsedHistoryStatus(status: unknown): boolean {
+  return status === 'NEWLY_CREATED' || status === 'CHECKED_IN'
+}
 
 function hasAvailableCredits(contract: Record<string, unknown>): boolean {
   const kind = typeof contract.kind === 'string' ? contract.kind : undefined
@@ -28,7 +32,7 @@ function hasAvailableCredits(contract: Record<string, unknown>): boolean {
   const usedCredits = history.filter((item) => {
     if (!item || typeof item !== 'object') return false
     const status = (item as Record<string, unknown>).status
-    return isCompletedHistoryStatus(typeof status === 'string' ? status : '')
+    return isCreditUsedHistoryStatus(typeof status === 'string' ? status : '')
   }).length
 
   return usedCredits < credits

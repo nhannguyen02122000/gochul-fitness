@@ -3,8 +3,10 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import { id } from '@instantdb/admin'
-import { isCompletedHistoryStatus } from '@/utils/statusUtils'
 
+function isCreditUsedHistoryStatus(status: unknown): boolean {
+  return status === 'NEWLY_CREATED' || status === 'CHECKED_IN'
+}
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
@@ -181,7 +183,7 @@ export async function POST(request: Request) {
 
       // Count history records with CHECKED_IN status for this contract
       const usedCredits = contract.history?.filter(
-        (h) => isCompletedHistoryStatus(h.status)
+        (h) => isCreditUsedHistoryStatus(h.status)
       ).length || 0
 
       if (usedCredits >= contract.credits) {
