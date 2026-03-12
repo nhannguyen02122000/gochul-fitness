@@ -149,18 +149,13 @@ export async function POST(request: Request) {
       )
     }
 
+    let lastCheckInBy: 'CUSTOMER' | 'STAFF' | 'ADMIN' | null = null
+
     // Handle cancel
     if (requestedStatus === 'CANCELED') {
       if (currentStatus !== 'NEWLY_CREATED') {
         return NextResponse.json(
           { error: 'Only NEWLY_CREATED sessions can be canceled' },
-          { status: 400 }
-        )
-      }
-
-      if (history.user_check_in_time || history.staff_check_in_time) {
-        return NextResponse.json(
-          { error: 'Cannot cancel after check-in has started' },
           { status: 400 }
         )
       }
@@ -201,6 +196,7 @@ export async function POST(request: Request) {
           )
         }
         updateData.user_check_in_time = now
+        lastCheckInBy = 'CUSTOMER'
       } else if (role === 'STAFF' || role === 'ADMIN') {
         if (history.staff_check_in_time) {
           return NextResponse.json(
@@ -209,6 +205,7 @@ export async function POST(request: Request) {
           )
         }
         updateData.staff_check_in_time = now
+        lastCheckInBy = role
       } else {
         return NextResponse.json(
           { error: 'Invalid role' },
@@ -259,7 +256,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { history: updatedHistory },
+      {
+        history: updatedHistory,
+        last_check_in_by: lastCheckInBy
+      },
       { status: 200 }
     )
   } catch (error) {

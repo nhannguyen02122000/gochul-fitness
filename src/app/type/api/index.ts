@@ -311,8 +311,11 @@ export interface UpdateHistoryStatusRequest {
     status: HistoryStatus
 }
 
+export type LastCheckInBy = 'CUSTOMER' | 'STAFF' | 'ADMIN' | null
+
 export interface UpdateHistoryStatusSuccessResponse {
     history: History
+    last_check_in_by: LastCheckInBy
 }
 
 export type UpdateHistoryStatusResponse = UpdateHistoryStatusSuccessResponse | ApiErrorResponse

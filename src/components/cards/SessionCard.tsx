@@ -109,19 +109,24 @@ export default function SessionCard({
     : []
 
   const isCustomerOwner = userRole === 'CUSTOMER' && contract?.purchased_by === userInstantId
+  const isNewlyCreated = session.status === 'NEWLY_CREATED'
   const canCustomerCheckIn = Boolean(isCustomerOwner && !session.user_check_in_time)
   const canStaffCheckIn = Boolean((userRole === 'STAFF' || userRole === 'ADMIN') && !session.staff_check_in_time)
-  const canCheckIn = session.status === 'NEWLY_CREATED' && (canCustomerCheckIn || canStaffCheckIn)
+  const canRequestCheckIn = canCustomerCheckIn || canStaffCheckIn
+  const shouldRenderCheckInButton = Boolean(isNewlyCreated && shouldShowButtons)
+  const shouldRenderActions = Boolean(isNewlyCreated && shouldShowButtons)
 
   const handleStatusChange = (newStatus: HistoryStatus) => {
     setLoadingStatus(newStatus)
     updateStatus(
       { history_id: session.id, status: newStatus },
       {
-        onSuccess: () => {
+        onSuccess: (response) => {
           toast.success(`Session status updated`)
           setLoadingStatus(null)
-          onStatusChange?.(session.id, newStatus)
+          if ('history' in response) {
+            onStatusChange?.(session.id, response.history.status)
+          }
         },
         onError: (error) => {
           toast.error(error.message || 'Failed to update session status')
@@ -214,14 +219,14 @@ export default function SessionCard({
             </div>
 
             {/* Actions */}
-            {(actionButtons.length > 0 || canCheckIn) && (
+            {shouldRenderActions && (
               <div className="px-3 pb-3 pt-2 border-t border-border">
                 <div className="flex flex-wrap gap-2">
-                  {canCheckIn && (
+                  {shouldRenderCheckInButton && (
                     <Button
                       variant="default"
                       size="default"
-                      disabled={loadingStatus !== null && loadingStatus !== 'CHECKED_IN'}
+                      disabled={!canRequestCheckIn || (loadingStatus !== null && loadingStatus !== 'CHECKED_IN')}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleStatusChange('CHECKED_IN')
