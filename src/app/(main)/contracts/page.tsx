@@ -119,7 +119,7 @@ export default function ContractsPage() {
   const [saleByName, setSaleByName] = useState('')
   const [purchasedByName, setPurchasedByName] = useState('')
   const [kind, setKind] = useState<ContractKind | 'ALL'>('ALL')
-  const [statuses, setStatuses] = useState<ContractStatus[]>(['ACTIVE'])
+  const [statuses, setStatuses] = useState<ContractStatus[]>([])
   const [fromDate, setFromDate] = useState<Date | undefined>()
   const [toDate, setToDate] = useState<Date | undefined>()
 
@@ -152,12 +152,9 @@ export default function ContractsPage() {
   }, [userRole])
 
   const effectiveStatuses = useMemo<ContractStatus[]>(() => {
-    const next =
-      userRole === 'CUSTOMER'
-        ? statuses.filter((status) => status !== 'NEWLY_CREATED')
-        : statuses
-
-    return next.length > 0 ? next : (['ACTIVE'] as ContractStatus[])
+    return userRole === 'CUSTOMER'
+      ? statuses.filter((status) => status !== 'NEWLY_CREATED')
+      : statuses
   }, [userRole, statuses])
 
   const filters = useMemo<ContractFilters>(() => {
@@ -255,7 +252,7 @@ export default function ContractsPage() {
     setSaleByName('')
     setPurchasedByName('')
     setKind('ALL')
-    setStatuses(['ACTIVE'])
+    setStatuses([])
     setFromDate(undefined)
     setToDate(undefined)
   }
@@ -283,12 +280,13 @@ export default function ContractsPage() {
       count += 1
     }
 
-    if (statuses.length !== 1 || statuses[0] !== 'ACTIVE') {
+    if (effectiveStatuses.length > 0) {
       count += 1
     }
 
     return count
-  }, [userRole, saleByName, purchasedByName, kind, fromDate, toDate, statuses])
+  }, [userRole, saleByName, purchasedByName, kind, fromDate, toDate, effectiveStatuses])
+
 
   return (
     <div className="pb-6">
@@ -419,58 +417,56 @@ export default function ContractsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Kind</Label>
-                  <Select value={kind} onValueChange={(val) => setKind(val as ContractKind | 'ALL')}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select kind" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All kinds</SelectItem>
-                      {CONTRACT_KINDS.map((k) => (
-                        <SelectItem key={k.value} value={k.value}>
-                          {k.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Kind</Label>
+                <Select value={kind} onValueChange={(val) => setKind(val as ContractKind | 'ALL')}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select kind" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All kinds</SelectItem>
+                    {CONTRACT_KINDS.map((k) => (
+                      <SelectItem key={k.value} value={k.value}>
+                        {k.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Status</Label>
-                  <Popover open={statusOpen} onOpenChange={setStatusOpen}>
-                    <PopoverTrigger
-                      render={<Button variant="outline" />}
-                      className="w-full justify-between text-sm font-normal"
-                    >
-                      {effectiveStatuses.length === 0 ? 'No status selected' : `${effectiveStatuses.length} selected`}
-                      <span className="text-xs text-muted-foreground">Multi-select</span>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                      <Command>
-                        <CommandList>
-                          <CommandEmpty>No statuses</CommandEmpty>
-                          <CommandGroup>
-                            {availableStatuses.map((option) => {
-                              const checked = statuses.includes(option.value)
-                              return (
-                                <CommandItem
-                                  key={option.value}
-                                  value={option.value}
-                                  onSelect={() => toggleStatus(option.value)}
-                                >
-                                  <Check className={cn('h-4 w-4', checked ? 'opacity-100' : 'opacity-0')} />
-                                  <span>{option.label}</span>
-                                </CommandItem>
-                              )
-                            })}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Status</Label>
+                <Popover open={statusOpen} onOpenChange={setStatusOpen}>
+                  <PopoverTrigger
+                    render={<Button variant="outline" />}
+                    className="w-full justify-between text-sm font-normal"
+                  >
+                    {effectiveStatuses.length === 0 ? 'No status selected' : `${effectiveStatuses.length} selected`}
+                    <span className="text-xs text-muted-foreground">Multi-select</span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandList>
+                        <CommandEmpty>No statuses</CommandEmpty>
+                        <CommandGroup>
+                          {availableStatuses.map((option) => {
+                            const checked = statuses.includes(option.value)
+                            return (
+                              <CommandItem
+                                key={option.value}
+                                value={option.value}
+                                onSelect={() => toggleStatus(option.value)}
+                              >
+                                <Check className={cn('h-4 w-4', checked ? 'opacity-100' : 'opacity-0')} />
+                                <span>{option.label}</span>
+                              </CommandItem>
+                            )
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
