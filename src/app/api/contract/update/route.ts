@@ -15,6 +15,20 @@ const CONTRACT_STATUS_VALUES: ContractStatus[] = [
     'EXPIRED'
 ]
 
+const MIN_SESSION_DURATION = 15
+const MAX_SESSION_DURATION = 180
+const SESSION_DURATION_STEP = 15
+
+function isValidDurationPerSession(value: unknown): value is number {
+    return (
+        typeof value === 'number' &&
+        Number.isInteger(value) &&
+        value >= MIN_SESSION_DURATION &&
+        value <= MAX_SESSION_DURATION &&
+        value % SESSION_DURATION_STEP === 0
+    )
+}
+
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -63,12 +77,19 @@ export async function POST(request: Request) {
 
         // Parse request body
         const body = await request.json()
-        const { contract_id, kind, status, money, start_date, end_date, credits, sale_by, purchased_by } = body
+        const { contract_id, kind, status, money, duration_per_session, start_date, end_date, credits, sale_by, purchased_by } = body
 
-        // Validate required field: contract_id
+        // Validate required fields
         if (!contract_id || typeof contract_id !== 'string') {
             return NextResponse.json(
                 { error: 'Missing or invalid required field: contract_id must be a string' },
+                { status: 400 }
+            )
+        }
+
+        if (duration_per_session === undefined) {
+            return NextResponse.json(
+                { error: 'Missing required field: duration_per_session is required' },
                 { status: 400 }
             )
         }
@@ -135,6 +156,14 @@ export async function POST(request: Request) {
             }
             updateData.money = money
         }
+
+        if (!isValidDurationPerSession(duration_per_session)) {
+            return NextResponse.json(
+                { error: 'Invalid field: duration_per_session must be an integer between 15 and 180, divisible by 15' },
+                { status: 400 }
+            )
+        }
+        updateData.duration_per_session = duration_per_session
 
         if (start_date !== undefined) {
             if (typeof start_date !== 'number') {

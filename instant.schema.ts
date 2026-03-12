@@ -14,6 +14,7 @@ const _schema = i.schema({
       end_date: i.number().optional(),
       kind: i.string(), // PT, REHAB, PT_MONTHLY
       credits: i.number().optional(),
+      duration_per_session: i.number(), // minutes, 15..180, divisible by 15
       status: i.string(),
       money: i.number(),
       sale_by: i.string(), // References $users.id

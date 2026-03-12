@@ -8,6 +8,8 @@ function isCreditUsedHistoryStatus(status: unknown): boolean {
   return status === 'NEWLY_CREATED' || status === 'CHECKED_IN'
 }
 
+const LEGACY_DEFAULT_DURATION = 90
+
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -169,6 +171,17 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         { error: 'Contract has expired' },
+        { status: 400 }
+      )
+    }
+
+    const contractDuration = typeof contract.duration_per_session === 'number'
+      ? contract.duration_per_session
+      : LEGACY_DEFAULT_DURATION
+
+    if ((to - from) !== contractDuration) {
+      return NextResponse.json(
+        { error: `Invalid session duration. Expected ${contractDuration} minutes based on contract.` },
         { status: 400 }
       )
     }

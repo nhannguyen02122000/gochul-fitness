@@ -53,6 +53,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
   const [kind, setKind] = useState<ContractKind | ''>('')
   const [money, setMoney] = useState('')
   const [credits, setCredits] = useState('')
+  const [durationPerSession, setDurationPerSession] = useState('')
   const [startDate, setStartDate] = useState<Date | undefined>()
   const [endDate, setEndDate] = useState<Date | undefined>()
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -64,6 +65,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
     setKind('')
     setMoney('')
     setCredits('')
+    setDurationPerSession('')
     setStartDate(undefined)
     setEndDate(undefined)
     setErrors({})
@@ -75,6 +77,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
     if (!kind) e.kind = 'Please select contract type'
     if (!money || Number(money) <= 0) e.money = 'Please enter a valid amount'
     if (kind && kind !== 'PT_MONTHLY' && (!credits || Number(credits) < 1)) e.credits = 'Please enter credits'
+    if (!durationPerSession) e.durationPerSession = 'Please select session duration'
     if (!startDate) e.startDate = 'Please select start date'
     if (!endDate) e.endDate = 'Please select end date'
     if (startDate && endDate && endDate <= startDate) e.endDate = 'End date must be after start date'
@@ -93,6 +96,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
         money: Number(money),
         start_date: startDate!.getTime(),
         end_date: endDate!.getTime(),
+        duration_per_session: Number(durationPerSession),
         ...(kind !== 'PT_MONTHLY' && credits ? { credits: Number(credits) } : {})
       }
 
@@ -242,7 +246,34 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
             {errors.money && <p className="text-xs text-destructive">{errors.money}</p>}
           </div>
 
-          {/* Duration */}
+          {/* Session Duration */}
+          <div className="space-y-2">
+            <Label>Session Duration</Label>
+            <Select
+              value={durationPerSession || undefined}
+              onValueChange={(v) => {
+                setDurationPerSession(v ?? '')
+                setErrors(p => ({ ...p, durationPerSession: '' }))
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose session duration" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const value = String((i + 1) * 15)
+                  return (
+                    <SelectItem key={value} value={value}>
+                      {value} minutes
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+            {errors.durationPerSession && <p className="text-xs text-destructive">{errors.durationPerSession}</p>}
+          </div>
+
+          {/* Contract Duration */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
               <CalendarIcon className="h-4 w-4 text-[var(--color-warning)]" />

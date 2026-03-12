@@ -115,19 +115,26 @@ export function getRelativeTime(timestamp: number): string {
 }
 
 /**
- * Get time slots for a day in 90-minute intervals
+ * Get time slots for a day by dynamic session duration
+ * @param durationPerSession - Session duration in minutes
  * @returns Array of time slot objects with from, to, and label
- * @example getTimeSlots90Min() => [{ from: 0, to: 90, label: "00:00 - 01:30" }, ...]
+ * @example getTimeSlotsByDuration(90) => [{ from: 0, to: 90, label: "00:00 - 01:30" }, ...]
  */
-export function getTimeSlots90Min(): Array<{ from: number; to: number; label: string }> {
+export function getTimeSlotsByDuration(durationPerSession: number): Array<{ from: number; to: number; label: string }> {
+  const safeDuration = Number.isInteger(durationPerSession) && durationPerSession > 0
+    ? durationPerSession
+    : 90
+
   const slots: Array<{ from: number; to: number; label: string }> = []
-  // Generate slots from 00:00 to 22:30 (last slot ends at 24:00/1440 minutes)
-  for (let minutes = 0; minutes <= 1350; minutes += 90) {
+  const lastStart = 1440 - safeDuration
+
+  for (let minutes = 0; minutes <= lastStart; minutes += safeDuration) {
     const from = minutes
-    const to = minutes + 90
+    const to = minutes + safeDuration
     const label = `${minutesToTime(from)} - ${minutesToTime(to)}`
     slots.push({ from, to, label })
   }
+
   return slots
 }
 

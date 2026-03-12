@@ -66,6 +66,7 @@ export interface Contract {
     end_date?: number
     kind: ContractKind
     credits?: number
+    duration_per_session: number
     used_credits?: number // Number of history records with status NEWLY_CREATED or CHECKED_IN
     status: ContractStatus
     money: number
@@ -93,6 +94,7 @@ export interface CreateContractRequest {
     kind: ContractKind
     money: number
     purchased_by: string
+    duration_per_session: number
     start_date?: number
     end_date?: number
     credits?: number
@@ -113,6 +115,7 @@ export interface UpdateContractRequest {
     kind?: ContractKind
     status?: ContractStatus
     money?: number
+    duration_per_session: number
     start_date?: number
     end_date?: number
     credits?: number

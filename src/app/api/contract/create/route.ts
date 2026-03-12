@@ -5,6 +5,20 @@ import { NextResponse } from 'next/server'
 import { id } from '@instantdb/admin'
 
 
+const MIN_SESSION_DURATION = 15
+const MAX_SESSION_DURATION = 180
+const SESSION_DURATION_STEP = 15
+
+function isValidDurationPerSession(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= MIN_SESSION_DURATION &&
+    value <= MAX_SESSION_DURATION &&
+    value % SESSION_DURATION_STEP === 0
+  )
+}
+
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -62,12 +76,12 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json()
-    const { kind, money, purchased_by, start_date, end_date, credits } = body
+    const { kind, money, purchased_by, duration_per_session, start_date, end_date, credits } = body
 
     // Validate required fields
-    if (!kind || money === undefined || !purchased_by) {
+    if (!kind || money === undefined || !purchased_by || duration_per_session === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields: kind, money, and purchased_by are required' },
+        { error: 'Missing required fields: kind, money, purchased_by, and duration_per_session are required' },
         { status: 400 }
       )
     }
@@ -90,6 +104,13 @@ export async function POST(request: Request) {
     if (typeof purchased_by !== 'string') {
       return NextResponse.json(
         { error: 'Invalid field: purchased_by must be a string' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidDurationPerSession(duration_per_session)) {
+      return NextResponse.json(
+        { error: 'Invalid field: duration_per_session must be an integer between 15 and 180, divisible by 15' },
         { status: 400 }
       )
     }
@@ -136,6 +157,7 @@ export async function POST(request: Request) {
         money,
         sale_by: userInstantId,
         purchased_by,
+        duration_per_session,
         ...(start_date !== undefined && { start_date }),
         ...(end_date !== undefined && { end_date }),
         ...(credits !== undefined && { credits })

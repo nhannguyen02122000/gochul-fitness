@@ -2,7 +2,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { getTimeSlots90Min, checkSlotOverlap, isSlotInPast } from '@/utils/timeUtils'
+import { getTimeSlotsByDuration, checkSlotOverlap, isSlotInPast } from '@/utils/timeUtils'
 import type { OccupiedSlot } from '@/app/type/api'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
@@ -15,6 +15,7 @@ interface TimeSlotPickerProps {
   onSelect?: (from: number, to: number) => void
   disabled?: boolean
   loading?: boolean
+  durationPerSession?: number
 }
 
 export default function TimeSlotPicker({
@@ -24,9 +25,10 @@ export default function TimeSlotPicker({
   date,
   onSelect,
   disabled = false,
-  loading = false
+  loading = false,
+  durationPerSession = 90
 }: TimeSlotPickerProps) {
-  const slots = useMemo(() => getTimeSlots90Min(), [])
+  const slots = useMemo(() => getTimeSlotsByDuration(durationPerSession), [durationPerSession])
 
   const handleSlotClick = (from: number, to: number) => {
     if (disabled || loading) return

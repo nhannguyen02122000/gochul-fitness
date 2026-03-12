@@ -11,6 +11,8 @@ const HISTORY_STATUS_VALUES: HistoryStatus[] = [
   'EXPIRED'
 ]
 
+const LEGACY_DEFAULT_DURATION = 90
+
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -96,11 +98,12 @@ export async function POST(request: Request) {
       )
     }
 
+    const contractForDuration = existingHistory.contract?.[0]
+
     // Check permissions based on role
     if (role === 'CUSTOMER') {
       // CUSTOMER: Must be the one who purchased the contract
-      const contract = existingHistory.contract?.[0]
-      const contractPurchasedBy = contract?.purchased_by
+      const contractPurchasedBy = contractForDuration?.purchased_by
       if (contractPurchasedBy !== userInstantId) {
         return NextResponse.json(
           { error: 'Forbidden - You can only update history for contracts you purchased' },
@@ -185,6 +188,10 @@ export async function POST(request: Request) {
     const newFrom = from !== undefined ? from : existingHistory.from
     const newTo = to !== undefined ? to : existingHistory.to
 
+    const contractDuration = typeof contractForDuration?.duration_per_session === 'number'
+      ? contractForDuration.duration_per_session
+      : LEGACY_DEFAULT_DURATION
+
     // Validate time range
     if (newFrom >= newTo) {
       return NextResponse.json(
@@ -193,9 +200,16 @@ export async function POST(request: Request) {
       )
     }
 
+    if ((newTo - newFrom) !== contractDuration) {
+      return NextResponse.json(
+        { error: `Invalid session duration. Expected ${contractDuration} minutes based on contract.` },
+        { status: 400 }
+      )
+    }
+
     // If time or date changed, check contract and conflicts
     if (date !== undefined || from !== undefined || to !== undefined) {
-      const contract = existingHistory.contract?.[0]
+      const contract = contractForDuration
 
       if (!contract) {
         return NextResponse.json(

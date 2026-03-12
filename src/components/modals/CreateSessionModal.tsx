@@ -70,12 +70,18 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
     })
   }, [contractsData])
 
-  // Get trainer ID from selected contract
-  const selectedTrainerId = useMemo(() => {
+  const selectedContract = useMemo(() => {
     if (!effectiveContractId) return undefined
-    const contract = activeContracts.find(c => c.id === effectiveContractId)
-    return contract?.sale_by
+    return activeContracts.find(c => c.id === effectiveContractId)
   }, [effectiveContractId, activeContracts])
+
+  // Get trainer ID from selected contract
+  const selectedTrainerId = useMemo(() => selectedContract?.sale_by, [selectedContract])
+
+  const selectedContractDuration = useMemo(() => {
+    if (!selectedContract) return 90
+    return selectedContract.duration_per_session ?? 90
+  }, [selectedContract])
 
   // Get selected date timestamp
   const selectedDate = useMemo(() => {
@@ -248,7 +254,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
               <div className="flex items-center gap-2">
                 <Label className="text-xs">Time Slot</Label>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-[var(--color-info-bg)] text-[var(--color-warning)] border-0">
-                  90 min
+                  {selectedContractDuration} min
                 </Badge>
               </div>
 
@@ -261,6 +267,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
                     date={selectedDate}
                     onSelect={handleSlotSelect}
                     loading={isLoadingSchedule}
+                    durationPerSession={selectedContractDuration}
                   />
                 </div>
               ) : (

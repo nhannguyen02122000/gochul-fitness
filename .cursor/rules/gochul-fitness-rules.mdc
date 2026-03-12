@@ -63,9 +63,10 @@ alwaysApply: true
 - `user_setting`
   - `role`, `clerk_id`, `first_name`, `last_name`
 - `contract`
-  - `created_at`, optional `start_date`, optional `end_date`
+  - `created_at`, `updated_at`, optional `start_date`, optional `end_date`
   - `kind`: `PT | REHAB | PT_MONTHLY`
   - optional `credits`
+  - `duration_per_session` (minutes): required per contract; integer, divisible by 15, min 15, max 180
   - `status`: contract lifecycle status
   - `money`, `sale_by`, `purchased_by`
 - `history`
@@ -264,12 +265,15 @@ All route handlers typically set:
 ### Contract APIs
 - `POST /api/contract/create`
   - Roles: `ADMIN`, `STAFF`
-  - Required: `kind`, `money`, `purchased_by`
+  - Required: `kind`, `money`, `purchased_by`, `duration_per_session`
+  - `duration_per_session` validation: integer, divisible by 15, min 15, max 180
   - Defaults: `status = NEWLY_CREATED`, `created_at = Date.now()`
   - Links trainer (`sale_by_user`) and customer (`purchased_by_user`)
 - `POST /api/contract/update`
   - Role: `ADMIN` only
-  - Partial field update; optional relink when `sale_by`/`purchased_by` changes
+  - Requires `contract_id` and `duration_per_session`
+  - `duration_per_session` validation: integer, divisible by 15, min 15, max 180
+  - Partial field update for remaining fields; optional relink when `sale_by`/`purchased_by` changes
 - `POST /api/contract/delete`
   - Role: `ADMIN` only
   - Soft delete by setting status `CANCELED`
@@ -293,6 +297,8 @@ All route handlers typically set:
   - Contract must be `ACTIVE`
   - Contract may auto-expire if ended
   - For `PT`/`REHAB`, verifies credits remaining using history statuses `NEWLY_CREATED` + `CHECKED_IN`
+  - Enforces session duration rule: `(to - from)` must equal `contract.duration_per_session`
+  - Legacy compatibility: if `contract.duration_per_session` is missing on old records, fallback expected duration is `90`
   - Enforces trainer schedule conflict check on same day and overlapping time range
   - Creates `NEWLY_CREATED` history, links contract and creator user
 - `POST /api/history/update`
@@ -300,6 +306,8 @@ All route handlers typically set:
   - `CUSTOMER`: only history of purchased contracts
   - Non-admin/non-customer path: creator-owned update check
   - Validates time range and conflict when schedule fields change
+  - Enforces session duration rule: `(to - from)` must equal `contract.duration_per_session`
+  - Legacy compatibility: if `contract.duration_per_session` is missing on old records, fallback expected duration is `90`
   - Blocks updates when contract not active or expired (and may auto-expire contract)
 - `POST /api/history/delete`
   - Soft delete to `CANCELED`
@@ -346,6 +354,9 @@ All route handlers typically set:
 - Time-slot model:
   - `from` and `to` are numeric minute offsets (e.g. 480 = 08:00)
   - valid range requires `from < to`
+  - session duration is contract-driven: `to - from === contract.duration_per_session`
+  - contract duration must be integer, divisible by 15, and within [15, 180]
+  - UI slot generation uses `duration_per_session` as step size; legacy contracts without this field use fallback `90`
 - Session overlap rule:
   - conflict if `newFrom < existingTo && newTo > existingFrom`
   - ignores canceled and expired sessions
