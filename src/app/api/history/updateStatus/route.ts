@@ -124,7 +124,8 @@ export async function POST(request: Request) {
     if (currentStatus === 'NEWLY_CREATED' && sessionEndTime < now) {
       await instantServer.transact([
         instantServer.tx.history[history_id].update({
-          status: 'EXPIRED'
+          status: 'EXPIRED',
+          updated_at: now
         })
       ])
 
@@ -162,7 +163,8 @@ export async function POST(request: Request) {
 
       await instantServer.transact([
         instantServer.tx.history[history_id].update({
-          status: 'CANCELED'
+          status: 'CANCELED',
+          updated_at: now
         })
       ])
     } else if (requestedStatus === 'CHECKED_IN') {
@@ -182,10 +184,12 @@ export async function POST(request: Request) {
 
       const updateData: {
         status: HistoryStatus
+        updated_at: number
         user_check_in_time?: number
         staff_check_in_time?: number
       } = {
-        status: 'NEWLY_CREATED'
+        status: 'NEWLY_CREATED',
+        updated_at: now
       }
 
       if (role === 'CUSTOMER') {

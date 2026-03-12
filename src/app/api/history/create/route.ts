@@ -162,7 +162,8 @@ export async function POST(request: Request) {
       // Update contract status to EXPIRED
       await instantServer.transact([
         instantServer.tx.contract[contract_id].update({
-          status: 'EXPIRED'
+          status: 'EXPIRED',
+          updated_at: now
         })
       ])
 
@@ -239,10 +240,13 @@ export async function POST(request: Request) {
 
     // Generate a unique ID for the new history record
     const historyId = id()
+    const createdAt = Date.now()
 
     // Create the history record with status NEWLY_CREATED
     await instantServer.transact([
       instantServer.tx.history[historyId].update({
+        created_at: createdAt,
+        updated_at: createdAt,
         date,
         from,
         to,

@@ -40,8 +40,7 @@ export function getContractActionButtons(
         buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'PT_CONFIRMED':
-        buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+        // No buttons - waiting for CUSTOMER activation
         break
       case 'ACTIVE':
       case 'CANCELED':
@@ -50,29 +49,29 @@ export function getContractActionButtons(
         break
     }
   } else if (role === 'STAFF') {
-    // STAFF can: NEWLY_CREATED → CUSTOMER_REVIEW, CUSTOMER_PAID → PT_CONFIRMED, PT_CONFIRMED → ACTIVE
+    // STAFF can: NEWLY_CREATED → CUSTOMER_REVIEW, CUSTOMER_PAID → PT_CONFIRMED
     if (status === 'NEWLY_CREATED') {
       buttons.push({ label: 'Send to Customer', nextStatus: 'CUSTOMER_REVIEW', type: 'primary' })
     } else if (status === 'CUSTOMER_PAID') {
       buttons.push({ label: 'PT Confirm Receipt', nextStatus: 'PT_CONFIRMED', type: 'primary' })
-    } else if (status === 'PT_CONFIRMED') {
-      buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
     }
 
-    // STAFF can cancel any pre-ACTIVE status except terminal statuses
-    if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED') {
+    // STAFF can cancel any pre-ACTIVE status except terminal statuses and PT_CONFIRMED
+    if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED' && status !== 'PT_CONFIRMED') {
       buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
     }
   } else if (role === 'CUSTOMER') {
-    // CUSTOMER can: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → CUSTOMER_PAID
+    // CUSTOMER can: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → CUSTOMER_PAID → ACTIVE
     if (status === 'CUSTOMER_REVIEW') {
       buttons.push({ label: 'Confirm Details', nextStatus: 'CUSTOMER_CONFIRMED', type: 'primary' })
     } else if (status === 'CUSTOMER_CONFIRMED') {
       buttons.push({ label: 'Payment Completed', nextStatus: 'CUSTOMER_PAID', type: 'primary' })
+    } else if (status === 'PT_CONFIRMED') {
+      buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
     }
 
-    // CUSTOMER can cancel any pre-ACTIVE status except terminal statuses
-    if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED') {
+    // CUSTOMER can cancel any pre-ACTIVE status except terminal statuses and PT_CONFIRMED
+    if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED' && status !== 'PT_CONFIRMED') {
       buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
     }
   }

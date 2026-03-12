@@ -35,7 +35,7 @@ import type { Contract, Role, ContractStatus } from '@/app/type/api'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatDate } from '@/utils/timeUtils'
 import { formatVND } from '@/utils/currencyUtils'
-import { shouldShowContractActionButtons } from '@/utils/statusUtils'
+import { getContractActionButtons, shouldShowContractActionButtons } from '@/utils/statusUtils'
 import { useUpdateContractStatus } from '@/hooks/useContracts'
 import { useState } from 'react'
 import CreateSessionModal from '@/components/modals/CreateSessionModal'
@@ -137,25 +137,8 @@ export default function ContractCard({
     userInstantId &&
     shouldShowContractActionButtons(contract, userRole, userInstantId)
 
-  const actionButtons = shouldShowButtons
-    ? (() => {
-      if (contract.status === 'PT_CONFIRMED') {
-        if (userRole === 'CUSTOMER') {
-          return [
-            { label: 'Activate', nextStatus: 'ACTIVE' as ContractStatus, type: 'primary' as const },
-            { label: 'Cancel', nextStatus: 'CANCELED' as ContractStatus, type: 'danger' as const },
-          ]
-        }
-
-        if (userRole === 'ADMIN' || userRole === 'STAFF') {
-          return [
-            { label: 'Cancel', nextStatus: 'CANCELED' as ContractStatus, type: 'danger' as const },
-          ]
-        }
-      }
-
-      return []
-    })()
+  const actionButtons = shouldShowButtons && userRole
+    ? getContractActionButtons(contract.status, userRole)
     : []
 
 

@@ -159,7 +159,8 @@ export async function POST(request: Request) {
     if (shouldExpireByDate || shouldExpireByCredits) {
       await instantServer.transact([
         instantServer.tx.contract[contract_id].update({
-          status: 'EXPIRED'
+          status: 'EXPIRED',
+          updated_at: now
         })
       ])
 
@@ -255,8 +256,14 @@ export async function POST(request: Request) {
     }
 
     // Update the contract status and dates if needed
-    const updateData: { status: ContractStatus; start_date?: number; end_date?: number } = {
+    const updateData: {
+      status: ContractStatus
+      updated_at: number
+      start_date?: number
+      end_date?: number
+    } = {
       status: newStatus,
+      updated_at: now,
       ...dateUpdates
     }
 

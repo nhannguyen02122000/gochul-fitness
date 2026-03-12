@@ -7,6 +7,40 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+function getHistoryCreatedAt(session: Record<string, unknown>): number {
+  if (typeof session.created_at === 'number') return session.created_at
+  if (typeof session.date === 'number') return session.date
+  return 0
+}
+
+function getHistoryUpdatedAt(session: Record<string, unknown>): number {
+  if (typeof session.updated_at === 'number') return session.updated_at
+  return getHistoryCreatedAt(session)
+}
+
+function compareHistoryLatestFirst(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>
+): number {
+  const updatedDiff = getHistoryUpdatedAt(b) - getHistoryUpdatedAt(a)
+  if (updatedDiff !== 0) return updatedDiff
+
+  const createdDiff = getHistoryCreatedAt(b) - getHistoryCreatedAt(a)
+  if (createdDiff !== 0) return createdDiff
+
+  const bDate = typeof b.date === 'number' ? b.date : 0
+  const aDate = typeof a.date === 'number' ? a.date : 0
+  if (bDate !== aDate) return bDate - aDate
+
+  const bFrom = typeof b.from === 'number' ? b.from : 0
+  const aFrom = typeof a.from === 'number' ? a.from : 0
+  if (bFrom !== aFrom) return bFrom - aFrom
+
+  const bId = typeof b.id === 'string' ? b.id : ''
+  const aId = typeof a.id === 'string' ? a.id : ''
+  return bId.localeCompare(aId)
+}
+
 export async function GET(request: Request) {
   try {
     const { userId } = await auth()
@@ -93,12 +127,10 @@ export async function GET(request: Request) {
       })
       total = (totalData.history || []).length
 
-      const pagedData = await instantServer.query({
+      const allHistoryData = await instantServer.query({
         history: {
           $: {
-            where: historyWhere as never,
-            limit,
-            offset
+            where: historyWhere as never
           },
           users: {},
           contract: {
@@ -112,7 +144,7 @@ export async function GET(request: Request) {
           }
         }
       })
-      pagedHistory = pagedData.history || []
+      pagedHistory = allHistoryData.history || []
     } else if (role === 'CUSTOMER') {
       const contractsData = await instantServer.query({
         contract: {
@@ -163,7 +195,7 @@ export async function GET(request: Request) {
       }
 
       total = filteredHistory.length
-      pagedHistory = filteredHistory.slice(offset, offset + limit)
+      pagedHistory = filteredHistory
     } else {
       return NextResponse.json(
         { error: 'Invalid role' },
@@ -185,20 +217,28 @@ export async function GET(request: Request) {
       if (sessionEndTime < now) {
         expiredHistoryIds.push(session.id)
         session.status = 'EXPIRED'
+        session.updated_at = now
       }
     }
 
     if (expiredHistoryIds.length > 0) {
       const transactions = expiredHistoryIds.map(id =>
-        instantServer.tx.history[id].update({ status: 'EXPIRED' })
+        instantServer.tx.history[id].update({
+          status: 'EXPIRED',
+          updated_at: now
+        })
       )
       await instantServer.transact(transactions)
     }
 
+    pagedHistory.sort(compareHistoryLatestFirst)
+
+    total = pagedHistory.length
+    const pagedResult = pagedHistory.slice(offset, offset + limit)
     const hasMore = offset + limit < total
 
     return NextResponse.json({
-      history: pagedHistory,
+      history: pagedResult,
       pagination: {
         page,
         limit,

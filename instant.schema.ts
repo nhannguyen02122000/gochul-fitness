@@ -9,6 +9,7 @@ const _schema = i.schema({
     }),
     contract: i.entity({
       created_at: i.number(),
+      updated_at: i.number(),
       start_date: i.number().optional(),
       end_date: i.number().optional(),
       kind: i.string(), // PT, REHAB, PT_MONTHLY
@@ -19,6 +20,8 @@ const _schema = i.schema({
       purchased_by: i.string() // References $users.id
     }),
     history: i.entity({
+      created_at: i.number(),
+      updated_at: i.number(),
       date: i.number(),
       status: i.string(),
       from: i.number(),

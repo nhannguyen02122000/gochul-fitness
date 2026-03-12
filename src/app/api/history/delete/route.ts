@@ -113,7 +113,8 @@ export async function POST(request: Request) {
     // Soft delete: Update status to CANCELED instead of hard delete
     await instantServer.transact([
       instantServer.tx.history[history_id].update({
-        status: 'CANCELED'
+        status: 'CANCELED',
+        updated_at: Date.now()
       })
     ])
 

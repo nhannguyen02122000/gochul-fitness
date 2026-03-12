@@ -82,6 +82,33 @@ function hasAvailableCreditsForContract(contract: Record<string, unknown>): bool
   return usedCredits < credits
 }
 
+function getContractCreatedAt(contract: Record<string, unknown>): number {
+  if (typeof contract.created_at === 'number') return contract.created_at
+  if (typeof contract.start_date === 'number') return contract.start_date
+  if (typeof contract.end_date === 'number') return contract.end_date
+  return 0
+}
+
+function getContractUpdatedAt(contract: Record<string, unknown>): number {
+  if (typeof contract.updated_at === 'number') return contract.updated_at
+  return getContractCreatedAt(contract)
+}
+
+function compareContractsLatestFirst(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>
+): number {
+  const updatedDiff = getContractUpdatedAt(b) - getContractUpdatedAt(a)
+  if (updatedDiff !== 0) return updatedDiff
+
+  const createdDiff = getContractCreatedAt(b) - getContractCreatedAt(a)
+  if (createdDiff !== 0) return createdDiff
+
+  const bId = typeof b.id === 'string' ? b.id : ''
+  const aId = typeof a.id === 'string' ? a.id : ''
+  return bId.localeCompare(aId)
+}
+
 export async function GET(request: Request) {
   try {
     // Check if user is signed in
@@ -309,13 +336,11 @@ export async function GET(request: Request) {
       }
     }
 
-    // Query paginated contracts directly at DB level
-    const pagedData = await instantServer.query({
+    // Query all matching contracts, then sort/paginate in-memory for stable latest-first ordering
+    const allData = await instantServer.query({
       contract: {
         $: {
-          where: contractWhere as never,
-          limit: limit + 1,
-          offset
+          where: contractWhere as never
         },
         users: {},
         sale_by_user: {
@@ -328,21 +353,7 @@ export async function GET(request: Request) {
       }
     })
 
-    let contracts = pagedData.contract || []
-    const hasMore = contracts.length > limit
-    if (hasMore) {
-      contracts = contracts.slice(0, limit)
-    }
-
-    // Lightweight total query (same filters, no heavy nested relations)
-    const totalData = await instantServer.query({
-      contract: {
-        $: {
-          where: contractWhere as never
-        }
-      }
-    })
-    const total = totalData.contract?.length || 0
+    const contracts = allData.contract || []
 
     // Calculate used_credits and auto-expire eligible contracts in current page
     const now = Date.now()
@@ -366,19 +377,29 @@ export async function GET(request: Request) {
       if (shouldExpireByDate || shouldExpireByCredits) {
         contractsToExpire.push(contract.id)
         contract.status = 'EXPIRED'
+        contract.updated_at = now
       }
     })
 
     if (contractsToExpire.length > 0) {
       await instantServer.transact(
         contractsToExpire.map((contractId) =>
-          instantServer.tx.contract[contractId].update({ status: 'EXPIRED' })
+          instantServer.tx.contract[contractId].update({
+            status: 'EXPIRED',
+            updated_at: now
+          })
         )
       )
     }
 
+    contracts.sort(compareContractsLatestFirst)
+
+    const total = contracts.length
+    const pagedContracts = contracts.slice(offset, offset + limit)
+    const hasMore = offset + limit < total
+
     return NextResponse.json({
-      contracts,
+      contracts: pagedContracts,
       pagination: {
         page,
         limit,

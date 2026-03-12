@@ -121,6 +121,7 @@ export async function POST(request: Request) {
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {}
+    const now = Date.now()
 
     // Validate and add optional fields if provided
     if (date !== undefined) {
@@ -212,12 +213,12 @@ export async function POST(request: Request) {
       }
 
       // Check if contract has expired
-      const now = Date.now()
       if (contract.end_date && contract.end_date < now) {
         // Update contract status to EXPIRED
         await instantServer.transact([
           instantServer.tx.contract[contract.id].update({
-            status: 'EXPIRED'
+            status: 'EXPIRED',
+            updated_at: now
           })
         ])
 
@@ -264,6 +265,8 @@ export async function POST(request: Request) {
         }
       }
     }
+
+    updateData.updated_at = now
 
     // Update the history using InstantDB transaction
     await instantServer.transact([

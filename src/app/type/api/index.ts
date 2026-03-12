@@ -45,6 +45,8 @@ export interface UserSetting {
 
 export interface History {
     id: string
+    created_at: number
+    updated_at: number
     date: number
     status: HistoryStatus
     from: number
@@ -59,6 +61,7 @@ export interface History {
 export interface Contract {
     id: string
     created_at: number
+    updated_at: number
     start_date?: number
     end_date?: number
     kind: ContractKind

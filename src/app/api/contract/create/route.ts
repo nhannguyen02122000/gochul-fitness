@@ -119,8 +119,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // Auto-fill created_at with current timestamp
+    // Auto-fill timestamps with current timestamp
     const created_at = Date.now()
+    const updated_at = created_at
 
     // Generate a unique ID for the new contract using InstantDB's id() function
     const contractId = id()
@@ -129,6 +130,7 @@ export async function POST(request: Request) {
     await instantServer.transact([
       instantServer.tx.contract[contractId].update({
         created_at,
+        updated_at,
         kind,
         status,
         money,

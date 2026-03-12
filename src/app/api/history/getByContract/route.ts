@@ -7,6 +7,40 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+function getHistoryCreatedAt(session: Record<string, unknown>): number {
+    if (typeof session.created_at === 'number') return session.created_at
+    if (typeof session.date === 'number') return session.date
+    return 0
+}
+
+function getHistoryUpdatedAt(session: Record<string, unknown>): number {
+    if (typeof session.updated_at === 'number') return session.updated_at
+    return getHistoryCreatedAt(session)
+}
+
+function compareHistoryLatestFirst(
+    a: Record<string, unknown>,
+    b: Record<string, unknown>
+): number {
+    const updatedDiff = getHistoryUpdatedAt(b) - getHistoryUpdatedAt(a)
+    if (updatedDiff !== 0) return updatedDiff
+
+    const createdDiff = getHistoryCreatedAt(b) - getHistoryCreatedAt(a)
+    if (createdDiff !== 0) return createdDiff
+
+    const bDate = typeof b.date === 'number' ? b.date : 0
+    const aDate = typeof a.date === 'number' ? a.date : 0
+    if (bDate !== aDate) return bDate - aDate
+
+    const bFrom = typeof b.from === 'number' ? b.from : 0
+    const aFrom = typeof a.from === 'number' ? a.from : 0
+    if (bFrom !== aFrom) return bFrom - aFrom
+
+    const bId = typeof b.id === 'string' ? b.id : ''
+    const aId = typeof a.id === 'string' ? a.id : ''
+    return bId.localeCompare(aId)
+}
+
 export async function GET(request: Request) {
     try {
         // Check if user is signed in
@@ -114,7 +148,7 @@ export async function GET(request: Request) {
         }
 
         // Get all history for this contract
-        const history = contract.history || []
+        const history = (contract.history || []) as Array<Record<string, unknown>>
 
         // Check for expired sessions and update them
         const now = Date.now()
@@ -126,34 +160,37 @@ export async function GET(request: Request) {
                 continue
             }
 
-            const sessionEndTime = session.date + (session.to * 60 * 1000)
+            const date = typeof session.date === 'number' ? session.date : 0
+            const to = typeof session.to === 'number' ? session.to : 0
+            const sessionEndTime = date + (to * 60 * 1000)
 
             if (sessionEndTime < now) {
-                expiredHistoryIds.push(session.id)
+                const sessionId = typeof session.id === 'string' ? session.id : ''
+                if (sessionId) {
+                    expiredHistoryIds.push(sessionId)
+                }
                 session.status = 'EXPIRED'
+                session.updated_at = now
             }
         }
 
         // Batch update expired sessions in the database
         if (expiredHistoryIds.length > 0) {
             const transactions = expiredHistoryIds.map(id =>
-                instantServer.tx.history[id].update({ status: 'EXPIRED' })
+                instantServer.tx.history[id].update({
+                    status: 'EXPIRED',
+                    updated_at: now
+                })
             )
             await instantServer.transact(transactions)
         }
 
-        // Sort history by date (newest first)
-        history.sort((a, b) => {
-            // First sort by date
-            if (b.date !== a.date) {
-                return b.date - a.date
-            }
-            // If same date, sort by time (from)
-            return b.from - a.from
-        })
+        // Sort history by updated_at (latest first) with deterministic fallbacks
+        history.sort(compareHistoryLatestFirst)
 
         // Remove the history from contract to avoid circular reference in response
-        const { history: _, ...contractWithoutHistory } = contract
+        const { history: contractHistory, ...contractWithoutHistory } = contract
+        void contractHistory
 
         return NextResponse.json({
             history,

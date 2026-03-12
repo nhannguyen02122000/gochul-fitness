@@ -85,7 +85,8 @@ export async function POST(request: Request) {
     // Soft delete: Update status to CANCELED instead of hard delete
     await instantServer.transact([
       instantServer.tx.contract[contract_id].update({
-        status: 'CANCELED'
+        status: 'CANCELED',
+        updated_at: Date.now()
       })
     ])
 
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { 
+      {
         message: 'Contract canceled successfully',
         contract_id: contract_id
       },

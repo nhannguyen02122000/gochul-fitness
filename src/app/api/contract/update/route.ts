@@ -95,6 +95,7 @@ export async function POST(request: Request) {
 
         // Build update object with only provided fields
         const updateData: Record<string, unknown> = {}
+        const now = Date.now()
 
         // Validate and add optional fields if provided
         if (kind !== undefined) {
@@ -192,6 +193,8 @@ export async function POST(request: Request) {
                 { status: 400 }
             )
         }
+
+        updateData.updated_at = now
 
         // Build transaction with links if sale_by or purchased_by are being updated
         const transaction = instantServer.tx.contract[contract_id].update(updateData)
