@@ -147,6 +147,31 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Summary counts for total/active/pending/inactive.
 - Create-contract modal available for `ADMIN`/`STAFF`.
 
+#### Contract card identity display rules (`src/components/cards/ContractCard.tsx`)
+- Customer display name derivation (`customerName`):
+  - Source user link: first element of `contract.purchased_by_user`.
+  - Source profile link: first element of `purchasedByUser.user_setting`.
+  - Fallback order:
+    - If `customerUserSetting` exists, build name from `[first_name, last_name]`, drop falsy values, then join with a single space.
+    - If joined name is empty, fallback to `purchasedByUser.email`.
+    - If email is missing, fallback to literal `Unknown Customer`.
+    - If `customerUserSetting` is absent, use `purchasedByUser.email` first, otherwise `Unknown Customer`.
+- Customer email derivation (`customerEmail`):
+  - Uses `purchasedByUser.email`.
+  - Falls back to `N/A` if missing.
+- Sales rep display name derivation (`salesPerson`):
+  - Source user link: first element of `contract.sale_by_user`.
+  - Source profile link: first element of `saleByUser.user_setting`.
+  - Fallback order:
+    - If `salesUserSetting` exists, build name from `[first_name, last_name]`, drop falsy values, then join with a single space.
+    - If joined name is empty, fallback to `saleByUser.email`.
+    - If email is missing, fallback to literal `Unknown`.
+    - If `salesUserSetting` is absent, use `saleByUser.email` first, otherwise `Unknown`.
+- UI render mapping in card details block:
+  - Customer label row renders `customerName` in the value text element.
+  - Sales Rep label row renders `salesPerson` in the value text element.
+  - Both value elements apply `truncate`, so long names/emails are visually clipped in-card.
+
 ### `/history` (`src/app/(main)/history/page.tsx`)
 - Infinite session list via `useInfiniteHistory`.
 - Session categories/tabs:
