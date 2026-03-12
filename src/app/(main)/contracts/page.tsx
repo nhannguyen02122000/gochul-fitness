@@ -144,9 +144,25 @@ export default function ContractsPage() {
       : undefined
   const isStaffOrAdmin = userRole === 'ADMIN' || userRole === 'STAFF'
 
+  const availableStatuses = useMemo(() => {
+    if (userRole === 'CUSTOMER') {
+      return CONTRACT_STATUSES.filter((status) => status.value !== 'NEWLY_CREATED')
+    }
+    return CONTRACT_STATUSES
+  }, [userRole])
+
+  const effectiveStatuses = useMemo<ContractStatus[]>(() => {
+    const next =
+      userRole === 'CUSTOMER'
+        ? statuses.filter((status) => status !== 'NEWLY_CREATED')
+        : statuses
+
+    return next.length > 0 ? next : (['ACTIVE'] as ContractStatus[])
+  }, [userRole, statuses])
+
   const filters = useMemo<ContractFilters>(() => {
     const next: ContractFilters = {
-      statuses,
+      statuses: effectiveStatuses,
       start_date: startOfDayTimestamp(fromDate),
       end_date: endOfDayTimestamp(toDate),
     }
@@ -169,7 +185,7 @@ export default function ContractsPage() {
 
     return next
   }, [
-    statuses,
+    effectiveStatuses,
     fromDate,
     toDate,
     kind,
@@ -177,6 +193,7 @@ export default function ContractsPage() {
     debouncedSaleByName,
     debouncedPurchasedByName,
   ])
+
 
   const {
     data,
@@ -427,7 +444,7 @@ export default function ContractsPage() {
                       render={<Button variant="outline" />}
                       className="w-full justify-between text-sm font-normal"
                     >
-                      {statuses.length === 0 ? 'No status selected' : `${statuses.length} selected`}
+                      {effectiveStatuses.length === 0 ? 'No status selected' : `${effectiveStatuses.length} selected`}
                       <span className="text-xs text-muted-foreground">Multi-select</span>
                     </PopoverTrigger>
                     <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
@@ -435,7 +452,7 @@ export default function ContractsPage() {
                         <CommandList>
                           <CommandEmpty>No statuses</CommandEmpty>
                           <CommandGroup>
-                            {CONTRACT_STATUSES.map((option) => {
+                            {availableStatuses.map((option) => {
                               const checked = statuses.includes(option.value)
                               return (
                                 <CommandItem

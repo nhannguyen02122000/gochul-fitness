@@ -144,6 +144,9 @@ Terminal side branches: `CANCELED`, `EXPIRED`
   - kind
   - contract-period date range (`start_date` maps to `contract.start_date >=`, `end_date` maps to `contract.end_date <=`)
   - role-dependent name search (`sale_by_name`, `purchased_by_name`)
+- Member/CUSTOMER status-filter invariant:
+  - `NEWLY_CREATED` must **not** appear in the status dropdown options.
+  - Even if status query params are tampered, backend must still exclude `NEWLY_CREATED` for `CUSTOMER` role.
 - Summary counts for total/active/pending/inactive.
 - Create-contract modal available for `ADMIN`/`STAFF`.
 
