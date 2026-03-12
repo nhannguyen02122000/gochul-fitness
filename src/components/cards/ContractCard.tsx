@@ -128,7 +128,8 @@ export default function ContractCard({
     border: 'border-l-zinc-400',
   }
   const KindIcon = kind.icon
-  const hasCredits = contract.kind === 'PT' || contract.kind === 'REHAB'
+  const hasCreditLimit = contract.kind === 'PT' || contract.kind === 'REHAB'
+  const shouldShowUsedCredits = hasCreditLimit || contract.kind === 'PT_MONTHLY'
 
   // Action buttons logic
   const shouldShowButtons = showActions &&
@@ -179,7 +180,7 @@ export default function ContractCard({
     onSessionCreated?.()
   }
 
-  const hasAvailableCredits = !hasCredits ||
+  const hasAvailableCredits = !hasCreditLimit ||
     (contract.credits && (contract.used_credits || 0) < contract.credits)
 
   const shouldShowCreateSession = contract.status === 'ACTIVE' &&
@@ -215,7 +216,7 @@ export default function ContractCard({
               </div>
 
               {/* Credits badge */}
-              {hasCredits && contract.credits !== undefined && (
+              {shouldShowUsedCredits && (
                 <Tooltip>
                   <TooltipTrigger
                     onClick={(e) => {
@@ -229,9 +230,11 @@ export default function ContractCard({
                     )}
                   >
                     <span className={cn('font-bold tabular-nums', kind.color)}>
-                      {contract.used_credits || 0}/{contract.credits}
+                      {hasCreditLimit
+                        ? `${contract.used_credits || 0}/${contract.credits || 0}`
+                        : `${contract.used_credits || 0}`}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">credits</span>
+                    <span className="text-[10px] text-muted-foreground">used credits</span>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>View session history</p>
