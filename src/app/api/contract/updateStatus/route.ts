@@ -200,11 +200,10 @@ export async function POST(request: Request) {
         )
       }
     } else if (role === 'STAFF') {
-      // STAFF can: NEWLY_CREATED -> CUSTOMER_REVIEW -> (customer steps) -> CUSTOMER_PAID -> PT_CONFIRMED -> ACTIVE
+      // STAFF can: NEWLY_CREATED -> CUSTOMER_REVIEW -> (customer steps) -> CUSTOMER_PAID -> PT_CONFIRMED
       const isAllowedStaffTransition =
         (currentStatus === 'NEWLY_CREATED' && newStatus === 'CUSTOMER_REVIEW') ||
-        (currentStatus === 'CUSTOMER_PAID' && newStatus === 'PT_CONFIRMED') ||
-        (currentStatus === 'PT_CONFIRMED' && newStatus === 'ACTIVE')
+        (currentStatus === 'CUSTOMER_PAID' && newStatus === 'PT_CONFIRMED')
 
       if (!isAllowedStaffTransition) {
         return NextResponse.json(
@@ -222,7 +221,8 @@ export async function POST(request: Request) {
 
       const isAllowedCustomerTransition =
         (currentStatus === 'CUSTOMER_REVIEW' && newStatus === 'CUSTOMER_CONFIRMED') ||
-        (currentStatus === 'CUSTOMER_CONFIRMED' && newStatus === 'CUSTOMER_PAID')
+        (currentStatus === 'CUSTOMER_CONFIRMED' && newStatus === 'CUSTOMER_PAID') ||
+        (currentStatus === 'PT_CONFIRMED' && newStatus === 'ACTIVE')
 
       if (!isAllowedCustomerTransition) {
         return NextResponse.json(
@@ -237,12 +237,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Handle date adjustments when activating a contract before its start_date
+    // Handle date adjustments when activating a contract and start_date differs from current time
     const dateUpdates: { start_date?: number; end_date?: number } = {}
 
     if (newStatus === 'ACTIVE' && contract.start_date && contract.end_date) {
-      // If activating before the start_date, adjust both dates
-      if (now < contract.start_date) {
+      // If activating at a time different from start_date, adjust both dates while preserving duration
+      if (now !== contract.start_date) {
         // Calculate the original contract duration (in milliseconds)
         const contractDuration = contract.end_date - contract.start_date
 
