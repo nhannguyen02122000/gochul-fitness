@@ -295,6 +295,20 @@ export interface GetAllHistoryRequest {
     statuses?: string
     start_date?: string | number
     end_date?: string | number
+    teach_by_name?: string
+    customer_name?: string
+    from_minute?: string | number
+    to_minute?: string | number
+}
+
+export interface HistoryFilters {
+    statuses?: HistoryStatus[]
+    start_date?: number
+    end_date?: number
+    teach_by_name?: string
+    customer_name?: string
+    from_minute?: number
+    to_minute?: number
 }
 
 export interface GetAllHistorySuccessResponse {

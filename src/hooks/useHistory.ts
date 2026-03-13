@@ -6,6 +6,7 @@ import type {
     DeleteHistoryRequest,
     DeleteHistoryResponse,
     GetAllHistoryResponse,
+    HistoryFilters,
     GetHistoryByContractResponse,
     GetOccupiedTimeSlotsResponse,
     UpdateHistoryRequest,
@@ -25,13 +26,6 @@ export const historyKeys = {
     detail: (id: string) => [...historyKeys.details(), id] as const
 }
 
-// Filter options for history queries
-export interface HistoryFilters {
-    statuses?: string
-    start_date?: number
-    end_date?: number
-}
-
 // Fetch all history
 async function fetchHistory(
     page: number = 1,
@@ -43,14 +37,26 @@ async function fetchHistory(
         limit: limit.toString()
     })
 
-    if (filters?.statuses) {
-        params.append('statuses', filters.statuses)
+    if (filters?.statuses && filters.statuses.length > 0) {
+        params.append('statuses', filters.statuses.join(','))
     }
     if (filters?.start_date !== undefined) {
         params.append('start_date', filters.start_date.toString())
     }
     if (filters?.end_date !== undefined) {
         params.append('end_date', filters.end_date.toString())
+    }
+    if (filters?.teach_by_name?.trim()) {
+        params.append('teach_by_name', filters.teach_by_name.trim())
+    }
+    if (filters?.customer_name?.trim()) {
+        params.append('customer_name', filters.customer_name.trim())
+    }
+    if (filters?.from_minute !== undefined) {
+        params.append('from_minute', filters.from_minute.toString())
+    }
+    if (filters?.to_minute !== undefined) {
+        params.append('to_minute', filters.to_minute.toString())
     }
 
     const response = await fetch(`/api/history/getAll?${params.toString()}`)

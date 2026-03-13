@@ -2,10 +2,91 @@
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
+import type { HistoryStatus } from '@/app/type/api'
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+const HISTORY_STATUS_VALUES: HistoryStatus[] = [
+  'NEWLY_CREATED',
+  'CHECKED_IN',
+  'CANCELED',
+  'EXPIRED'
+]
+
+function normalizeKeyword(input: string | null): string {
+  if (!input) return ''
+  return input.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function getFullName(firstName: unknown, lastName: unknown): string {
+  return [firstName, lastName]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.trim().toLowerCase())
+    .join(' ')
+}
+
+function parseTimestamp(value: string | null): number | null {
+  if (value === null || value.trim() === '') return null
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return null
+  return parsed
+}
+
+function parseMinute(value: string | null): number | null | undefined {
+  if (value === null || value.trim() === '') return null
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed)) return undefined
+  return parsed
+}
+
+function extractContract(
+  session: Record<string, unknown>
+): Record<string, unknown> | null {
+  const contractValue = session.contract
+  if (Array.isArray(contractValue)) {
+    const first = contractValue[0]
+    return first && typeof first === 'object'
+      ? (first as Record<string, unknown>)
+      : null
+  }
+  if (contractValue && typeof contractValue === 'object') {
+    return contractValue as Record<string, unknown>
+  }
+  return null
+}
+
+function extractUserFullName(
+  contract: Record<string, unknown> | null,
+  key: 'sale_by_user' | 'purchased_by_user'
+): string {
+  if (!contract) return ''
+  const usersValue = contract[key]
+  if (!Array.isArray(usersValue) || usersValue.length === 0) return ''
+  const user = usersValue[0]
+  if (!user || typeof user !== 'object') return ''
+  const userSettingValue = (user as Record<string, unknown>).user_setting
+  if (!Array.isArray(userSettingValue) || userSettingValue.length === 0) return ''
+  const userSetting = userSettingValue[0]
+  if (!userSetting || typeof userSetting !== 'object') return ''
+  return getFullName(
+    (userSetting as Record<string, unknown>).first_name,
+    (userSetting as Record<string, unknown>).last_name
+  )
+}
+
+function overlapsTimeWindow(
+  sessionFrom: unknown,
+  sessionTo: unknown,
+  fromMinute: number,
+  toMinute: number
+): boolean {
+  if (typeof sessionFrom !== 'number' || typeof sessionTo !== 'number') {
+    return false
+  }
+  return sessionFrom < toMinute && sessionTo > fromMinute
+}
 
 function getHistoryCreatedAt(session: Record<string, unknown>): number {
   if (typeof session.created_at === 'number') return session.created_at
@@ -59,10 +140,57 @@ export async function GET(request: Request) {
     const statusesParam = searchParams.get('statuses')
     const startDateParam = searchParams.get('start_date')
     const endDateParam = searchParams.get('end_date')
+    const teachByNameParam = searchParams.get('teach_by_name')
+    const customerNameParam = searchParams.get('customer_name')
+    const fromMinuteParam = searchParams.get('from_minute')
+    const toMinuteParam = searchParams.get('to_minute')
 
-    const statusesFilter = statusesParam ? statusesParam.split(',').map(s => s.trim()) : null
-    const startDate = startDateParam ? parseInt(startDateParam) : null
-    const endDate = endDateParam ? parseInt(endDateParam) : null
+    const statusesFilter = statusesParam
+      ? statusesParam
+        .split(',')
+        .map((status) => status.trim())
+        .filter(Boolean) as HistoryStatus[]
+      : []
+    const startDate = parseTimestamp(startDateParam)
+    const endDate = parseTimestamp(endDateParam)
+    const teachByKeyword = normalizeKeyword(teachByNameParam)
+    const customerKeyword = normalizeKeyword(customerNameParam)
+    const fromMinute = parseMinute(fromMinuteParam)
+    const toMinute = parseMinute(toMinuteParam)
+
+    if (statusesFilter.some((status) => !HISTORY_STATUS_VALUES.includes(status))) {
+      return NextResponse.json(
+        { error: 'Invalid statuses filter' },
+        { status: 400 }
+      )
+    }
+
+    if (fromMinute === undefined || toMinute === undefined) {
+      return NextResponse.json(
+        { error: 'from_minute and to_minute must be valid integers' },
+        { status: 400 }
+      )
+    }
+
+    const hasTimeFilter = fromMinute !== null || toMinute !== null
+    const effectiveFromMinute = fromMinute ?? 0
+    const effectiveToMinute = toMinute ?? 1440
+
+    if (
+      hasTimeFilter &&
+      (
+        effectiveFromMinute < 0 ||
+        effectiveFromMinute > 1440 ||
+        effectiveToMinute < 0 ||
+        effectiveToMinute > 1440 ||
+        effectiveFromMinute >= effectiveToMinute
+      )
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid time window. Expect 0 <= from_minute < to_minute <= 1440' },
+        { status: 400 }
+      )
+    }
 
     const userData = await instantServer.query({
       user_setting: {
@@ -106,7 +234,7 @@ export async function GET(request: Request) {
         historyWhere.teach_by = userInstantId
       }
 
-      if (statusesFilter && statusesFilter.length > 0) {
+      if (statusesFilter.length > 0) {
         historyWhere.status =
           statusesFilter.length === 1 ? statusesFilter[0] : { $in: statusesFilter }
       }
@@ -145,6 +273,37 @@ export async function GET(request: Request) {
         }
       })
       pagedHistory = allHistoryData.history || []
+
+      if (role === 'ADMIN' && teachByKeyword.length > 0) {
+        pagedHistory = pagedHistory.filter((session) => {
+          const trainerName = extractUserFullName(
+            extractContract(session as Record<string, unknown>),
+            'sale_by_user'
+          )
+          return trainerName.includes(teachByKeyword)
+        })
+      }
+
+      if ((role === 'ADMIN' || role === 'STAFF') && customerKeyword.length > 0) {
+        pagedHistory = pagedHistory.filter((session) => {
+          const customerName = extractUserFullName(
+            extractContract(session as Record<string, unknown>),
+            'purchased_by_user'
+          )
+          return customerName.includes(customerKeyword)
+        })
+      }
+
+      if (hasTimeFilter) {
+        pagedHistory = pagedHistory.filter((session) =>
+          overlapsTimeWindow(
+            (session as Record<string, unknown>).from,
+            (session as Record<string, unknown>).to,
+            effectiveFromMinute,
+            effectiveToMinute
+          )
+        )
+      }
     } else if (role === 'CUSTOMER') {
       const contractsData = await instantServer.query({
         contract: {
@@ -182,8 +341,10 @@ export async function GET(request: Request) {
 
       let filteredHistory = flattenedHistory
 
-      if (statusesFilter && statusesFilter.length > 0) {
-        filteredHistory = filteredHistory.filter(h => statusesFilter.includes(h.status as string))
+      if (statusesFilter.length > 0) {
+        filteredHistory = filteredHistory.filter((h) =>
+          statusesFilter.includes(h.status as HistoryStatus)
+        )
       }
 
       if (startDate !== null) {
@@ -192,6 +353,27 @@ export async function GET(request: Request) {
 
       if (endDate !== null) {
         filteredHistory = filteredHistory.filter(h => (h.date as number) <= endDate)
+      }
+
+      if (teachByKeyword.length > 0) {
+        filteredHistory = filteredHistory.filter((session) => {
+          const trainerName = extractUserFullName(
+            extractContract(session),
+            'sale_by_user'
+          )
+          return trainerName.includes(teachByKeyword)
+        })
+      }
+
+      if (hasTimeFilter) {
+        filteredHistory = filteredHistory.filter((session) =>
+          overlapsTimeWindow(
+            session.from,
+            session.to,
+            effectiveFromMinute,
+            effectiveToMinute
+          )
+        )
       }
 
       total = filteredHistory.length

@@ -232,6 +232,13 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 
 ### `/history` (`src/app/(main)/history/page.tsx`)
 - Infinite session list via `useInfiniteHistory`.
+- Contract-style filter drawer with role-aware fields:
+  - `teach_by` name keyword (`teach_by_name`) for `ADMIN` and `CUSTOMER`.
+  - `customer` name keyword (`customer_name`) for `ADMIN` and `STAFF`.
+  - date range (`start_date`, `end_date`) for all roles.
+  - time window (`from_minute`, `to_minute`) for all roles; overlap rule is `session.from < to_minute && session.to > from_minute`.
+  - statuses multi-select for all roles.
+- Header Filter button shows an active badge when at least one status filter is selected.
 - Session categories/tabs:
   - upcoming
   - past
@@ -320,7 +327,11 @@ All route handlers typically set:
     - admin all
     - staff by `teach_by`
     - customer by purchased contracts expansion
-  - Supports filters: statuses, `start_date`, `end_date`
+  - Supports filters: statuses, `start_date`, `end_date`, `teach_by_name`, `customer_name`, `from_minute`, `to_minute`
+  - Name filters are applied from related contract links:
+    - trainer keyword (`teach_by_name`) matches `contract.sale_by_user[0].user_setting` full name and is available for `ADMIN`/`CUSTOMER`
+    - customer keyword (`customer_name`) matches `contract.purchased_by_user[0].user_setting` full name and is available for `ADMIN`/`STAFF`
+  - Time-window filtering uses overlap semantics (`session.from < to_minute && session.to > from_minute`) and is available to all roles
   - Auto-expires only `NEWLY_CREATED` past sessions
 - `GET /api/history/getByContract`
   - Requires `contract_id`
