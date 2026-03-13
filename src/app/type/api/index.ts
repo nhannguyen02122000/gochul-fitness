@@ -52,6 +52,8 @@ export interface History {
     from: number
     to: number
     teach_by: string
+    staff_note?: string
+    customer_note?: string
     user_check_in_time?: number
     staff_check_in_time?: number
     users?: User[]
@@ -351,6 +353,21 @@ export interface UpdateHistoryStatusSuccessResponse {
 }
 
 export type UpdateHistoryStatusResponse = UpdateHistoryStatusSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/history/updateNote
+// ============================================================================
+
+export interface UpdateHistoryNoteRequest {
+    history_id: string
+    note: string
+}
+
+export interface UpdateHistoryNoteSuccessResponse {
+    history: History
+}
+
+export type UpdateHistoryNoteResponse = UpdateHistoryNoteSuccessResponse | ApiErrorResponse
 
 // ============================================================================
 // /api/user/getByRole

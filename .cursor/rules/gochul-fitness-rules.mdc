@@ -75,6 +75,7 @@ alwaysApply: true
   - `date`, `from`, `to` (time-slot model)
   - `status`: history lifecycle status
   - `teach_by`
+  - optional `staff_note`, optional `customer_note`
   - optional `user_check_in_time`, optional `staff_check_in_time`
 
 ### Links
@@ -256,6 +257,10 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - `SessionCard` actions are available only for `NEWLY_CREATED` and role/ownership-permitted users:
   - Check-in action participates in dual-check-in API semantics.
   - Cancel action calls `POST /api/history/updateStatus` with `CANCELED`.
+- `SessionCard` note behavior:
+  - top-right note icon opens a bottom drawer that shows both `staff_note` and `customer_note`.
+  - note icon displays an indicator badge when either note field is non-empty.
+  - edit permissions are side-scoped: `STAFF`/`ADMIN` can edit `staff_note`; `CUSTOMER` owner can edit `customer_note`.
 
 ### `/profile` (`src/app/(main)/profile/page.tsx`)
 - Displays merged Clerk + user setting profile.
@@ -346,6 +351,16 @@ All route handlers typically set:
   - Enforces dual check-in semantics for `CHECKED_IN`
   - Allows cancel only when current status is `NEWLY_CREATED` (including partial check-in state)
   - Returns `last_check_in_by` as `CUSTOMER`, `STAFF`, or `ADMIN` when a check-in request succeeds
+- `POST /api/history/updateNote`
+  - Role side mapping:
+    - `STAFF` and `ADMIN` update `staff_note`
+    - `CUSTOMER` updates `customer_note`
+  - Requires: `history_id`, `note` (`note` accepts empty string to clear field)
+  - Access scope:
+    - `ADMIN`: can update any session note
+    - `STAFF`: only sessions where `history.teach_by === userInstantId`
+    - `CUSTOMER`: only sessions whose contract is owned by user (`contract.purchased_by === userInstantId`)
+  - Updates `history.updated_at` and publishes `history.changed` realtime event
 - `GET /api/history/getOccupiedTimeSlots`
   - Requires `user_id`, `date`
   - Returns active occupied ranges excluding `CANCELED` and `EXPIRED`

@@ -4,6 +4,8 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Clock,
   User,
@@ -11,13 +13,15 @@ import {
   Heart,
   Zap,
   Loader2,
+  FileText,
+  Pencil,
 } from 'lucide-react'
 import type { History, Role, HistoryStatus } from '@/app/type/api'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatTimeRange } from '@/utils/timeUtils'
 import { getHistoryActionButtons, shouldShowHistoryActionButtons } from '@/utils/statusUtils'
-import { useUpdateHistoryStatus } from '@/hooks/useHistory'
-import { useState } from 'react'
+import { useUpdateHistoryNote, useUpdateHistoryStatus } from '@/hooks/useHistory'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -63,7 +67,16 @@ export default function SessionCard({
   onStatusChange
 }: SessionCardProps) {
   const [loadingStatus, setLoadingStatus] = useState<HistoryStatus | null>(null)
+  const [isNoteDrawerOpen, setIsNoteDrawerOpen] = useState(false)
+  const [isEditingStaffNote, setIsEditingStaffNote] = useState(false)
+  const [isEditingCustomerNote, setIsEditingCustomerNote] = useState(false)
+  const [staffNote, setStaffNote] = useState(session.staff_note ?? '')
+  const [customerNote, setCustomerNote] = useState(session.customer_note ?? '')
+  const [staffNoteDraft, setStaffNoteDraft] = useState(session.staff_note ?? '')
+  const [customerNoteDraft, setCustomerNoteDraft] = useState(session.customer_note ?? '')
+  const [savingNoteType, setSavingNoteType] = useState<'staff' | 'customer' | null>(null)
   const { mutate: updateStatus } = useUpdateHistoryStatus()
+  const { mutate: updateNote } = useUpdateHistoryNote()
 
   // Get contract (it's an array, take first item)
   const contract = Array.isArray(session.contract) ? session.contract[0] : session.contract
@@ -113,8 +126,22 @@ export default function SessionCard({
   const canCustomerCheckIn = Boolean(isCustomerOwner && !session.user_check_in_time)
   const canStaffCheckIn = Boolean((userRole === 'STAFF' || userRole === 'ADMIN') && !session.staff_check_in_time)
   const canRequestCheckIn = canCustomerCheckIn || canStaffCheckIn
+  const canEditStaffNote = userRole === 'STAFF' || userRole === 'ADMIN'
+  const canEditCustomerNote = Boolean(userRole === 'CUSTOMER' && isCustomerOwner)
   const shouldRenderCheckInButton = Boolean(isNewlyCreated && shouldShowButtons)
   const shouldRenderActions = Boolean(isNewlyCreated && shouldShowButtons)
+  const hasAnyNote = staffNote.trim().length > 0 || customerNote.trim().length > 0
+
+  useEffect(() => {
+    const nextStaffNote = session.staff_note ?? ''
+    const nextCustomerNote = session.customer_note ?? ''
+    setStaffNote(nextStaffNote)
+    setCustomerNote(nextCustomerNote)
+    setStaffNoteDraft(nextStaffNote)
+    setCustomerNoteDraft(nextCustomerNote)
+    setIsEditingStaffNote(false)
+    setIsEditingCustomerNote(false)
+  }, [session.id, session.staff_note, session.customer_note])
 
   const handleStatusChange = (newStatus: HistoryStatus) => {
     setLoadingStatus(newStatus)
@@ -131,6 +158,41 @@ export default function SessionCard({
         onError: (error) => {
           toast.error(error.message || 'Failed to update session status')
           setLoadingStatus(null)
+        }
+      }
+    )
+  }
+
+  const handleSaveNote = (noteType: 'staff' | 'customer') => {
+    const noteValue = noteType === 'staff' ? staffNoteDraft : customerNoteDraft
+
+    setSavingNoteType(noteType)
+    updateNote(
+      { history_id: session.id, note: noteValue },
+      {
+        onSuccess: (response) => {
+          if ('history' in response) {
+            const updatedStaffNote = response.history.staff_note ?? ''
+            const updatedCustomerNote = response.history.customer_note ?? ''
+
+            setStaffNote(updatedStaffNote)
+            setCustomerNote(updatedCustomerNote)
+            setStaffNoteDraft(updatedStaffNote)
+            setCustomerNoteDraft(updatedCustomerNote)
+          }
+
+          if (noteType === 'staff') {
+            setIsEditingStaffNote(false)
+          } else {
+            setIsEditingCustomerNote(false)
+          }
+
+          setSavingNoteType(null)
+          toast.success('Note updated')
+        },
+        onError: (error) => {
+          setSavingNoteType(null)
+          toast.error(error.message || 'Failed to update note')
         }
       }
     )
@@ -182,6 +244,21 @@ export default function SessionCard({
                       Upcoming
                     </Badge>
                   )}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7 relative"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsNoteDrawerOpen(true)
+                    }}
+                    aria-label="Open session notes"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    {hasAnyNote && (
+                      <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-[var(--color-cta)]" />
+                    )}
+                  </Button>
                 </div>
               </div>
 
@@ -263,6 +340,141 @@ export default function SessionCard({
           </div>
         </div>
       </CardContent>
+      <Dialog open={isNoteDrawerOpen} onOpenChange={setIsNoteDrawerOpen}>
+        <DialogContent
+          showCloseButton={false}
+          overlayClassName="bg-black/20 supports-backdrop-filter:backdrop-blur-0 data-open:fade-in-0 data-closed:fade-out-0 duration-300"
+          className="top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:max-w-none max-h-[85dvh] overflow-hidden flex flex-col transition-transform duration-300 ease-out data-open:animate-none data-closed:animate-none data-open:translate-y-0 data-closed:translate-y-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader className="px-0 pt-0 pb-2">
+            <DialogTitle>Session Notes</DialogTitle>
+            <DialogDescription>
+              Staff and customer notes for this session.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-0 pb-3 space-y-3">
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">Staff note</p>
+                {canEditStaffNote && !isEditingStaffNote && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => {
+                      setStaffNoteDraft(staffNote)
+                      setIsEditingStaffNote(true)
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+
+              {isEditingStaffNote ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={staffNoteDraft}
+                    onChange={(e) => setStaffNoteDraft(e.target.value)}
+                    placeholder="Add staff note"
+                    className="min-h-[96px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="flex-1 h-9"
+                      onClick={() => {
+                        setStaffNoteDraft(staffNote)
+                        setIsEditingStaffNote(false)
+                      }}
+                      disabled={savingNoteType === 'staff'}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1 h-9"
+                      onClick={() => handleSaveNote('staff')}
+                      disabled={savingNoteType === 'staff'}
+                    >
+                      {savingNoteType === 'staff' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className={cn('text-sm whitespace-pre-wrap', staffNote.trim() ? 'text-foreground' : 'text-muted-foreground')}>
+                  {staffNote.trim() ? staffNote : 'No note yet'}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">Customer note</p>
+                {canEditCustomerNote && !isEditingCustomerNote && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => {
+                      setCustomerNoteDraft(customerNote)
+                      setIsEditingCustomerNote(true)
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+
+              {isEditingCustomerNote ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={customerNoteDraft}
+                    onChange={(e) => setCustomerNoteDraft(e.target.value)}
+                    placeholder="Add customer note"
+                    className="min-h-[96px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="flex-1 h-9"
+                      onClick={() => {
+                        setCustomerNoteDraft(customerNote)
+                        setIsEditingCustomerNote(false)
+                      }}
+                      disabled={savingNoteType === 'customer'}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1 h-9"
+                      onClick={() => handleSaveNote('customer')}
+                      disabled={savingNoteType === 'customer'}
+                    >
+                      {savingNoteType === 'customer' && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className={cn('text-sm whitespace-pre-wrap', customerNote.trim() ? 'text-foreground' : 'text-muted-foreground')}>
+                  {customerNote.trim() ? customerNote : 'No note yet'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setIsNoteDrawerOpen(false)} className="w-full sm:w-auto">
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

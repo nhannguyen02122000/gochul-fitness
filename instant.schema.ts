@@ -28,6 +28,8 @@ const _schema = i.schema({
       from: i.number(),
       to: i.number(),
       teach_by: i.string(), // References $users.id
+      staff_note: i.string().optional(),
+      customer_note: i.string().optional(),
       user_check_in_time: i.number().optional(),
       staff_check_in_time: i.number().optional()
     }),

@@ -11,6 +11,8 @@ import type {
     GetOccupiedTimeSlotsResponse,
     UpdateHistoryRequest,
     UpdateHistoryResponse,
+    UpdateHistoryNoteRequest,
+    UpdateHistoryNoteResponse,
     UpdateHistoryStatusRequest,
     UpdateHistoryStatusResponse
 } from '@/app/type/api'
@@ -138,6 +140,24 @@ async function updateHistoryStatus(
     return response.json()
 }
 
+// Update history note
+async function updateHistoryNote(
+    data: UpdateHistoryNoteRequest
+): Promise<UpdateHistoryNoteResponse> {
+    const response = await fetch('/api/history/updateNote', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update history note')
+    }
+    return response.json()
+}
+
 // Hooks
 
 /**
@@ -259,6 +279,23 @@ export function useUpdateHistoryStatus() {
             setTimeout(() => {
                 queryClient.invalidateQueries({ queryKey: contractKeys.lists() })
             }, 2000)
+        }
+    })
+}
+
+/**
+ * Hook to update history note for caller role side
+ * @example
+ * const { mutate, isPending } = useUpdateHistoryNote()
+ * mutate({ history_id: '123', note: 'Bring resistance band' })
+ */
+export function useUpdateHistoryNote() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: updateHistoryNote,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: historyKeys.lists() })
         }
     })
 }
