@@ -155,7 +155,10 @@ export async function POST(request: Request) {
       contract.end_date < now
 
     const shouldExpireByCredits =
-      currentStatus === 'ACTIVE' && !hasAvailableCredits(contract)
+      currentStatus === 'ACTIVE' &&
+      !!contract.end_date &&
+      contract.end_date < now &&
+      !hasAvailableCredits(contract)
 
     if (shouldExpireByDate || shouldExpireByCredits) {
       await instantServer.transact([

@@ -138,7 +138,7 @@ Terminal side branch: `CANCELED`
 #### Auto-expire contract rules
 - On contract list and status update paths, contracts may be auto-set to `EXPIRED` if:
   - pre-active status and `end_date < now`, or
-  - status `ACTIVE` and no available credits (for `PT`/`REHAB`), where consumed credits are counted from history with status `NEWLY_CREATED` or `CHECKED_IN`
+  - status `ACTIVE`, `end_date < now`, and no available credits (for `PT`/`REHAB`), where consumed credits are counted from history with status `NEWLY_CREATED` or `CHECKED_IN`
 
 ### History statuses
 `NEWLY_CREATED -> CHECKED_IN`
@@ -297,7 +297,7 @@ All route handlers typically set:
 - `POST /api/contract/updateStatus`
   - Role-based transition guard and cancellation guard
   - Auto-expire check before transition
-  - Auto-expire-by-credits uses history statuses `NEWLY_CREATED` + `CHECKED_IN` for `PT`/`REHAB`
+  - Auto-expire-by-credits for `ACTIVE` `PT`/`REHAB` requires both `end_date < now` and no available credits, where usage is counted from history statuses `NEWLY_CREATED` + `CHECKED_IN`
   - If activating and timestamp differs from existing `start_date`, shifts `start_date` to now and preserves duration by moving `end_date`
 
 ### History APIs

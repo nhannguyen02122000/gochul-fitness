@@ -393,7 +393,10 @@ export async function GET(request: Request) {
         contract.end_date < now
 
       const shouldExpireByCredits =
-        contract.status === 'ACTIVE' && !hasAvailableCreditsForContract(contract)
+        contract.status === 'ACTIVE' &&
+        !!contract.end_date &&
+        contract.end_date < now &&
+        !hasAvailableCreditsForContract(contract)
 
       if (shouldExpireByDate || shouldExpireByCredits) {
         contractsToExpire.push(contract.id)
