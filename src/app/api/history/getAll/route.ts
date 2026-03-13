@@ -239,22 +239,6 @@ export async function GET(request: Request) {
           statusesFilter.length === 1 ? statusesFilter[0] : { $in: statusesFilter }
       }
 
-      if (startDate !== null || endDate !== null) {
-        const dateRange: { $gte?: number; $lte?: number } = {}
-        if (startDate !== null) dateRange.$gte = startDate
-        if (endDate !== null) dateRange.$lte = endDate
-        historyWhere.date = dateRange
-      }
-
-      const totalData = await instantServer.query({
-        history: {
-          $: {
-            where: historyWhere as never
-          }
-        }
-      })
-      total = (totalData.history || []).length
-
       const allHistoryData = await instantServer.query({
         history: {
           $: {
@@ -273,6 +257,21 @@ export async function GET(request: Request) {
         }
       })
       pagedHistory = allHistoryData.history || []
+
+      // Apply date range in-memory to avoid requiring an InstantDB index on history.date.
+      if (startDate !== null) {
+        pagedHistory = pagedHistory.filter((session) =>
+          typeof (session as Record<string, unknown>).date === 'number' &&
+          ((session as Record<string, unknown>).date as number) >= startDate
+        )
+      }
+
+      if (endDate !== null) {
+        pagedHistory = pagedHistory.filter((session) =>
+          typeof (session as Record<string, unknown>).date === 'number' &&
+          ((session as Record<string, unknown>).date as number) <= endDate
+        )
+      }
 
       if (role === 'ADMIN' && teachByKeyword.length > 0) {
         pagedHistory = pagedHistory.filter((session) => {

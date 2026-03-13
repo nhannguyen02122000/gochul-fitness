@@ -4,7 +4,6 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
@@ -115,7 +114,6 @@ function parseTimeToMinute(timeValue: string): number | undefined {
 
 export default function HistoryPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<string>('upcoming')
   const [teachByName, setTeachByName] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [statuses, setStatuses] = useState<HistoryStatus[]>([])
@@ -286,36 +284,10 @@ export default function HistoryPage() {
     return { upcoming, past, overdue, inactive, completed, all: allHistory }
   }, [allHistory, now])
 
-  const sessionsByTab: Record<string, typeof allHistory> = {
-    upcoming: categorizedSessions.upcoming,
-    past: categorizedSessions.past,
-    overdue: categorizedSessions.overdue,
-    inactive: categorizedSessions.inactive,
-  }
-
-  const displayedSessions = sessionsByTab[activeTab] || []
+  const displayedSessions = allHistory
 
   // All roles can create sessions
   const canCreateSession = !!userRole
-
-  const emptyMessages: Record<string, { title: string; subtitle: string }> = {
-    upcoming: {
-      title: 'No upcoming sessions',
-      subtitle: 'Book your next training session to get started',
-    },
-    past: {
-      title: 'No past sessions',
-      subtitle: 'Completed sessions will appear here',
-    },
-    overdue: {
-      title: 'No overdue sessions',
-      subtitle: 'Overdue sessions that need attention will appear here',
-    },
-    inactive: {
-      title: 'No inactive sessions',
-      subtitle: 'Canceled and expired sessions will appear here',
-    },
-  }
 
   return (
     <div className="pb-6">
@@ -551,41 +523,6 @@ export default function HistoryPage() {
         </Card>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="px-4 mb-4">
-        <Tabs
-          value={activeTab}
-          onValueChange={(val) => setActiveTab(val as string)}
-        >
-          <TabsList className="w-full grid grid-cols-4 h-9">
-            <TabsTrigger value="upcoming" className="text-xs">
-              Upcoming
-              <span className="ml-1 text-[10px] opacity-60">
-                {categorizedSessions.upcoming.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="past" className="text-xs">
-              Past
-              <span className="ml-1 text-[10px] opacity-60">
-                {categorizedSessions.completed}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="overdue" className="text-xs">
-              Overdue
-              <span className="ml-1 text-[10px] opacity-60">
-                {categorizedSessions.overdue.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="inactive" className="text-xs">
-              Inactive
-              <span className="ml-1 text-[10px] opacity-60">
-                {categorizedSessions.inactive.length}
-              </span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
       {/* Sessions List */}
       <div className="px-4">
         {isLoading ? (
@@ -611,10 +548,10 @@ export default function HistoryPage() {
             <CardContent className="py-12 text-center">
               <Inbox className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm font-medium text-muted-foreground mb-1">
-                {emptyMessages[activeTab]?.title || 'No sessions'}
+                No sessions
               </p>
               <p className="text-xs text-muted-foreground">
-                {emptyMessages[activeTab]?.subtitle || ''}
+                Try changing filter criteria to see matching sessions
               </p>
             </CardContent>
           </Card>

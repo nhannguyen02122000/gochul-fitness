@@ -10,7 +10,7 @@ import { useInfiniteContracts } from '@/hooks/useContracts'
 import SessionCard from '@/components/cards/SessionCard'
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { GetUserInformationResponse } from '@/app/type/api'
+import type { GetUserInformationResponse, HistoryFilters } from '@/app/type/api'
 import CreateContractModal from '@/components/modals/CreateContractModal'
 import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
@@ -19,6 +19,18 @@ async function fetchUserInfo(): Promise<GetUserInformationResponse> {
   const response = await fetch('/api/user/getUserInformation')
   if (!response.ok) throw new Error('Failed to fetch user information')
   return response.json()
+}
+
+function startOfDayTimestamp(date: Date): number {
+  const next = new Date(date)
+  next.setHours(0, 0, 0, 0)
+  return next.getTime()
+}
+
+function endOfDayTimestamp(date: Date): number {
+  const next = new Date(date)
+  next.setHours(23, 59, 59, 999)
+  return next.getTime()
 }
 
 export default function HomePage() {
@@ -38,7 +50,19 @@ export default function HomePage() {
     enabled: isSignedIn
   })
 
-  const { data: historyData, isLoading: historyLoading } = useInfiniteHistory(10)
+  const upcomingWindowFilters = useMemo<HistoryFilters>(() => {
+    const now = new Date()
+    const twoDaysFromNow = new Date(now)
+    twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2)
+
+    return {
+      statuses: ['NEWLY_CREATED', 'CHECKED_IN'],
+      start_date: startOfDayTimestamp(now),
+      end_date: endOfDayTimestamp(twoDaysFromNow)
+    }
+  }, [])
+
+  const { data: historyData, isLoading: historyLoading } = useInfiniteHistory(50, upcomingWindowFilters)
   const { data: contractsData } = useInfiniteContracts(10)
 
   const userRole = userInfo && 'role' in userInfo ? userInfo.role : undefined
@@ -53,11 +77,12 @@ export default function HomePage() {
       'history' in page ? page.history : []
     )
     const now = Date.now()
+    const maxWindowTime = now + (2 * 24 * 60 * 60 * 1000)
     return allSessions
       .filter(session => {
-        if (session.status === 'CANCELED' || session.status === 'EXPIRED') return false
-        const sessionTime = session.date + (session.to * 60 * 1000)
-        return sessionTime >= now
+        const sessionEndTime = session.date + (session.to * 60 * 1000)
+        const sessionStartTime = session.date + (session.from * 60 * 1000)
+        return sessionEndTime >= now && sessionStartTime <= maxWindowTime
       })
       .sort((a, b) => {
         const aTime = a.date + (a.from * 60 * 1000)

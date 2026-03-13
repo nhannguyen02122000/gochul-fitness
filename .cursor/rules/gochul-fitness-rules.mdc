@@ -173,12 +173,13 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 
 ### `/` Dashboard (`src/app/(main)/page.tsx`)
 - Requires signed-in user (redirect to `/sign-in` if not authenticated).
-- Fetches user info, contracts, history.
+- Fetches user info, contracts, and history with dashboard-specific upcoming filters.
 - Shows quick stats:
   - active contracts count
   - upcoming sessions count
 - Shows create-contract CTA for `ADMIN`/`STAFF`.
-- Shows next sessions list and navigation to `/history`.
+- Shows upcoming session cards only within the next 2 days, using history-list filter fields (`statuses`, `start_date`, `end_date`) with statuses scoped to `NEWLY_CREATED` and `CHECKED_IN`, then further constrained by runtime upcoming-time checks.
+- Provides navigation to `/history` from the upcoming sessions block.
 
 ### `/contracts` (`src/app/(main)/contracts/page.tsx`)
 - Role-aware list with infinite pagination via `useInfiniteContracts`.
@@ -239,14 +240,10 @@ Terminal side branches: `CANCELED`, `EXPIRED`
   - time window (`from_minute`, `to_minute`) for all roles; overlap rule is `session.from < to_minute && session.to > from_minute`.
   - statuses multi-select for all roles.
 - Header Filter button shows an active badge when at least one status filter is selected.
-- Session categories/tabs:
-  - upcoming
-  - past
-  - overdue
-  - inactive
+- Session list renders as a single filtered stream (no tab switcher).
 - Role-authenticated users can open create-session modal.
-- Uses session temporal logic (`date + to*60*1000`) for categorization.
-- Categorization rules:
+- Uses session temporal logic (`date + to*60*1000`) for summary categorization.
+- Summary categorization rules:
   - upcoming: `NEWLY_CREATED` or `CHECKED_IN` whose end time has not passed.
   - past: `CHECKED_IN` whose end time has passed.
   - overdue: `NEWLY_CREATED` whose end time has passed.
@@ -328,6 +325,7 @@ All route handlers typically set:
     - staff by `teach_by`
     - customer by purchased contracts expansion
   - Supports filters: statuses, `start_date`, `end_date`, `teach_by_name`, `customer_name`, `from_minute`, `to_minute`
+  - Date range semantics remain `history.date >= filter.start_date` and `history.date <= filter.end_date`, and are applied in-memory after the base query to avoid InstantDB comparison failures on unindexed `history.date`
   - Name filters are applied from related contract links:
     - trainer keyword (`teach_by_name`) matches `contract.sale_by_user[0].user_setting` full name and is available for `ADMIN`/`CUSTOMER`
     - customer keyword (`customer_name`) matches `contract.purchased_by_user[0].user_setting` full name and is available for `ADMIN`/`STAFF`
