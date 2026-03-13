@@ -54,6 +54,32 @@ function parseTimestamp(value: string | null): number | null {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function matchesContractDateRange(
+  contract: Record<string, unknown>,
+  startDate: number | null,
+  endDate: number | null
+): boolean {
+  if (startDate !== null) {
+    const contractStartDate = contract.start_date
+    if (!isFiniteNumber(contractStartDate) || contractStartDate < startDate) {
+      return false
+    }
+  }
+
+  if (endDate !== null) {
+    const contractEndDate = contract.end_date
+    if (!isFiniteNumber(contractEndDate) || contractEndDate > endDate) {
+      return false
+    }
+  }
+
+  return true
+}
+
 function isCreditUsedHistoryStatus(status: unknown): boolean {
   return status === 'NEWLY_CREATED' || status === 'CHECKED_IN'
 }
@@ -163,6 +189,13 @@ export async function GET(request: Request) {
     const startDate = parseTimestamp(startDateParam)
     const endDate = parseTimestamp(endDateParam)
 
+    if (startDate !== null && endDate !== null && startDate > endDate) {
+      return NextResponse.json(
+        { error: 'Invalid date range: start_date cannot be greater than end_date' },
+        { status: 400 }
+      )
+    }
+
     // Get user settings to check role
     const userData = await instantServer.query({
       user_setting: {
@@ -251,18 +284,6 @@ export async function GET(request: Request) {
         contractWhere.status = statusesFilter[0]
       } else if (statusesFilter.length > 1) {
         contractWhere.status = { $in: statusesFilter }
-      }
-    }
-
-    if (startDate !== null) {
-      contractWhere.start_date = {
-        $gte: startDate
-      }
-    }
-
-    if (endDate !== null) {
-      contractWhere.end_date = {
-        $lte: endDate
       }
     }
 
@@ -392,10 +413,14 @@ export async function GET(request: Request) {
       )
     }
 
-    contracts.sort(compareContractsLatestFirst)
+    const dateFilteredContracts = contracts.filter((contract) =>
+      matchesContractDateRange(contract, startDate, endDate)
+    )
 
-    const total = contracts.length
-    const pagedContracts = contracts.slice(offset, offset + limit)
+    dateFilteredContracts.sort(compareContractsLatestFirst)
+
+    const total = dateFilteredContracts.length
+    const pagedContracts = dateFilteredContracts.slice(offset, offset + limit)
     const hasMore = offset + limit < total
 
     return NextResponse.json({

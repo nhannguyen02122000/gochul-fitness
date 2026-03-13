@@ -282,6 +282,7 @@ All route handlers typically set:
 - `GET /api/contract/getAll`
   - Role-scoped query
   - Supports pagination and filters: statuses, kind, date range, name keyword filters
+  - Date range semantics remain `start_date >= filter.start_date` and `end_date <= filter.end_date`, but are applied in-memory after the base query to avoid InstantDB range-filter runtime failures on optional contract date fields
   - Name filters resolve to user IDs by scanning `user_setting`
   - Computes `used_credits` from history statuses `NEWLY_CREATED` + `CHECKED_IN`
   - Auto-expires contracts in response path
