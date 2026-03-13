@@ -1,6 +1,7 @@
 // src/app/api/contract/updateStatus/route.ts
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
+import { publishRealtimeEventSafely } from '@/lib/realtime/ablyServer'
 import { NextResponse } from 'next/server'
 import type { ContractStatus } from '@/app/type/api'
 import { isPreActiveContractStatus } from '@/utils/statusUtils'
@@ -294,6 +295,17 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    await publishRealtimeEventSafely({
+      eventName: 'contract.changed',
+      userIds: [userInstantId, updatedContract.sale_by, updatedContract.purchased_by],
+      payload: {
+        entity_id: updatedContract.id,
+        action: 'update_status',
+        triggered_by: userInstantId,
+        timestamp: Date.now()
+      }
+    })
 
     return NextResponse.json(
       { contract: updatedContract },

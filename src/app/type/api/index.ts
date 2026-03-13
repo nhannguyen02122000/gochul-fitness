@@ -86,6 +86,18 @@ export interface ApiErrorResponse {
     error: string
 }
 
+export interface RealtimeTokenSuccessResponse {
+    keyName: string
+    ttl: number
+    capability: string
+    clientId: string
+    timestamp: number
+    nonce: string
+    mac: string
+}
+
+export type RealtimeTokenResponse = RealtimeTokenSuccessResponse | ApiErrorResponse
+
 // ============================================================================
 // /api/contract/create
 // ============================================================================

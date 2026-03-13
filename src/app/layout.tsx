@@ -1,5 +1,6 @@
 import InstantDBAuthSync from '@/components/InstantAuthDB'
 import ReactQueryProvider from '@/providers/QueryClientProvider'
+import RealtimeProvider from '@/providers/RealtimeProvider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from 'sonner'
 import { viVN } from '@clerk/localizations'
@@ -62,6 +63,7 @@ export default function RootLayout({
       <html lang='en'>
         <body className={`${inter.variable} font-sans antialiased`}>
           <ReactQueryProvider>
+            <RealtimeProvider />
             <TooltipProvider>
               {children}
               <Toaster position="top-center" richColors closeButton />

@@ -1,6 +1,7 @@
 // src/app/api/history/delete/route.ts
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
+import { publishRealtimeEventSafely } from '@/lib/realtime/ablyServer'
 import { NextResponse } from 'next/server'
 
 
@@ -117,6 +118,25 @@ export async function POST(request: Request) {
         updated_at: Date.now()
       })
     ])
+
+    const contract = existingHistory.contract?.[0]
+
+    await publishRealtimeEventSafely({
+      eventName: 'history.changed',
+      userIds: [
+        userInstantId,
+        existingHistory.users?.[0]?.id,
+        contract?.purchased_by,
+        contract?.sale_by,
+        existingHistory.teach_by
+      ],
+      payload: {
+        entity_id: history_id,
+        action: 'delete',
+        triggered_by: userInstantId,
+        timestamp: Date.now()
+      }
+    })
 
     return NextResponse.json(
       {

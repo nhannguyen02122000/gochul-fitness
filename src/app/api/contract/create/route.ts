@@ -1,6 +1,7 @@
 // src/app/api/contract/create/route.ts
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
+import { publishRealtimeEventSafely } from '@/lib/realtime/ablyServer'
 import { NextResponse } from 'next/server'
 import { id } from '@instantdb/admin'
 
@@ -189,6 +190,17 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    await publishRealtimeEventSafely({
+      eventName: 'contract.changed',
+      userIds: [userInstantId, createdContract.sale_by, createdContract.purchased_by],
+      payload: {
+        entity_id: createdContract.id,
+        action: 'create',
+        triggered_by: userInstantId,
+        timestamp: Date.now()
+      }
+    })
 
     return NextResponse.json(
       { contract: createdContract },

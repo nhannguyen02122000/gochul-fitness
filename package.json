@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
+    "ably": "^2.13.0",
     "@clerk/localizations": "^3.35.3",
     "@clerk/nextjs": "^6.37.1",
     "@instantdb/admin": "^0.22.119",

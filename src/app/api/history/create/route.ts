@@ -1,6 +1,7 @@
 // src/app/api/history/create/route.ts
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
+import { publishRealtimeEventSafely } from '@/lib/realtime/ablyServer'
 import { NextResponse } from 'next/server'
 import { id } from '@instantdb/admin'
 
@@ -301,6 +302,17 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    await publishRealtimeEventSafely({
+      eventName: 'history.changed',
+      userIds: [userInstantId, contract.purchased_by, teachBy],
+      payload: {
+        entity_id: createdHistory.id,
+        action: 'create',
+        triggered_by: userInstantId,
+        timestamp: Date.now()
+      }
+    })
 
     return NextResponse.json(
       { history: createdHistory },

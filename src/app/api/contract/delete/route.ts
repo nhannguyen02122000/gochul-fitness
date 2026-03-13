@@ -1,6 +1,7 @@
 // src/app/api/contract/delete/route.ts
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
+import { publishRealtimeEventSafely } from '@/lib/realtime/ablyServer'
 import { NextResponse } from 'next/server'
 
 
@@ -41,6 +42,14 @@ export async function POST(request: Request) {
     }
 
     const role = userSetting.role
+    const userInstantId = userSetting.users?.[0]?.id
+
+    if (!userInstantId) {
+      return NextResponse.json(
+        { error: 'User instant ID not found' },
+        { status: 404 }
+      )
+    }
 
     // Check if user has permission to delete contracts (ADMIN only)
     if (role !== 'ADMIN') {
@@ -112,6 +121,17 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    await publishRealtimeEventSafely({
+      eventName: 'contract.changed',
+      userIds: [userInstantId, updatedContract.sale_by, updatedContract.purchased_by],
+      payload: {
+        entity_id: updatedContract.id,
+        action: 'delete',
+        triggered_by: userInstantId,
+        timestamp: Date.now()
+      }
+    })
 
     return NextResponse.json(
       {

@@ -24,6 +24,7 @@ alwaysApply: true
 - Auth: Clerk server auth in route handlers via `auth()` and user profile via `currentUser()`.
 - Data layer: InstantDB admin SDK (`instantServer`) with schema in `instant.schema.ts`.
 - Client data-fetching: TanStack Query hooks (`src/hooks/useContracts.ts`, `src/hooks/useHistory.ts`, `src/hooks/useUser.ts`).
+- Realtime sync: Ably pub/sub with server-issued token auth via `GET /api/realtime/token`, user-scoped channels (`user:{instantUserId}`), and client cache invalidation in `src/providers/RealtimeProvider.tsx`.
 - UI: Mobile-first pages under `src/app/(main)/**`, shadcn-style components under `src/components/ui/**`.
 - PWA support: service worker and manifest (`public/sw.js`, `public/manifest.json`).
 
@@ -349,6 +350,13 @@ All route handlers typically set:
 - `POST /api/user/updateBasicInfo`
   - Updates current user setting names
 
+### Realtime APIs
+- `GET /api/realtime/token`
+  - Requires authenticated Clerk session
+  - Resolves caller Instant user id from `user_setting.users[0].id`
+  - Returns Ably token request scoped to subscribe-only capability for `user:{instantUserId}`
+  - Used by `src/providers/RealtimeProvider.tsx` as `authUrl` for Ably client
+
 ## 8) Technical constraints and invariants
 
 - Time-slot model:
@@ -366,6 +374,7 @@ All route handlers typically set:
   - Most APIs require `user_setting` existing and linked to an Instant `$users` row
 - Cache behavior:
   - API handlers are forced dynamic; client cache managed by React Query invalidation
+  - Cross-device cache refresh is event-driven: mutation APIs publish Ably events (`contract.changed`, `history.changed`) and subscribed clients invalidate contract/history query lists
 
 ## 9) Cleanup status (applied)
 

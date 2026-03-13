@@ -1,6 +1,7 @@
 // src/app/api/history/update/route.ts
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
+import { publishRealtimeEventSafely } from '@/lib/realtime/ablyServer'
 import { NextResponse } from 'next/server'
 import type { HistoryStatus } from '@/app/type/api'
 
@@ -312,6 +313,25 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    const updatedContract = updatedHistory.contract?.[0]
+
+    await publishRealtimeEventSafely({
+      eventName: 'history.changed',
+      userIds: [
+        userInstantId,
+        existingHistory.users?.[0]?.id,
+        updatedContract?.purchased_by,
+        updatedContract?.sale_by,
+        updatedHistory.teach_by
+      ],
+      payload: {
+        entity_id: updatedHistory.id,
+        action: 'update',
+        triggered_by: userInstantId,
+        timestamp: Date.now()
+      }
+    })
 
     return NextResponse.json(
       { history: updatedHistory },

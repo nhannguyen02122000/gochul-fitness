@@ -1,6 +1,7 @@
 // src/app/api/contract/update/route.ts
 import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
+import { publishRealtimeEventSafely } from '@/lib/realtime/ablyServer'
 import { NextResponse } from 'next/server'
 import type { ContractStatus } from '@/app/type/api'
 
@@ -61,6 +62,15 @@ export async function POST(request: Request) {
         if (!userSetting) {
             return NextResponse.json(
                 { error: 'User settings not found' },
+                { status: 404 }
+            )
+        }
+
+        const userInstantId = userSetting.users?.[0]?.id
+
+        if (!userInstantId) {
+            return NextResponse.json(
+                { error: 'User instant ID not found' },
                 { status: 404 }
             )
         }
@@ -262,6 +272,17 @@ export async function POST(request: Request) {
                 { status: 500 }
             )
         }
+
+        await publishRealtimeEventSafely({
+            eventName: 'contract.changed',
+            userIds: [userInstantId, updatedContract.sale_by, updatedContract.purchased_by],
+            payload: {
+                entity_id: updatedContract.id,
+                action: 'update',
+                triggered_by: userInstantId,
+                timestamp: Date.now()
+            }
+        })
 
         return NextResponse.json(
             { contract: updatedContract },
