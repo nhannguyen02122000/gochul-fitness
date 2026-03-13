@@ -5,7 +5,7 @@ export type RealtimeEventName = 'contract.changed' | 'history.changed'
 
 export interface RealtimePublishPayload {
   entity_id: string
-  action: 'create' | 'update' | 'delete' | 'update_status'
+  action: 'create' | 'update' | 'delete' | 'update_status' | 'update_note'
   triggered_by: string
   timestamp: number
 }

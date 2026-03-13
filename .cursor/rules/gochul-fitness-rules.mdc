@@ -424,6 +424,7 @@ All route handlers typically set:
 - Cache behavior:
   - API handlers are forced dynamic; client cache managed by React Query invalidation
   - Cross-device cache refresh is event-driven: mutation APIs publish Ably events (`contract.changed`, `history.changed`) and subscribed clients invalidate contract/history query lists
+  - Realtime payload `action` currently supports `create`, `update`, `delete`, `update_status`, and `update_note` (used by `POST /api/history/updateNote`)
 
 ## 9) Cleanup status (applied)
 
