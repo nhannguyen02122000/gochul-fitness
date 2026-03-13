@@ -10,6 +10,10 @@ export interface RealtimePublishPayload {
   timestamp: number
 }
 
+export function isRealtimeEnabled(): boolean {
+  return process.env.NODE_ENV === 'production'
+}
+
 function getAblyApiKey(): string {
   const key = process.env.ABLY_API_KEY
   if (!key) {
@@ -38,6 +42,10 @@ export async function publishRealtimeEvent(options: {
   payload: RealtimePublishPayload
   userIds: Array<string | undefined | null>
 }): Promise<void> {
+  if (!isRealtimeEnabled()) {
+    return
+  }
+
   const targetUserIds = sanitizeUserIds(options.userIds)
 
   if (targetUserIds.length === 0) {
@@ -59,6 +67,10 @@ export async function publishRealtimeEventSafely(options: {
   payload: RealtimePublishPayload
   userIds: Array<string | undefined | null>
 }): Promise<void> {
+  if (!isRealtimeEnabled()) {
+    return
+  }
+
   try {
     await publishRealtimeEvent(options)
   } catch (error) {
@@ -67,6 +79,10 @@ export async function publishRealtimeEventSafely(options: {
 }
 
 export async function createScopedTokenRequest(userId: string) {
+  if (!isRealtimeEnabled()) {
+    throw new Error('Realtime is disabled in non-production environments')
+  }
+
   return getAblyRestClient().auth.createTokenRequest({
     clientId: userId,
     capability: JSON.stringify({

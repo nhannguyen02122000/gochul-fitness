@@ -25,6 +25,7 @@ alwaysApply: true
 - Data layer: InstantDB admin SDK (`instantServer`) with schema in `instant.schema.ts`.
 - Client data-fetching: TanStack Query hooks (`src/hooks/useContracts.ts`, `src/hooks/useHistory.ts`, `src/hooks/useUser.ts`).
 - Realtime sync: Ably pub/sub with server-issued token auth via `GET /api/realtime/token`, user-scoped channels (`user:{instantUserId}`), and client cache invalidation in `src/providers/RealtimeProvider.tsx`.
+- Environment gate: realtime publish/subscribe/token is enabled only in production (`NODE_ENV === 'production'`) and is intentionally disabled in local development.
 - UI: Mobile-first pages under `src/app/(main)/**`, shadcn-style components under `src/components/ui/**`.
 - PWA support: service worker and manifest (`public/sw.js`, `public/manifest.json`).
 

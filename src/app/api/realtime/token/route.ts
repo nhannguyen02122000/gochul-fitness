@@ -1,13 +1,20 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { instantServer } from '@/lib/dbServer'
-import { createScopedTokenRequest } from '@/lib/realtime/ablyServer'
+import { createScopedTokenRequest, isRealtimeEnabled } from '@/lib/realtime/ablyServer'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET() {
   try {
+    if (!isRealtimeEnabled()) {
+      return NextResponse.json(
+        { error: 'Realtime is disabled in non-production environments' },
+        { status: 404 }
+      )
+    }
+
     const { userId } = await auth()
 
     if (!userId) {

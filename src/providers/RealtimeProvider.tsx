@@ -9,65 +9,74 @@ import { useQueryClient } from '@tanstack/react-query'
 import Ably from 'ably'
 import { useEffect } from 'react'
 
+interface RealtimeChannelLike {
+    subscribe: (eventName: string, listener: () => void) => void
+    unsubscribe: () => void
+}
+
 export default function RealtimeProvider() {
-  const queryClient = useQueryClient()
-  const { isSignedIn } = useAuth()
+    const queryClient = useQueryClient()
+    const { isSignedIn } = useAuth()
 
-  useEffect(() => {
-    if (!isSignedIn) {
-      return
-    }
+    useEffect(() => {
+        if (process.env.NODE_ENV !== 'production') {
+            return
+        }
 
-    let isUnmounted = false
-    let realtimeClient: Ably.Realtime | null = null
-    let channel: Ably.RealtimeChannelCallbacks | null = null
+        if (!isSignedIn) {
+            return
+        }
 
-    const initializeRealtime = async () => {
-      const userResponse = await fetch('/api/user/getUserInformation')
-      if (!userResponse.ok) {
-        return
-      }
+        let isUnmounted = false
+        let realtimeClient: Ably.Realtime | null = null
+        let channel: RealtimeChannelLike | null = null
 
-      const userData = await userResponse.json() as GetUserInformationResponse
-      if ('error' in userData) {
-        return
-      }
+        const initializeRealtime = async () => {
+            const userResponse = await fetch('/api/user/getUserInformation')
+            if (!userResponse.ok) {
+                return
+            }
 
-      const userInstantId = userData.instantUser?.[0]?.id
-      if (!userInstantId || isUnmounted) {
-        return
-      }
+            const userData = await userResponse.json() as GetUserInformationResponse
+            if ('error' in userData) {
+                return
+            }
 
-      realtimeClient = new Ably.Realtime({
-        authUrl: '/api/realtime/token'
-      })
+            const userInstantId = userData.instantUser?.[0]?.id
+            if (!userInstantId || isUnmounted) {
+                return
+            }
 
-      channel = realtimeClient.channels.get(getUserRealtimeChannel(userInstantId))
+            realtimeClient = new Ably.Realtime({
+                authUrl: '/api/realtime/token'
+            })
 
-      const handleRealtimeUpdate = () => {
-        queryClient.invalidateQueries({ queryKey: contractKeys.lists() })
-        queryClient.invalidateQueries({ queryKey: historyKeys.lists() })
-      }
+            channel = realtimeClient.channels.get(getUserRealtimeChannel(userInstantId)) as RealtimeChannelLike
 
-      channel.subscribe('contract.changed', handleRealtimeUpdate)
-      channel.subscribe('history.changed', handleRealtimeUpdate)
-    }
+            const handleRealtimeUpdate = () => {
+                queryClient.invalidateQueries({ queryKey: contractKeys.lists() })
+                queryClient.invalidateQueries({ queryKey: historyKeys.lists() })
+            }
 
-    initializeRealtime().catch((error) => {
-      console.error('Failed to initialize realtime client:', error)
-    })
+            channel.subscribe('contract.changed', handleRealtimeUpdate)
+            channel.subscribe('history.changed', handleRealtimeUpdate)
+        }
 
-    return () => {
-      isUnmounted = true
-      if (channel) {
-        channel.unsubscribe()
-      }
-      if (realtimeClient) {
-        realtimeClient.close()
-      }
-    }
-  }, [isSignedIn, queryClient])
+        initializeRealtime().catch((error) => {
+            console.error('Failed to initialize realtime client:', error)
+        })
 
-  return null
+        return () => {
+            isUnmounted = true
+            if (channel) {
+                channel.unsubscribe()
+            }
+            if (realtimeClient) {
+                realtimeClient.close()
+            }
+        }
+    }, [isSignedIn, queryClient])
+
+    return null
 }
 
