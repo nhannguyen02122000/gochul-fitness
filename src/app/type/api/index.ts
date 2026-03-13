@@ -40,6 +40,7 @@ export interface UserSetting {
     clerk_id: string
     first_name?: string
     last_name?: string
+    imageUrl?: string
     essential_information?: string
     essential_ready?: boolean
     users?: User[]
@@ -403,6 +404,28 @@ export interface GetUsersByRoleSuccessResponse {
 }
 
 export type GetUsersByRoleResponse = GetUsersByRoleSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/user/getAll
+// ============================================================================
+
+export interface UserManagementFilters {
+    first_name?: string
+    last_name?: string
+}
+
+export interface GetAllUsersRequest extends UserManagementFilters {
+    page?: string | number
+    limit?: string | number
+}
+
+export interface GetAllUsersSuccessResponse {
+    users: UserSetting[]
+    pagination: PaginationMetadata
+    role: Role
+}
+
+export type GetAllUsersResponse = GetAllUsersSuccessResponse | ApiErrorResponse
 
 // ============================================================================
 // /api/history/getOccupiedTimeSlots

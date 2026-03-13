@@ -9,7 +9,6 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  User,
   LogOut,
   FileText,
   Clock,
@@ -19,6 +18,7 @@ import {
   Loader2,
   ChevronRight,
   ClipboardList,
+  Users,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useClerk } from '@clerk/nextjs'
@@ -47,6 +47,7 @@ export default function ProfilePage() {
   const { signOut } = useClerk()
   const router = useRouter()
   const updateUserInfo = useUpdateUserBasicInfo()
+  const [now] = useState(() => Date.now())
 
   const { data: userInfo, refetch } = useQuery({
     queryKey: ['userInfo'],
@@ -78,13 +79,13 @@ export default function ProfilePage() {
       upcomingSessions: allHistory.filter((h) => {
         const sessionTime = h.date + h.from * 60 * 1000
         return (
-          sessionTime >= Date.now() &&
+          sessionTime >= now &&
           h.status !== 'CANCELED' &&
           h.status !== 'EXPIRED'
         )
       }).length,
     }
-  }, [contractsData, historyData])
+  }, [contractsData, historyData, now])
 
   const handleStartEditing = () => {
     if (userInfo && !('error' in userInfo)) {
@@ -103,8 +104,10 @@ export default function ProfilePage() {
       toast.success('Profile updated successfully')
       setIsEditing(false)
       refetch()
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update profile')
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update profile'
+      toast.error(message)
     }
   }
 
@@ -275,7 +278,7 @@ export default function ProfilePage() {
       {/* Personal Information */}
       <div className="px-4 mb-5 animate-slide-up" style={{ animationDelay: '0.1s' }}>
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold">
                 Personal Information
@@ -379,49 +382,82 @@ export default function ProfilePage() {
         </Card>
       </div>
 
-      {/* Logout Button */}
-      <div className="px-4 mb-5 animate-slide-up" style={{ animationDelay: '0.15s' }}>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
-              Essential Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <button
-              type="button"
-              onClick={() => router.push('/profile/essential-information')}
-              className="w-full min-h-14 rounded-xl border border-border px-4 py-3 flex items-center justify-between hover:bg-muted/40 transition-colors"
-            >
-              <div className="flex items-center gap-3 text-left">
-                <div className="size-9 rounded-lg bg-[var(--color-pt-bg)] text-[var(--color-pt)] flex items-center justify-center">
-                  <ClipboardList className="h-4 w-4" />
+      {userInfo.role === 'ADMIN' ? (
+        <div className="px-4 mb-5 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+          <Card>
+            <CardHeader className="">
+              <CardTitle className="text-sm font-semibold">
+                User Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <button
+                type="button"
+                onClick={() => router.push('/user-management')}
+                className="w-full min-h-14 rounded-xl border border-border px-4 py-3 flex items-center justify-between hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="size-9 rounded-lg bg-[var(--color-pt-bg)] text-[var(--color-pt)] flex items-center justify-center">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Manage System Users
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Browse users and roles
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    GoChul Onboarding Form
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {userInfo.essential_ready ? 'Completed' : 'Incomplete'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[11px] px-2 py-1 rounded-full font-medium ${userInfo.essential_ready
-                    ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
-                    : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
-                    }`}
-                >
-                  {userInfo.essential_ready ? 'Ready' : 'Pending'}
-                </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </button>
-          </CardContent>
-        </Card>
-      </div>
+              </button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="px-4 mb-5 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+          <Card>
+            <CardHeader className="">
+              <CardTitle className="text-sm font-semibold">
+                Essential Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <button
+                type="button"
+                onClick={() => router.push('/profile/essential-information')}
+                className="w-full min-h-14 rounded-xl border border-border px-4 py-3 flex items-center justify-between hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="size-9 rounded-lg bg-[var(--color-pt-bg)] text-[var(--color-pt)] flex items-center justify-center">
+                    <ClipboardList className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      GoChul Onboarding Form
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {userInfo.essential_ready ? 'Completed' : 'Incomplete'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[11px] px-2 py-1 rounded-full font-medium ${userInfo.essential_ready
+                      ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
+                      : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
+                      }`}
+                  >
+                    {userInfo.essential_ready ? 'Ready' : 'Pending'}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Logout Button */}
       <div className="px-4 mb-4">

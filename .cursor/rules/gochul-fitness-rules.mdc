@@ -268,8 +268,21 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Displays merged Clerk + user setting profile.
 - Allows first/last name updates via `POST /api/user/updateBasicInfo`.
 - Shows derived stats from contracts/history queries.
-- Shows entry card to `/profile/essential-information` with status badge from `essential_ready`.
+- Role-aware action card:
+  - `ADMIN`: shows entry to `/user-management`.
+  - `STAFF` and `CUSTOMER`: shows entry card to `/profile/essential-information` with status badge from `essential_ready`.
 - Supports Clerk sign-out.
+
+### `/user-management` (`src/app/(main)/user-management/page.tsx`)
+- Strictly for `ADMIN`; non-admin users are redirected away.
+- Infinite-loading paginated user list (card view) via `useInfiniteUsers`.
+- Each card shows avatar/fallback, full name, email, role badge, and navigates to `/user-management/:uid`.
+- Filter drawer mirrors contract/history style but includes only:
+  - `first_name`
+  - `last_name`
+
+### `/user-management/:uid` (`src/app/(main)/user-management/[uid]/page.tsx`)
+- `ADMIN`-only guarded placeholder route for future detailed user view implementation.
 
 ### `/profile/essential-information` (`src/app/(main)/profile/essential-information/page.tsx`)
 - Renders GoChul onboarding questionnaire and excludes all `FILE_UPLOAD` questions from UI and completion checks.
@@ -388,6 +401,11 @@ All route handlers typically set:
 - `GET /api/user/getByRole`
   - Requester must be `ADMIN` or `STAFF`
   - Requires `role` query param
+- `GET /api/user/getAll`
+  - Requester must be `ADMIN`
+  - Supports pagination: `page`, `limit`
+  - Supports filters: `first_name`, `last_name` (case-insensitive contains match on `user_setting` fields)
+  - Returns paginated `user_setting` rows linked with `$users`
 - `POST /api/user/updateBasicInfo`
   - Updates current user setting names
 - `POST /api/user/updateEssentialInformation`
