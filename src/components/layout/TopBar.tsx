@@ -63,6 +63,7 @@ export default function TopBar() {
     if (pathname === '/') return 'Dashboard'
     if (pathname === '/contracts') return 'Contracts'
     if (pathname === '/history') return 'Sessions'
+    if (pathname === '/profile/essential-information') return 'Essential Information'
     if (pathname === '/profile') return 'Profile'
     return 'GoChul Fitness'
   }

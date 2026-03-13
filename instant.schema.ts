@@ -37,7 +37,9 @@ const _schema = i.schema({
       role: i.string(), // CUSTOMER, STAFF, ADMIN
       clerk_id: i.string(),
       first_name: i.string().optional(),
-      last_name: i.string().optional()
+      last_name: i.string().optional(),
+      essential_information: i.string().optional(), // JSON string of onboarding answers
+      essential_ready: i.boolean().optional()
     })
   },
   links: {

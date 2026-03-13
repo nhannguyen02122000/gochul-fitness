@@ -64,6 +64,8 @@ alwaysApply: true
   - `email` unique/indexed optional
 - `user_setting`
   - `role`, `clerk_id`, `first_name`, `last_name`
+  - optional `essential_information` (JSON string of onboarding answers)
+  - optional `essential_ready` (boolean completion flag)
 - `contract`
   - `created_at`, `updated_at`, optional `start_date`, optional `end_date`
   - `kind`: `PT | REHAB | PT_MONTHLY`
@@ -266,7 +268,15 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Displays merged Clerk + user setting profile.
 - Allows first/last name updates via `POST /api/user/updateBasicInfo`.
 - Shows derived stats from contracts/history queries.
+- Shows entry card to `/profile/essential-information` with status badge from `essential_ready`.
 - Supports Clerk sign-out.
+
+### `/profile/essential-information` (`src/app/(main)/profile/essential-information/page.tsx`)
+- Renders GoChul onboarding questionnaire and excludes all `FILE_UPLOAD` questions from UI and completion checks.
+- Uses draft + submit flow:
+  - `Save Draft`: persists `essential_information` and sets `essential_ready = false`.
+  - `Submit`: requires all non-`FILE_UPLOAD` and non-`PAGE_BREAK` questions to be answered; sets `essential_ready = true`.
+- Prefills form values from existing `user_setting.essential_information` JSON string.
 
 ### `/sign-in` and `/offline`
 - `/sign-in`: Clerk sign-in UI route.
@@ -368,7 +378,7 @@ All route handlers typically set:
 
 ### User APIs
 - `GET /api/user/getUserInformation`
-  - Returns merged Clerk user + `user_setting` + `instantUser`
+  - Returns merged Clerk user + `user_setting` + `instantUser`, including `essential_information` and `essential_ready` when present
 - `GET /api/user/checkUserSetting`
   - Returns existence flag and optional setting
 - `POST /api/user/createUserSetting`
@@ -380,6 +390,14 @@ All route handlers typically set:
   - Requires `role` query param
 - `POST /api/user/updateBasicInfo`
   - Updates current user setting names
+- `POST /api/user/updateEssentialInformation`
+  - Updates current user's onboarding essential-information payload
+  - Requires `essential_information` (valid JSON object string) and `is_submit` (boolean)
+  - Completion logic ignores `FILE_UPLOAD` and `PAGE_BREAK` questions
+  - If `is_submit = true`, endpoint rejects incomplete answers with `400`
+  - Persists:
+    - `essential_information` as provided JSON string
+    - `essential_ready = true` only when submit is complete, otherwise `false`
 
 ### Realtime APIs
 - `GET /api/realtime/token`

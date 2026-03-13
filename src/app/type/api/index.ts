@@ -40,6 +40,8 @@ export interface UserSetting {
     clerk_id: string
     first_name?: string
     last_name?: string
+    essential_information?: string
+    essential_ready?: boolean
     users?: User[]
 }
 
@@ -217,6 +219,8 @@ export interface GetUserInformationSuccessResponse extends ClerkUser {
     clerk_id?: string
     first_name?: string
     last_name?: string
+    essential_information?: string
+    essential_ready?: boolean
     instantUser?: User[]
 }
 
@@ -236,6 +240,23 @@ export interface UpdateUserBasicInfoSuccessResponse {
 }
 
 export type UpdateUserBasicInfoResponse = UpdateUserBasicInfoSuccessResponse | ApiErrorResponse
+
+// ============================================================================
+// /api/user/updateEssentialInformation
+// ============================================================================
+
+export interface UpdateEssentialInformationRequest {
+    essential_information: string
+    is_submit: boolean
+}
+
+export interface UpdateEssentialInformationSuccessResponse {
+    user_setting: UserSetting
+}
+
+export type UpdateEssentialInformationResponse =
+    | UpdateEssentialInformationSuccessResponse
+    | ApiErrorResponse
 
 // ============================================================================
 // /api/history/create
