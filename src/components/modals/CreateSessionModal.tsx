@@ -62,7 +62,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
     return allContracts.filter(c => {
       if (c.status !== 'ACTIVE') return false
       const hasCreditsField = c.kind === 'PT' || c.kind === 'REHAB'
-      if (hasCreditsField && c.credits) {
+      if (hasCreditsField && typeof c.credits === 'number') {
         const usedCredits = c.used_credits || 0
         return usedCredits < c.credits
       }
@@ -98,19 +98,36 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
   )
 
   const contractOptions = useMemo(() => {
+    const kindLabels: Record<string, string> = {
+      'PT': 'PT',
+      'REHAB': 'REHAB',
+      'PT_MONTHLY': 'PT MONTHLY'
+    }
+
     return activeContracts.map(contract => {
-      const customerName = contract.purchased_by_user?.[0]?.email?.split('@')[0] || 'Unknown'
-      const kindLabels: Record<string, string> = {
-        'PT': 'PT',
-        'REHAB': 'Rehab',
-        'PT_MONTHLY': 'PT Monthly'
-      }
+      const customerUser = contract.purchased_by_user?.[0]
+      const customerSetting = customerUser?.user_setting?.[0]
+      const customerName = [customerSetting?.first_name, customerSetting?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        || customerUser?.email?.split('@')[0]
+        || 'Unknown Customer'
+      const usedCredits = contract.used_credits || 0
+      const creditsUsageText = contract.kind === 'PT_MONTHLY'
+        ? `${usedCredits} credits used`
+        : `${usedCredits}/${contract.credits ?? 0} credits used`
+
       return {
         value: contract.id,
-        label: `${kindLabels[contract.kind]} - ${customerName}`,
+        label: `${kindLabels[contract.kind]} - ${customerName} - ${creditsUsageText}`,
       }
     })
   }, [activeContracts])
+
+  const selectedContractOption = useMemo(
+    () => contractOptions.find(opt => opt.value === effectiveContractId),
+    [contractOptions, effectiveContractId]
+  )
 
   const resetForm = () => {
     setContractId('')
@@ -201,7 +218,9 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
               }}
             >
               <SelectTrigger size="lg" className="w-full">
-                <SelectValue placeholder="Choose a contract" />
+                <SelectValue placeholder="Choose a contract">
+                  {selectedContractOption?.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {contractOptions.map(opt => (

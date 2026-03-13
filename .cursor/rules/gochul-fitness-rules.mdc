@@ -245,6 +245,8 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Session list renders as a single filtered stream (no tab switcher).
 - Role-authenticated users can open create-session modal.
 - Create-session modal contract select trigger uses 40px control height (`h-10` via `SelectTrigger size="lg"`).
+- Create-session modal contract dropdown displays selected value and option labels in the same format: `{CONTRACT_TYPE} - {customer first_name last_name} - {credits usage}`.
+- Create-session modal contract dropdown excludes out-of-credit `PT`/`REHAB` contracts (`used_credits >= credits`); `PT_MONTHLY` remains selectable and shows usage as `{used} credits used` (without total credits).
 - Uses session temporal logic (`date + to*60*1000`) for summary categorization.
 - Summary categorization rules:
   - upcoming: `NEWLY_CREATED` or `CHECKED_IN` whose end time has not passed.
