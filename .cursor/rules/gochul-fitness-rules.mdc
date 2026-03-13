@@ -193,6 +193,8 @@ Terminal side branches: `CANCELED`, `EXPIRED`
   - Even if status query params are tampered, backend must still exclude `NEWLY_CREATED` for `CUSTOMER` role.
 - Summary counts for total/active/pending/inactive.
 - Create-contract modal available for `ADMIN`/`STAFF`.
+- Create-contract modal form controls use a consistent field height (`h-10`) across customer selector, select triggers, and text inputs.
+ - Create-contract modal session-duration section includes a clock icon in the field header.
 
 #### Contract card identity display rules (`src/components/cards/ContractCard.tsx`)
 - Customer display name derivation (`customerName`):
@@ -206,7 +208,7 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Customer email derivation (`customerEmail`):
   - Uses `purchasedByUser.email`.
   - Falls back to `N/A` if missing.
-- Sales rep display name derivation (`salesPerson`):
+- Staff display name derivation (`salesPerson`):
   - Source user link: first element of `contract.sale_by_user`.
   - Source profile link: first element of `saleByUser.user_setting`.
   - Fallback order:
@@ -215,8 +217,8 @@ Terminal side branches: `CANCELED`, `EXPIRED`
     - If email is missing, fallback to literal `Unknown`.
     - If `salesUserSetting` is absent, use `saleByUser.email` first, otherwise `Unknown`.
 - UI render mapping in card details block:
-  - Customer label row renders `customerName` in the value text element.
-  - Sales Rep label row renders `salesPerson` in the value text element.
+  - Customer label row renders `customerName` in the value text element when user role is `ADMIN` or `STAFF`.
+  - Staff label row renders `salesPerson` in the value text element when user role is `ADMIN` or `CUSTOMER`.
   - Both value elements apply `truncate`, so long names/emails are visually clipped in-card.
 - Contract action buttons in card use `getContractActionButtons()` from `src/utils/statusUtils.ts` as source of truth.
 - Action button render gate uses `shouldShowContractActionButtons()`:
@@ -242,6 +244,7 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Header Filter button shows an active badge when at least one status filter is selected.
 - Session list renders as a single filtered stream (no tab switcher).
 - Role-authenticated users can open create-session modal.
+- Create-session modal contract select trigger uses 40px control height (`h-10` via `SelectTrigger size="lg"`).
 - Uses session temporal logic (`date + to*60*1000`) for summary categorization.
 - Summary categorization rules:
   - upcoming: `NEWLY_CREATED` or `CHECKED_IN` whose end time has not passed.

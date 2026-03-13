@@ -119,6 +119,8 @@ export default function ContractCard({
       .filter(Boolean)
       .join(' ') || saleByUser?.email || 'Unknown'
     : saleByUser?.email || 'Unknown'
+  const showCustomerField = !userRole || userRole === 'ADMIN' || userRole === 'STAFF'
+  const showStaffField = !userRole || userRole === 'ADMIN' || userRole === 'CUSTOMER'
 
   const kind = kindConfig[contract.kind] || {
     label: contract.kind,
@@ -251,26 +253,30 @@ export default function ContractCard({
           {/* Details */}
           <div className="px-4 pb-3 space-y-2">
             {/* Customer */}
-            <div className="flex items-center gap-2.5 py-1.5">
-              <div className="w-7 h-7 rounded-md bg-[var(--color-pt-bg)] flex items-center justify-center shrink-0">
-                <User className="h-3.5 w-3.5 text-[var(--color-pt)]" />
+            {showCustomerField && (
+              <div className="flex items-center gap-2.5 py-1.5">
+                <div className="w-7 h-7 rounded-md bg-[var(--color-pt-bg)] flex items-center justify-center shrink-0">
+                  <User className="h-3.5 w-3.5 text-[var(--color-pt)]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Customer</p>
+                  <p className="text-xs font-medium text-foreground truncate">{customerName}</p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Customer</p>
-                <p className="text-xs font-medium text-foreground truncate">{customerName}</p>
-              </div>
-            </div>
+            )}
 
-            {/* Sales */}
-            <div className="flex items-center gap-2.5 py-1.5">
-              <div className="w-7 h-7 rounded-md bg-[var(--color-success-bg)] flex items-center justify-center shrink-0">
-                <User className="h-3.5 w-3.5 text-[var(--color-success)]" />
+            {/* Staff */}
+            {showStaffField && (
+              <div className="flex items-center gap-2.5 py-1.5">
+                <div className="w-7 h-7 rounded-md bg-[var(--color-success-bg)] flex items-center justify-center shrink-0">
+                  <User className="h-3.5 w-3.5 text-[var(--color-success)]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Staff</p>
+                  <p className="text-xs font-medium text-foreground truncate">{salesPerson}</p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Sales Rep</p>
-                <p className="text-xs font-medium text-foreground truncate">{salesPerson}</p>
-              </div>
-            </div>
+            )}
 
             {/* Date Range */}
             {contract.start_date && (

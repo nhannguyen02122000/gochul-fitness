@@ -29,6 +29,7 @@ import {
   Zap,
   DollarSign,
   CalendarIcon,
+  Clock3,
   Loader2,
 } from 'lucide-react'
 import { useCreateContract } from '@/hooks/useContracts'
@@ -172,7 +173,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                 setErrors(p => ({ ...p, kind: '' }))
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger size="lg" className="w-full">
                 <SelectValue placeholder="Choose contract type" />
               </SelectTrigger>
               <SelectContent>
@@ -216,6 +217,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                     setCredits(raw)
                     setErrors(p => ({ ...p, credits: '' }))
                   }}
+                  className="h-10"
                 />
                 {errors.credits && <p className="text-xs text-destructive">{errors.credits}</p>}
               </div>
@@ -239,7 +241,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                   setMoney(raw)
                   setErrors(p => ({ ...p, money: '' }))
                 }}
-                className="pr-14"
+                className="h-10 pr-14"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">VND</span>
             </div>
@@ -248,7 +250,10 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
 
           {/* Session Duration */}
           <div className="space-y-2">
-            <Label>Session Duration</Label>
+            <div className="flex items-center gap-2 mb-1">
+              <Clock3 className="h-4 w-4 text-[var(--color-warning)]" />
+              <Label className="text-sm font-medium">Session Duration</Label>
+            </div>
             <Select
               value={durationPerSession || undefined}
               onValueChange={(v) => {
@@ -256,7 +261,7 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                 setErrors(p => ({ ...p, durationPerSession: '' }))
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger size="lg" className="w-full">
                 <SelectValue placeholder="Choose session duration" />
               </SelectTrigger>
               <SelectContent>

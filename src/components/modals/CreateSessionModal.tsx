@@ -200,7 +200,7 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
                 setErrors(p => ({ ...p, contractId: '' }))
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger size="lg" className="w-full">
                 <SelectValue placeholder="Choose a contract" />
               </SelectTrigger>
               <SelectContent>
