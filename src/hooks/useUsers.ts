@@ -1,9 +1,11 @@
 // src/hooks/useUsers.ts
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
     GetAllUsersResponse,
     GetUsersByRoleResponse,
     Role,
+    UpdateUserRoleRequest,
+    UpdateUserRoleResponse,
     UserManagementFilters,
 } from '@/app/type/api'
 
@@ -103,3 +105,31 @@ export function useInfiniteUsers(limit: number = 10, filters?: UserManagementFil
     })
 }
 
+
+async function updateUserRole(payload: UpdateUserRoleRequest): Promise<UpdateUserRoleResponse> {
+    const response = await fetch('/api/user/updateRole', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update user role')
+    }
+
+    return response.json()
+}
+
+export function useUpdateUserRole() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: updateUserRole,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: userKeys.managementLists() })
+        },
+    })
+}

@@ -428,6 +428,22 @@ export interface GetAllUsersSuccessResponse {
 export type GetAllUsersResponse = GetAllUsersSuccessResponse | ApiErrorResponse
 
 // ============================================================================
+// /api/user/updateRole
+// ============================================================================
+
+export interface UpdateUserRoleRequest {
+    uid: string
+    role: Role
+}
+
+export interface UpdateUserRoleSuccessResponse {
+    message: string
+    user_setting: UserSetting
+}
+
+export type UpdateUserRoleResponse = UpdateUserRoleSuccessResponse | ApiErrorResponse
+
+// ============================================================================
 // /api/history/getOccupiedTimeSlots
 // ============================================================================
 
