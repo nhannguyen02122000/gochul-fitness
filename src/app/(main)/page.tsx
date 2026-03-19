@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, FileText, Clock, Loader2 } from 'lucide-react'
+import { Plus, FileText, Clock, Loader2, BotMessageSquare } from 'lucide-react'
 import { useInfiniteHistory } from '@/hooks/useHistory'
 import { useInfiniteContracts } from '@/hooks/useContracts'
 import SessionCard from '@/components/cards/SessionCard'
@@ -149,6 +149,18 @@ export default function HomePage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* AI Chat Entry Point */}
+      <div className="mb-4 px-4 animate-slide-up">
+        <Button
+          onClick={() => router.push('/ai-chat')}
+          variant="outline"
+          className="w-full h-12 text-sm font-semibold border-[var(--color-cta)] text-[var(--color-cta)] hover:bg-[var(--color-cta)]/10"
+        >
+          <BotMessageSquare className="h-4 w-4 mr-2" />
+          Open AI Chat Assistant
+        </Button>
       </div>
 
       {/* Create Contract Button for ADMIN/STAFF */}
