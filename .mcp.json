@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "instant": {
+      "type": "http",
+      "url": "https://mcp.instantdb.com/mcp"
+    },
+    "clerk": {
+      "type": "http",
+      "url": "https://mcp.clerk.com/mcp"
+    }
+  }
+}
