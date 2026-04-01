@@ -2,7 +2,6 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
 import { Home, FileText, Clock, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -50,7 +49,11 @@ export default function BottomNavigation() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 safe-area-bottom">
-      <div className="flex justify-around items-center h-16 max-w-screen-xl mx-auto px-2">
+      <div
+        role="tablist"
+        aria-label="Main navigation"
+        className="flex justify-around items-center h-16 max-w-screen-xl mx-auto px-2"
+      >
         {navItems.map((item) => {
           const active = isActive(item.path)
           const IconComponent = item.icon
@@ -58,9 +61,19 @@ export default function BottomNavigation() {
           return (
             <button
               key={item.key}
+              role="tab"
+              aria-label={item.label}
+              aria-current={active ? 'page' : undefined}
+              tabIndex={active ? 0 : -1}
               onClick={() => handleNavigation(item.path)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleNavigation(item.path)
+                }
+              }}
               className={cn(
-                "relative flex flex-col items-center justify-center flex-1 h-full transition-colors duration-150 cursor-pointer active:scale-95",
+                "relative flex flex-col items-center justify-center flex-1 h-full transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
               )}
             >
               <IconComponent
@@ -69,6 +82,7 @@ export default function BottomNavigation() {
                   active ? "text-foreground" : "text-muted-foreground"
                 )}
                 strokeWidth={active ? 2.5 : 1.5}
+                aria-hidden="true"
               />
               <span className={cn(
                 "text-[10px] font-medium transition-colors duration-150",
@@ -79,7 +93,7 @@ export default function BottomNavigation() {
 
               {/* Active indicator dot */}
               {active && (
-                <div className="absolute top-1 w-1 h-1 rounded-full bg-foreground" />
+                <div className="absolute top-1 w-1 h-1 rounded-full bg-foreground" aria-hidden="true" />
               )}
             </button>
           )

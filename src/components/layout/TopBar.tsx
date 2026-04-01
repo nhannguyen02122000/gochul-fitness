@@ -112,7 +112,7 @@ export default function TopBar() {
           {/* User Info */}
           <button
             onClick={() => router.push('/profile')}
-            className="flex items-center gap-3 cursor-pointer active:scale-[0.97] transition-transform"
+            className="flex items-center gap-3 cursor-pointer active:scale-[0.97] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
           >
             <div className="relative">
               <Avatar className="h-10 w-10 border border-border">

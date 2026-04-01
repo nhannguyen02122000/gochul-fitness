@@ -58,7 +58,7 @@ body {
   padding: 0;
   margin: 0;
   text-size-adjust: none;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: normal;
   overflow: hidden;
   overflow-x: hidden;
@@ -175,6 +175,18 @@ a {
 input:-webkit-autofill,
 input:-webkit-autofill:focus {
   transition: background-color 0s 600000s, color 0s 600000s !important;
+}
+
+/* Respect user preference to reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Striped background for occupied slots */

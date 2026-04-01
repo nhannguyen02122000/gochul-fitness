@@ -144,7 +144,13 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
           </div>
         </DialogHeader>
 
-        <form id="create-contract-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-0 space-y-4">
+        <form id="create-contract-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-0 space-y-4" noValidate>
+          {/* Screen-reader accessible error summary */}
+          <div aria-live="polite" className="sr-only">
+            {Object.values(errors).filter(Boolean).length > 0
+              ? `Form has ${Object.values(errors).filter(Boolean).length} error(s). ${Object.values(errors).filter(Boolean).join('. ')}`
+              : null}
+          </div>
           {/* Customer */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
@@ -212,6 +218,8 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                   pattern="[0-9]*"
                   placeholder="Enter number of sessions"
                   value={credits}
+                  autoComplete="off"
+                  aria-describedby={errors.credits ? 'credits-error' : undefined}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, '')
                     setCredits(raw)
@@ -219,7 +227,9 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                   }}
                   className="h-10"
                 />
-                {errors.credits && <p className="text-xs text-destructive">{errors.credits}</p>}
+                {errors.credits && (
+                  <p id="credits-error" className="text-xs text-destructive" role="alert">{errors.credits}</p>
+                )}
               </div>
             )}
           </div>
@@ -236,6 +246,8 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
                 inputMode="numeric"
                 placeholder="Enter total amount"
                 value={formatMoney(money)}
+                autoComplete="off"
+                aria-describedby={errors.money ? 'money-error' : undefined}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^\d]/g, '')
                   setMoney(raw)
@@ -245,7 +257,9 @@ export default function CreateContractModal({ open, onClose }: CreateContractMod
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">VND</span>
             </div>
-            {errors.money && <p className="text-xs text-destructive">{errors.money}</p>}
+            {errors.money && (
+              <p id="money-error" className="text-xs text-destructive" role="alert">{errors.money}</p>
+            )}
           </div>
 
           {/* Session Duration */}

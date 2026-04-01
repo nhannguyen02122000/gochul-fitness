@@ -202,6 +202,13 @@ export default function CreateSessionModal({ open, onClose, preselectedContractI
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-0 space-y-4">
+          {/* Screen-reader accessible error summary */}
+          <div aria-live="polite" className="sr-only">
+            {Object.values(errors).filter(Boolean).length > 0
+              ? `Form has ${Object.values(errors).filter(Boolean).length} error(s). ${Object.values(errors).filter(Boolean).join('. ')}`
+              : null}
+          </div>
+
           {/* Contract selection */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">

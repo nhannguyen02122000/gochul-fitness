@@ -1,6 +1,20 @@
 // src/utils/statusUtils.ts
 import type { ContractStatus, HistoryStatus, Role, Contract, History } from '@/app/type/api'
 
+// -----------------------------------------------------------------------
+// Design System: Color Token Migration
+//
+// All status badge colors use CSS custom property tokens (Padlet palette).
+// Do NOT use raw Tailwind classes like bg-blue-50, bg-zinc-100, etc.
+// Always update these mappings when adding new statuses.
+//
+// Color mapping:
+//   • Active / Completed → --color-success (teal green)
+//   • Pending / Review / Paid / Confirmed → --color-warning (warm orange)
+//     (these represent "in-progress" states, not errors)
+//   • Canceled → destructive red (bg-red-50 text-red-700 — semantic danger)
+//   • Default / Expired / Unknown → --color-warning
+// -----------------------------------------------------------------------
 
 export interface ActionButton {
   label: string
@@ -203,17 +217,33 @@ export function getHistoryStatusText(status: HistoryStatus): string {
  * @returns Badge variant + class tuple
  */
 export function getContractStatusVariant(status: ContractStatus): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string } {
+  // Uses Padlet palette semantic tokens for consistency with dark mode
   const variantMap: Record<ContractStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-600' },
-    'CUSTOMER_REVIEW': { variant: 'secondary', className: 'bg-blue-50 text-blue-700' },
-    'CUSTOMER_CONFIRMED': { variant: 'secondary', className: 'bg-amber-50 text-amber-700' },
-    'CUSTOMER_PAID': { variant: 'secondary', className: 'bg-indigo-50 text-indigo-700' },
-    'PT_CONFIRMED': { variant: 'secondary', className: 'bg-purple-50 text-purple-700' },
-    'ACTIVE': { variant: 'secondary', className: 'bg-emerald-50 text-emerald-700' },
+    // Pending / in-progress states → warm orange (warning)
+    'NEWLY_CREATED':   { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    'CUSTOMER_REVIEW': { variant: 'secondary', className: 'bg-[var(--color-pt-bg)] text-[var(--color-pt)]' },
+    'CUSTOMER_CONFIRMED': { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    'CUSTOMER_PAID':   { variant: 'secondary', className: 'bg-[var(--color-pt-bg)] text-[var(--color-pt)]' },
+    'PT_CONFIRMED':     { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    'EXPIRED':          { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    // Active / completed → teal green (success)
+    'ACTIVE':   { variant: 'secondary', className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+    // Destructive → semantic red (no Padlet token for danger)
     'CANCELED': { variant: 'destructive', className: 'bg-red-50 text-red-700' },
-    'EXPIRED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-500' }
   }
   return variantMap[status] || variantMap['NEWLY_CREATED']
+}
+
+/** Lucide icon names for each contract status — provides non-color meaning */
+export const CONTRACT_STATUS_ICON: Record<ContractStatus, string> = {
+  'NEWLY_CREATED':    'Circle',
+  'CUSTOMER_REVIEW':  'Eye',
+  'CUSTOMER_CONFIRMED': 'Check',
+  'CUSTOMER_PAID':    'CreditCard',
+  'PT_CONFIRMED':     'CheckCircle',
+  'ACTIVE':           'Zap',
+  'CANCELED':         'XCircle',
+  'EXPIRED':          'Clock',
 }
 
 /**
@@ -222,13 +252,25 @@ export function getContractStatusVariant(status: ContractStatus): { variant: 'de
  * @returns Badge variant + class tuple
  */
 export function getHistoryStatusVariant(status: HistoryStatus): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string } {
+  // Uses Padlet palette semantic tokens for consistency with dark mode
   const variantMap: Record<HistoryStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-amber-50 text-amber-700' },
-    'CHECKED_IN': { variant: 'secondary', className: 'bg-emerald-50 text-emerald-700' },
-    'CANCELED': { variant: 'destructive', className: 'bg-red-50 text-red-700' },
-    'EXPIRED': { variant: 'secondary', className: 'bg-zinc-100 text-zinc-500' }
+    // Pending → warm orange (warning)
+    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    'EXPIRED':       { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    // Completed → teal green (success)
+    'CHECKED_IN':    { variant: 'secondary', className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+    // Destructive → semantic red (no Padlet token for danger)
+    'CANCELED':      { variant: 'destructive', className: 'bg-red-50 text-red-700' },
   }
   return variantMap[status] || variantMap['NEWLY_CREATED']
+}
+
+/** Lucide icon names for each history status — provides non-color meaning */
+export const HISTORY_STATUS_ICON: Record<HistoryStatus, string> = {
+  'NEWLY_CREATED': 'Clock',
+  'CHECKED_IN':    'LogIn',
+  'CANCELED':      'XCircle',
+  'EXPIRED':       'Clock',
 }
 
 /**

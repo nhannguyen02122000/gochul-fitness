@@ -38,6 +38,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <TopBar />
       <main
         ref={mainRef}
+        id="main-content"
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background w-full [overscroll-behavior-y:contain]"
         style={{ paddingBottom: '120px' }}
       >

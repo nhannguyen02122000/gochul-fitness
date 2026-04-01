@@ -19,6 +19,9 @@ import {
   ChevronRight,
   ClipboardList,
   Users,
+  Crown,
+  Zap,
+  Dumbbell,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useClerk } from '@clerk/nextjs'
@@ -152,28 +155,28 @@ export default function ProfilePage() {
     .toUpperCase()
     .slice(0, 2)
 
-  // Role badge styling
+  // Role badge styling — uses Lucide SVG icons, NOT emoji
   const roleConfig: Record<
     string,
-    { bg: string; text: string; label: string; icon: string }
+    { bg: string; text: string; label: string; icon: React.ComponentType<{ className?: string }> }
   > = {
     ADMIN: {
       bg: 'bg-[var(--color-warning-bg)]',
       text: 'text-[var(--color-warning)]',
       label: 'Admin',
-      icon: '👑',
+      icon: Crown,
     },
     STAFF: {
       bg: 'bg-[var(--color-pt-bg)]',
       text: 'text-[var(--color-pt)]',
       label: 'Staff',
-      icon: '⚡',
+      icon: Zap,
     },
     CUSTOMER: {
       bg: 'bg-[var(--color-success-bg)]',
       text: 'text-[var(--color-success)]',
       label: 'Member',
-      icon: '💪',
+      icon: Dumbbell,
     },
   }
   const roleBadge = (userInfo.role ? roleConfig[userInfo.role] : undefined) || roleConfig.CUSTOMER
@@ -239,7 +242,7 @@ export default function ProfilePage() {
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${roleBadge.bg} ${roleBadge.text}`}
               >
-                <span>{roleBadge.icon}</span>
+                <roleBadge.icon className="h-4 w-4" />
                 {roleBadge.label}
               </span>
             </div>
