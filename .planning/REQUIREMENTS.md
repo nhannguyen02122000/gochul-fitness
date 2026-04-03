@@ -99,18 +99,52 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CHAT-01 to CHAT-06 | — | Pending |
-| THRD-01 to THRD-07 | — | Pending |
-| API-01 to API-12 | — | Pending |
-| LOOP-01 to LOOP-05 | — | Pending |
-| TIME-01 to TIME-05 | — | Pending |
-| ERR-01 to ERR-04 | — | Pending |
+| CHAT-01 | Phase 2 — Client Shell | Pending |
+| CHAT-02 | Phase 2 — Client Shell | Pending |
+| CHAT-03 | Phase 2 — Client Shell | Pending |
+| CHAT-04 | Phase 2 — Client Shell | Pending |
+| CHAT-05 | Phase 2 — Client Shell | Pending |
+| CHAT-06 | Phase 2 — Client Shell | Pending |
+| THRD-01 | Phase 2 — Client Shell | Pending |
+| THRD-02 | Phase 2 — Client Shell | Pending |
+| THRD-03 | Phase 3 — Wire API Route to Client | Pending |
+| THRD-04 | Phase 3 — Wire API Route to Client | Pending |
+| THRD-05 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| THRD-06 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| THRD-07 | Phase 2 — Client Shell | Pending |
+| API-01 | Phase 3 — Wire API Route to Client | Pending |
+| API-02 | Phase 3 — Wire API Route to Client | Pending |
+| API-03 | Phase 3 — Wire API Route to Client | Pending |
+| API-04 | Phase 3 — Wire API Route to Client | Pending |
+| API-05 | Phase 3 — Wire API Route to Client | Pending |
+| API-06 | Phase 3 — Wire API Route to Client | Pending |
+| API-07 | Phase 3 — Wire API Route to Client | Pending |
+| API-08 | Phase 3 — Wire API Route to Client | Pending |
+| API-09 | Phase 3 — Wire API Route to Client | Pending |
+| API-10 | Phase 3 — Wire API Route to Client | Pending |
+| API-11 | Phase 1 — Skeleton & Architecture | Pending |
+| API-12 | Phase 1 — Skeleton & Architecture | Pending |
+| LOOP-01 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| LOOP-02 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| LOOP-03 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| LOOP-04 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| LOOP-05 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| TIME-01 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| TIME-02 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| TIME-03 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| TIME-04 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| TIME-05 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| ERR-01 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| ERR-02 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| ERR-03 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
+| ERR-04 | Phase 4 — Multi-Turn + Tool-Use Loop | Pending |
 
 **Coverage:**
 - v1 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32 ⚠️
+- Mapped to phases: 32 ✓
+- Unmapped: 0 ✓
 
 ---
+
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after initial definition*
+*Last updated: 2026-04-04 after roadmap creation*
