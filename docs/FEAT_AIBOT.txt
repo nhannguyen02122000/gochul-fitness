@@ -1,0 +1,36 @@
+let’s create an AI chat feature in the app, such that:
+- This one will act as a Chatbot
+- User can chat with this Chatbot in both English or Vietnamese
+- Chatbot will answer question to the app only, see docs/PROGRAM.md for what is in the app
+- Main function of this Chatbot is to for user to create contract, update contract status, list contract, cancel contract, list session, create session, update session status, cancel session, update session note. All actions must be done by calling API to ensure Role permission guard.
+- The AI receive UI prompt, decide which APIs to call, from the list of APIs, infer what kind of parameter need for calling, and see whether user provide enough API. Create a loop for this until APIs are fully derived, all parameters are met with user demand
+- Morning is from 0am-11:59am, afternoon is from 12:00pm to 2:59pm, Evening is from 3pm to 5:59pm, night is from 6pm to 11:59pm. All timing must be derive to am and pm, for example 13:00 is 1:00pm
+- Hôm nay được tính bằng now() ở server. Ví dụ thời gian chat của User là thứ 5, thì ngày mai là thứ 6, tự infer các móc thời gian còn lại
+- Some of the examples
+
+
+User: “Tạo hợp đồng”
+Chatbot lúc này sẽ infer được | POST | `/api/contract/create` | Create a new contract | ADMIN, STAFF |, và yêu câu user cung cấp đủ thông tin để làm parameter
+
+
+User: “Lịch tập sáng mai”
+Chatbot lúc này sẽ infet được | GET | `/api/history/getAll` | List all history/sessions | ADMIN, STAFF, CUSTOMER |  và filter theo time từ 0am-11:59 now() + 1 day
+
+
+Cách gọi AI:
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic({
+    apiKey: process.env.CLAUDE_API_KEY,
+    baseURL: process.env.CLAUDE_BASE_URL,
+});
+
+const message = await client.messages.create({
+    model: process.env.MODEL_NAME,
+    max_tokens: 8192,
+    messages: [
+        { role: "user", content: "Xin chào!" }
+    ],
+});
+
+Make sure we have CLAUDE_API_KEY, CLAUDE_BASE_URL and MODEL_NAME because we use it in the environment file
