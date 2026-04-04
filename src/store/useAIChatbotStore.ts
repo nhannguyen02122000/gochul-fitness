@@ -9,6 +9,8 @@ export interface ChatMessage {
   role: MessageRole
   content: string
   timestamp: number
+  /** Phase 3: optional error flag — error bubbles render with AlertCircle icon + red styles */
+  type?: 'normal' | 'error'
 }
 
 interface AIChatbotStore {
