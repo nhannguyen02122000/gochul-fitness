@@ -20,6 +20,8 @@ Users can manage their gym contracts and training sessions through natural conve
 - ✓ Realtime events via Ably — existing
 - ✓ Clerk authentication — existing
 - ✓ InstantDB backend — existing
+- ✓ API-11: Bot respects role permissions (Phase 1 — `requireRole()` guard, RBAC in system prompt)
+- ✓ API-12: Bot authenticated with Clerk session token server-side (Phase 1 — `auth()` + `getToken()`)
 
 ### Active
 
