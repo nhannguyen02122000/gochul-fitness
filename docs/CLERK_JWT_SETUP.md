@@ -19,8 +19,7 @@ Decision D-01 specifies: `getToken({ template: 'gochul-fitness' })`
 4. Configure:
    - **Name**: `gochul-fitness`
    - **Token lifetime**: `5 minutes` (short-lived — enough for a single tool call chain)
-   - **Claims**: ensure `sub` (user ID) and `sid` (session ID) are included
-   - Leave all other options at defaults
+   - **Claims**: Leave default — Clerk auto-includes `sub`, `sid`, and standard claims (`exp`, `iat`, `iss`) via the Empty template. No custom claims needed.
 5. Save the template
 
 ## What Happens If Not Configured
