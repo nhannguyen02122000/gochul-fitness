@@ -351,7 +351,9 @@ export async function callClaudeWithTools({
   const lang = detectLanguage(messages)
 
   // Build conversation messages array for the API
-  const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = messages.map(
+  // Anthropic messages.content accepts string | ContentBlockParam[] (for tool results)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const conversationMessages: any[] = messages.map(
     (m) => ({
       role: m.role,
       content: m.content,
@@ -438,10 +440,11 @@ export async function callClaudeWithTools({
     }
 
     // Append tool results to the conversation (must be user role per Anthropic spec)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     conversationMessages.push({
       role: 'user',
-      content: toolResults as unknown as string,
-    })
+      content: toolResults,
+    } as any)
 
     iterations++
   }
