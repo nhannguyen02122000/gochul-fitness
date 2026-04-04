@@ -12,7 +12,7 @@
 |---|------|------|-------------|-----------------|----|
 | 1 | Skeleton & Architecture | Establish the server-side API route, tool definitions, and auth security foundation | API-11, API-12 | 7 criteria | no |
 | 2 | Client Shell | Build the FAB + modal UI, message thread, and Zustand store in isolation | CHAT-01–06, THRD-01–07 | 6 criteria | yes | ✅ Complete (2026-04-04) |
-| 3 | Wire API Route to Client | Connect the UI to the API route; verify Clerk cookie forwarding | THRD-03, THRD-04, API-01–10 | 5 criteria | yes |
+| 3 | Wire API Route to Client | Connect the UI to the API route; verify Clerk cookie forwarding | THRD-03, THRD-04, API-01–10 | 5 criteria | yes | ✅ Complete (2026-04-04) |
 | 4 | Multi-Turn + Tool-Use Loop | Implement the full AI logic: parameter loop, Vietnamese time inference, structured results, error handling | LOOP-01–05, TIME-01–05, ERR-01–04, THRD-05–07 | 7 criteria | no |
 | 5 | Polish | Add streaming, follow-up entity references, availability check, English time parsing | (v2 deliverables, no v1 requirements) | 6 criteria | yes |
 
@@ -93,6 +93,8 @@
 ## Phase 3: Wire API Route to Client
 
 **Goal:** Connect the client shell to the API route. Verify Clerk cookie forwarding works end-to-end. Non-streaming responses only.
+
+**Status:** ✅ Complete (2026-04-04) — 3 tasks, 5 commits
 
 ### Deliverables
 
@@ -228,7 +230,7 @@ Phase 1  (server foundation)
 |-------|-------------|-------|
 | Phase 1 | API-11, API-12 | 2 |
 | Phase 2 | CHAT-01–06, THRD-01, THRD-02, THRD-07 | 9 |
-| Phase 3 | THRD-03, THRD-04, API-01–10 | 12 |
+| Phase 3 | THRD-03, THRD-04, API-01–10 | **12 — Complete ✓** |
 | Phase 4 | LOOP-01–05, TIME-01–05, ERR-01–04, THRD-05, THRD-06 | 16 |
 | Phase 5 | (v2 enhancements only) | 0 |
 | **Total v1** | | **32** |
