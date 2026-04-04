@@ -8,6 +8,8 @@ import BottomNavigation from './BottomNavigation'
 import PWAInstaller from '@/components/PWAInstaller'
 import PullToRefresh from '@/components/PullToRefresh'
 import OnboardingModal from '@/components/modals/OnboardingModal'
+import FloatingFAB from '@/components/chatbot/FloatingFAB'
+import AIChatbotModal from '@/components/chatbot/AIChatbotModal'
 import { useCheckUserSetting } from '@/hooks/useUserOnboarding'
 import { useQueryClient } from '@tanstack/react-query'
 import { userOnboardingKeys } from '@/hooks/useUserOnboarding'
@@ -49,6 +51,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
         </PullToRefresh>
       </main>
       <BottomNavigation />
+      <AIChatbotModal />
+      <FloatingFAB />
       <PWAInstaller />
     </div>
   )
