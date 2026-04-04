@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Send } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useAIChatbotStore } from '@/store/useAIChatbotStore'
@@ -8,15 +8,57 @@ import { cn } from '@/lib/utils'
 
 export default function MessageInput() {
   const [input, setInput] = useState('')
-  const { isLoading, addMessage, setLoading } = useAIChatbotStore()
+  const { messages, isLoading, addMessage, setLoading } = useAIChatbotStore()
+  const isSubmittingRef = useRef(false)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmed = input.trim()
-    if (!trimmed || isLoading) return
+    if (!trimmed || isLoading || isSubmittingRef.current) return
 
-    addMessage({ role: 'user', content: trimmed })
+    isSubmittingRef.current = true
+    const userMessage = trimmed
+    const conversationHistory = messages.map(({ role, content }) => ({
+      role,
+      content,
+    }))
+
+    addMessage({ role: 'user', content: userMessage })
     setLoading(true)
     setInput('')
+
+    try {
+      const res = await fetch('/api/ai-chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          messages: conversationHistory,
+        }),
+      })
+
+      const data = await res.json()
+
+      // Always check HTTP status BEFORE data.type — HTTP errors (502, 500)
+      // do not include the 'type' field; they only include 'error'.
+      if (!res.ok || data.type === 'error') {
+        addMessage({
+          role: 'assistant',
+          content: data.error ?? 'Something went wrong. Please try again.',
+          type: 'error',
+        })
+      } else {
+        addMessage({ role: 'assistant', content: data.reply })
+      }
+    } catch {
+      addMessage({
+        role: 'assistant',
+        content: 'Connection error. Please check your network and try again.',
+        type: 'error',
+      })
+    } finally {
+      setLoading(false)
+      isSubmittingRef.current = false
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
