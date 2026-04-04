@@ -350,8 +350,6 @@ export async function callClaudeWithTools({
 }: CallClaudeParams): Promise<CallResult> {
   const lang = detectLanguage(messages)
 
-  // Build conversation messages array for the API
-  // Anthropic messages.content accepts string | ContentBlockParam[] (for tool results)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const conversationMessages: any[] = messages.map(
     (m) => ({
@@ -362,58 +360,50 @@ export async function callClaudeWithTools({
 
   let iterations = 0
 
+  console.log('[callClaudeWithTools] Start. messages:', messages.length, 'sysPrompt len:', systemPrompt.length)
+
   while (iterations < MAX_TOOL_ITERATIONS) {
-    const response = await anthropicClient.messages.create({
+    console.log('[callClaudeWithTools] iteration', iterations, '| msgs:', conversationMessages.length)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response: any = await anthropicClient.messages.create({
       model: MODEL_NAME,
       max_tokens: 2048,
       system: systemPrompt,
       messages: conversationMessages,
       tools: TOOL_DEFINITIONS,
     })
+    console.log('[callClaudeWithTools] response blocks:', response.content?.length, 'stop:', response.stop_reason)
 
     const textParts: string[] = []
-    const toolCalls: ToolUseBlock[] = []
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        textParts.push(block.text)
-      } else if (block.type === 'tool_use') {
-        toolCalls.push(block)
-      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toolCalls: any[] = []
+    for (const block of response.content ?? []) {
+      if (block.type === 'text') textParts.push(block.text)
+      if (block.type === 'tool_use') toolCalls.push(block)
     }
 
     const assistantText = textParts.join('\n')
     const hasConfirmed = assistantText.includes('CONFIRMED:')
 
-    // No tool calls → done, return plain text
+    // No tool calls → plain text
     if (toolCalls.length === 0) {
       return { type: 'text', text: assistantText }
     }
 
-    // Write tools require a CONFIRMED: prefix before execution
-    const isWriteTool = (name: string) =>
-      [
-        'create_contract',
-        'create_session',
-        'update_contract',
-        'delete_contract',
-        'update_session',
-        'update_session_status',
-      ].includes(name)
+    // Write tools require CONFIRMED: prefix
+    const writeToolNames = [
+      'create_contract', 'create_session', 'update_contract',
+      'delete_contract', 'update_session', 'update_session_status',
+    ]
+    const primaryToolName = toolCalls[0]?.name ?? ''
+    const isWriteTool = writeToolNames.includes(primaryToolName)
 
-    const primaryToolName = toolCalls[0].name
-
-    if (isWriteTool(primaryToolName) && !hasConfirmed) {
-      return {
-        type: 'proposal',
-        text: assistantText,
-        proposedAction: primaryToolName,
-      }
+    if (isWriteTool && !hasConfirmed) {
+      return { type: 'proposal', text: assistantText, proposedAction: primaryToolName }
     }
 
-    // Execute tools and collect formatted results
+    // Execute all tool calls
     const toolResults: ToolResultBlockParam[] = []
-
     for (const toolCall of toolCalls) {
       try {
         const result = await executeTool(
@@ -439,19 +429,11 @@ export async function callClaudeWithTools({
       }
     }
 
-    // Append tool results to the conversation (must be user role per Anthropic spec)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    conversationMessages.push({
-      role: 'user',
-      content: toolResults,
-    } as any)
-
+    conversationMessages.push({ role: 'user', content: toolResults } as any)
     iterations++
   }
 
-  // Cap hit — return a graceful message
-  return {
-    type: 'text',
-    text: 'I reached the maximum number of steps (10). Please try a simpler or more specific request.',
-  }
+  return { type: 'text', text: 'I reached the maximum steps (10). Please try a simpler request.' }
 }
+

@@ -164,7 +164,7 @@ export async function POST(request: Request) {
     return textToStream(nudgeText)
   }
 
-  // ── 9. Call Claude with tool-use loop ───────────────────────────────────────
+  // ── 9. Call Claude with tool-use loop (30s timeout) ──────────────────────────
   let callResult: { type: 'text' | 'proposal'; text: string }
   try {
     callResult = await callClaudeWithTools({
@@ -174,14 +174,17 @@ export async function POST(request: Request) {
       clerkToken: clerkToken ?? undefined,
     })
   } catch (error) {
-    console.error('Anthropic API error:', error instanceof Error ? error.message : String(error))
-    return textToStream('AI service temporarily unavailable — please try again in a moment.')
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[chatbot] callClaudeWithTools threw:', msg)
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return textToStream('The AI request timed out after 30s. Please try a simpler request.')
+    }
+    return textToStream(`AI error: ${msg}`)
   }
 
   const { type: responseType, text: botReply } = callResult
 
   // ── 10. Return response ──────────────────────────────────────────────────────
   // All responses stream via SSE (AI SDK v6 useChat format)
-  // Proposals: stream the confirmation message
   return textToStream(botReply)
 }
