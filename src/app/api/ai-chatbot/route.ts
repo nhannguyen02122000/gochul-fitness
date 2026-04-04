@@ -1,14 +1,10 @@
 /**
  * POST /api/ai-chatbot — GoChul Fitness AI Chatbot route handler.
  *
- * Phase 1: Verifies auth (401 without session), resolves user role,
- * builds system prompt, returns a placeholder AI response.
+ * Phase 1: Verifies auth, resolves role, builds system prompt.
  * Phase 3: Accepts messages[] array, returns type + bot response.
- * Phase 4: Implements tool-use loop with TOOL_DEFINITIONS.
- *
- * Auth: Clerk session cookie → auth() → getUserSetting() → role.
- * Token forwarding: getToken({ template: 'gochul-fitness' }) → forwarded as
- *   Authorization: Bearer <token> to GoChul API routes (Phase 4 execution).
+ * Phase 4: Implements tool-use loop.
+ * Phase 5: Adds rate limiting, streaming Response, and language nudge.
  *
  * @file src/app/api/ai-chatbot/route.ts
  */
@@ -19,23 +15,22 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import { buildSystemPrompt } from '@/lib/ai/systemPrompt'
-import { callClaudeWithTools } from '@/lib/ai/anthropicService'
+import { callClaudeWithTools, detectLanguage } from '@/lib/ai/anthropicService'
 import { requireRole } from '@/lib/roleCheck'
+import { ratelimit } from '@/lib/ratelimit'
+import { textToStream } from '@/lib/ai/streamUtils'
 import type { Role } from '@/app/type/api'
 
-// Disable Next.js caching — this route must always run fresh
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 type AIChatRequestBody = {
-  /** The user's latest message text */
   message: string
-  /** Phase 3+: Full conversation history [{role: 'user'|'assistant', content: string}] */
   messages?: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
 export async function POST(request: Request) {
-  // ── 1. Authenticate via Clerk session cookie ─────────────────────────────────
+  // ── 1. Authenticate ─────────────────────────────────────────────────────────
   const authCtx = await auth()
   const { userId } = authCtx
 
@@ -46,7 +41,25 @@ export async function POST(request: Request) {
     )
   }
 
-  // ── 2. Parse request body ─────────────────────────────────────────────────────
+  // ── 2. Rate limiting (Phase 5) ───────────────────────────────────────────────
+  const { success: rateOk, remaining, reset } = await ratelimit.limit(userId)
+  if (!rateOk) {
+    return NextResponse.json(
+      {
+        error: "You're sending messages too quickly. Please wait a moment and try again.",
+        type: 'nudge',
+      },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Remaining': String(remaining),
+          'X-RateLimit-Reset': String(reset),
+        },
+      }
+    )
+  }
+
+  // ── 3. Parse request body ────────────────────────────────────────────────────
   let body: AIChatRequestBody
   try {
     body = (await request.json()) as AIChatRequestBody
@@ -64,7 +77,7 @@ export async function POST(request: Request) {
     )
   }
 
-  // ── 3. Resolve user role via InstantDB user_setting ──────────────────────────
+  // ── 4. Resolve user role ─────────────────────────────────────────────────────
   let userRole: Role
   let userInstantId: string
   let userName: string
@@ -111,31 +124,52 @@ export async function POST(request: Request) {
     )
   }
 
-  // ── 4. (Phase 1 stub) Get Clerk scoped token for downstream API forwarding ────
-  // D-01: Clerk JWT template 'gochul-fitness' must be configured in Clerk Dashboard.
-  // If the template is missing, getToken returns null and we fall back to same-origin
-  // cookie forwarding (automatic for internal fetch calls within the same Next.js app).
-  // The token is stored in a local variable — it is NEVER logged or sent to Anthropic.
+  // ── 5. Get Clerk token for API forwarding ────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const clerkToken: string | null = await authCtx.getToken({ template: 'gochul-fitness' })
 
-  // ── 5. Build system prompt ────────────────────────────────────────────────────
+  // ── 6. Build system prompt ───────────────────────────────────────────────────
   const systemPrompt = buildSystemPrompt({
     role: userRole,
     userName,
     userInstantId,
   })
 
-  // ── 6. Call Claude with tool-use loop ────────────────────────────────────────
-  // Phase 4: callClaudeWithTools() handles the full multi-turn loop internally —
-  // history is built from body.messages, tools are dispatched and their formatted
-  // results are fed back to Claude until it returns plain text.
-  let callResult: { type: 'text' | 'proposal'; text: string }
-  try {
-    const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+  // ── 7. Build conversation messages ───────────────────────────────────────────
+  const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+    ...(body.messages ?? []),
+    { role: 'user', content: body.message },
+  ]
+
+  // ── 8. Language switch detection (Phase 5) ───────────────────────────────────
+  const userMessages = conversationMessages.filter(m => m.role === 'user')
+  const lastTwoUsers = userMessages.slice(-2)
+  const langSwitched =
+    lastTwoUsers.length >= 2 &&
+    detectLanguage([lastTwoUsers[lastTwoUsers.length - 2]]) !==
+      detectLanguage([lastTwoUsers[lastTwoUsers.length - 1]])
+
+  if (langSwitched) {
+    const currentLang = detectLanguage([lastTwoUsers[lastTwoUsers.length - 1]])
+    const detectedLabel = currentLang === 'vi' ? 'Vietnamese' : 'English'
+    const nudgeText = `I noticed you switched language. I'll respond in ${detectedLabel}.`
+    const nudgeMessages = [
       ...(body.messages ?? []),
       { role: 'user', content: body.message },
+      { role: 'assistant', content: nudgeText },
     ]
+    // Stream nudge as a non-streaming JSON response (small message, no streaming needed)
+    return NextResponse.json({
+      reply: nudgeText,
+      type: 'nudge' as const,
+      detectedLang: currentLang,
+      messages: nudgeMessages,
+    })
+  }
+
+  // ── 9. Call Claude with tool-use loop ───────────────────────────────────────
+  let callResult: { type: 'text' | 'proposal'; text: string }
+  try {
     callResult = await callClaudeWithTools({
       messages: conversationMessages,
       systemPrompt,
@@ -158,7 +192,7 @@ export async function POST(request: Request) {
     { role: 'assistant', content: botReply },
   ]
 
-  // ── 7. Return response ───────────────────────────────────────────────────────
+  // ── 10. Return response ──────────────────────────────────────────────────────
   if (responseType === 'proposal') {
     return NextResponse.json({
       reply: botReply,
@@ -168,10 +202,13 @@ export async function POST(request: Request) {
     })
   }
 
-  return NextResponse.json({
-    reply: botReply,
-    type: 'text' as const,
-    role: userRole,
-    messages: finalMessages,
+  // Stream text response using AI SDK data stream format (Phase 5)
+  const stream = textToStream(botReply)
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'X-RateLimit-Remaining': String(remaining),
+      'X-RateLimit-Reset': String(reset),
+    },
   })
 }
