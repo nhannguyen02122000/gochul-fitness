@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { AIProvider } from '@ai-sdk/react'
 import { XIcon, Bot } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useAIChatbotStore } from '@/store/useAIChatbotStore'
@@ -10,20 +11,18 @@ import MessageInput from './MessageInput'
 
 export default function AIChatbotModal() {
   const pathname = usePathname()
-  const { isOpen, setOpen, clearMessages } = useAIChatbotStore()
+  const { isOpen, setOpen } = useAIChatbotStore()
 
-  // Auto-close on route change
+  // Auto-close on route change (no longer clears messages — useChat manages state)
   useEffect(() => {
     if (isOpen) {
       setOpen(false)
-      clearMessages()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   const handleClose = () => {
     setOpen(false)
-    clearMessages()
   }
 
   return (
@@ -36,7 +35,6 @@ export default function AIChatbotModal() {
       <DialogContent
         showCloseButton={false}
         className={cn(
-          // Mobile: full-width bottom sheet
           'fixed bottom-0 right-0 top-auto translate-x-0 translate-y-0',
           'w-full rounded-b-none rounded-t-2xl',
           'flex flex-col p-0 gap-0',
@@ -73,8 +71,10 @@ export default function AIChatbotModal() {
           </button>
         </div>
 
-        {/* Input — MessageList is rendered inside MessageInput */}
-        <MessageInput />
+        {/* AI SDK provider wraps the chat components */}
+        <AIProvider>
+          <MessageInput />
+        </AIProvider>
       </DialogContent>
     </Dialog>
   )

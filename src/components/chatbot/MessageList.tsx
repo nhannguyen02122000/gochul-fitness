@@ -1,18 +1,25 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useAIChatbotStore } from '@/store/useAIChatbotStore'
+import type { UIMessage } from 'ai'
 import MessageBubble from './MessageBubble'
 import LoadingIndicator from './LoadingIndicator'
 
 const GREETING = "Hi! I'm your GoChul assistant. Ask me about your contracts or training sessions."
 
 interface MessageListProps {
+  messages: UIMessage[]
+  isLoading: boolean
+  status: 'submitted' | 'streaming' | 'ready' | 'error'
   onConfirm?: () => void
 }
 
-export default function MessageList({ onConfirm }: MessageListProps) {
-  const { messages, isLoading } = useAIChatbotStore()
+export default function MessageList({
+  messages,
+  isLoading,
+  status,
+  onConfirm,
+}: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -20,6 +27,9 @@ export default function MessageList({ onConfirm }: MessageListProps) {
   }, [messages, isLoading])
 
   const hasMessages = messages.length > 0
+  const isStreaming = status === 'streaming'
+  const lastMsg = messages[messages.length - 1]
+  const showCursor = isStreaming && lastMsg?.role === 'assistant'
 
   return (
     <div
@@ -33,21 +43,46 @@ export default function MessageList({ onConfirm }: MessageListProps) {
             id: 'greeting',
             role: 'assistant',
             content: GREETING,
-            timestamp: 0
+            timestamp: 0,
           }}
           onConfirm={undefined}
+          isStreaming={false}
         />
       )}
 
-      {messages.map((msg) => (
-        <MessageBubble
-          key={msg.id}
-          message={msg}
-          onConfirm={msg.type === 'proposal' ? onConfirm : undefined}
-        />
-      ))}
+      {messages.map((msg, index) => {
+        const isLast = index === messages.length - 1
+        const msgType = (msg as any).type as 'normal' | 'error' | 'proposal' | 'warning' | 'nudge' | undefined
 
-      {isLoading && <LoadingIndicator />}
+        return (
+          <MessageBubble
+            key={msg.id}
+            message={{
+              id: String(msg.id),
+              role: msg.role as 'user' | 'assistant',
+              content: String(msg.content),
+              timestamp: 0,
+              type: msgType,
+            }}
+            onConfirm={
+              msg.role === 'assistant' &&
+              msgType === 'proposal' &&
+              isLast &&
+              onConfirm
+                ? onConfirm
+                : undefined
+            }
+            isStreaming={isLast && isStreaming}
+          />
+        )
+      })}
+
+      {isLoading && (
+        <LoadingIndicator
+          phase={isStreaming ? 'responding' : 'thinking'}
+          hasContent={showCursor}
+        />
+      )}
 
       {/* Invisible anchor for scroll-into-view */}
       <div ref={bottomRef} aria-hidden="true" />
