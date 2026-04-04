@@ -24,10 +24,12 @@ Users can manage their gym contracts and training sessions through natural conve
 - ✓ InstantDB backend — existing
 - ✓ API-11: Bot respects role permissions (Phase 1 — `requireRole()` guard, RBAC in system prompt)
 - ✓ API-12: Bot authenticated with Clerk session token server-side (Phase 1 — `auth()` + `getToken()`)
+- ✓ AI Chatbot — API integration wired: Client `POST /api/ai-chatbot` with Clerk auth forwarded, multi-turn context in request body, typed response `{ reply, type, role, messages }` (Phase 3)
+- ✓ AI Chatbot — Error display: Inline error bubbles in thread with `AlertCircle` icon, `bg-red-50 text-red-700` styling, no markdown (Phase 3)
 
 ### Active
 
-- [ ] **AI Chatbot — API integration**: AI calls GoChul Fitness API endpoints based on user intent, respecting role permissions
+
 - [ ] **AI Chatbot — Parameter inference loop**: AI loops to gather missing parameters until all required fields are provided
 - [ ] **AI Chatbot — Vietnamese time inference**: AI infers morning/afternoon/evening/night time windows from natural language (Vietnamese-aware)
 - [ ] **AI Chatbot — Structured result display**: AI confirms actions with formatted summaries after API calls
@@ -70,4 +72,4 @@ GoChul Fitness is a gym/fitness studio management app built with Next.js 16, Typ
 
 ---
 
-*Last updated: 2026-04-04 after Phase 2 completion*
+*Last updated: 2026-04-04 after Phase 3 completion*
