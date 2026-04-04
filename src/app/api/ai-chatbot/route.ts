@@ -19,7 +19,7 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import { buildSystemPrompt } from '@/lib/ai/systemPrompt'
-import { callClaudePlaceholder } from '@/lib/ai/anthropicService'
+import { callClaudeWithTools } from '@/lib/ai/anthropicService'
 import { requireRole } from '@/lib/roleCheck'
 import type { Role } from '@/app/type/api'
 
@@ -126,76 +126,52 @@ export async function POST(request: Request) {
     userInstantId,
   })
 
-  // ── 6. (Phase 1 placeholder) Call Claude ────────────────────────────────────
-  // Phase 1: single-turn placeholder — no tools, no history.
-  // Phase 3: pass messages[] history to callClaudeWithHistory().
-  // Phase 4: implement tool-use loop with executeTool() calls.
-  let botReply: string
+  // ── 6. Call Claude with tool-use loop ────────────────────────────────────────
+  // Phase 4: callClaudeWithTools() handles the full multi-turn loop internally —
+  // history is built from body.messages, tools are dispatched and their formatted
+  // results are fed back to Claude until it returns plain text.
+  let callResult: { type: 'text' | 'proposal'; text: string }
   try {
-    botReply = await callClaudePlaceholder(systemPrompt, body.message)
+    const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+      ...(body.messages ?? []),
+      { role: 'user', content: body.message },
+    ]
+    callResult = await callClaudeWithTools({
+      messages: conversationMessages,
+      systemPrompt,
+      role: userRole,
+      clerkToken: clerkToken ?? undefined,
+    })
   } catch (error) {
-    console.error(
-      'Anthropic API error:',
-      error instanceof Error ? error.message : String(error)
-    )
+    console.error('Anthropic API error:', error instanceof Error ? error.message : String(error))
     return NextResponse.json(
-      {
-        error:
-          'AI service temporarily unavailable — please try again in a moment'
-      },
+      { error: 'AI service temporarily unavailable — please try again in a moment' },
       { status: 502 }
     )
   }
 
-  // ── 7. Debug probe: ?debug=auth exercises Clerk token forwarding via internal API call
-  //   This is a Phase 1-only test path to verify auth forwarding works before tool execution
-  //   is implemented in Phase 4. Remove this block when Phase 4 lands.
-  // ─────────────────────────────────────────────────────────────────────────────────
-  const url = new URL(request.url)
-  if (url.searchParams.get('debug') === 'auth') {
-    // Proxy through GET /api/contract/getAll with the forwarded Clerk token
-    try {
-      const apiResponse = await fetch(
-        new URL('/api/contract/getAll', request.url).toString(),
-        {
-          headers: {
-            ...(clerkToken
-              ? { Authorization: `Bearer ${clerkToken}` }
-              : {}),
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-      const apiBody = await apiResponse.json()
-      return NextResponse.json(
-        {
-          debug: 'auth',
-          apiStatus: apiResponse.status,
-          apiBody,
-          clerkTokenPresent: clerkToken !== null,
-        },
-        {
-          status: apiResponse.status,
-        }
-      )
-    } catch (err) {
-      return NextResponse.json(
-        { debug: 'auth', error: 'Internal fetch failed', detail: String(err) },
-        { status: 502 }
-      )
-    }
+  const { type: responseType, text: botReply } = callResult
+
+  const finalMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+    ...(body.messages ?? []),
+    { role: 'user', content: body.message },
+    { role: 'assistant', content: botReply },
+  ]
+
+  // ── 7. Return response ───────────────────────────────────────────────────────
+  if (responseType === 'proposal') {
+    return NextResponse.json({
+      reply: botReply,
+      type: 'proposal' as const,
+      role: userRole,
+      messages: finalMessages,
+    })
   }
 
-  // ── 8. Return response ───────────────────────────────────────────────────────
   return NextResponse.json({
     reply: botReply,
-    type: 'text' as const, // Phase 3: type discriminator for client
+    type: 'text' as const,
     role: userRole,
-    // Phase 3+: include conversation context for multi-turn
-    messages: [
-      ...(body.messages ?? []),
-      { role: 'user' as const, content: body.message },
-      { role: 'assistant' as const, content: botReply },
-    ],
+    messages: finalMessages,
   })
 }
