@@ -1,54 +1,66 @@
 /**
- * Server-side streaming utilities for the AI chatbot.
- * Phase 5: Converts pre-computed text into AI SDK data stream format
- * so useChat can consume it as a streaming Response.
+ * Server side streaming utilities for the AI chatbot.
+ * Phase 5: Converts pre-computed text into AI SDK v6 UI message chunk format
+ * so useChat (via DefaultChatTransport) can consume it as a streaming Response.
+ *
+ * AI SDK v6 uses ReadableStream<UIMessageChunk> wrapped in SSE:
+ *   data: {"type":"text-start","id":"..."}\n\n
+ *   data: {"type":"text-delta","delta":"Hello"}\n\n
+ *   ...
+ *   data: [DONE]\n\n
+ *
  * @file src/lib/ai/streamUtils.ts
  */
 
 import 'server-only'
 
+import { createUIMessageStreamResponse, type UIMessageChunk } from 'ai'
+
 /**
- * Chunks a string into small pieces for smooth streaming.
+ * Generates a unique ID for streaming chunks.
  */
-function chunkText(text: string, chunkSize = 10): string[] {
-  const chunks: string[] = []
-  for (let i = 0; i < text.length; i += chunkSize) {
-    chunks.push(text.slice(i, i + chunkSize))
-  }
-  return chunks
+function generateChunkId(): string {
+  return `chunk-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 /**
- * Creates a ReadableStream in AI SDK data stream format.
- * Format: `0:${JSON.stringify({ type: 'text', textDelta: chunk })}\n`
- * This is consumed by useChat's fetch transport.
+ * Converts pre-computed bot text into an SSE Response of UIMessageChunks.
+ * The stream emits:
+ * 1. text-start chunk (marks beginning of text content)
+ * 2. text-delta chunks (individual pieces of text)
+ * 3. text_end chunk (marks end of text)
  *
- * @param text - The pre-computed bot reply from callClaudeWithTools()
- * @param metadata - Optional metadata to include alongside the text
+ * This format is consumed by useChat's DefaultChatTransport.
  */
-export function textToStream(
-  text: string,
-  metadata?: Record<string, unknown>
-): ReadableStream {
-  const encoder = new TextEncoder()
+export function textToStream(text: string): Response {
+  const chunks: UIMessageChunk[] = []
+  const id = generateChunkId()
+  const CHUNK_SIZE = 10
 
-  return new ReadableStream({
+  // 1. text-start
+  chunks.push({ type: 'text-start', id })
+
+  // 2. text-delta chunks (chunk into small pieces for smooth streaming)
+  for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+    chunks.push({ type: 'text-delta', delta: text.slice(i, i + CHUNK_SIZE), id })
+  }
+
+  // 3. text_end
+  chunks.push({ type: 'text-end', id })
+
+  // Encode each chunk as SSE: "data: <json>\n\n"
+  const encodedChunks = chunks.map((chunk) => {
+    return new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`)
+  })
+
+  const stream = new ReadableStream({
     start(controller) {
-      // Send metadata as first chunk if provided
-      if (metadata) {
-        controller.enqueue(
-          encoder.encode(`0:${JSON.stringify(metadata)}\n`)
-        )
-      }
-    },
-    pull(controller) {
-      const chunks = chunkText(text)
-      for (const chunk of chunks) {
-        controller.enqueue(
-          encoder.encode(`0:${JSON.stringify({ type: 'text', textDelta: chunk })}\n`)
-        )
+      for (const chunk of encodedChunks) {
+        controller.enqueue(chunk)
       }
       controller.close()
     },
   })
+
+  return createUIMessageStreamResponse({ stream })
 }

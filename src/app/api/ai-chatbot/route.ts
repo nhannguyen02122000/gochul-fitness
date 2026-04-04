@@ -6,6 +6,11 @@
  * Phase 4: Implements tool-use loop.
  * Phase 5: Adds rate limiting, streaming Response, and language nudge.
  *
+ * AI SDK v6 integration:
+ * - useChat sends: { messages: UIMessage[], trigger, messageId }
+ * - useChat expects: SSE Response (AI SDK UI message chunk format)
+ * - Non-streaming responses (nudge/proposal) also returned as SSE
+ *
  * @file src/app/api/ai-chatbot/route.ts
  */
 
@@ -20,13 +25,38 @@ import { requireRole } from '@/lib/roleCheck'
 import { ratelimit } from '@/lib/ratelimit'
 import { textToStream } from '@/lib/ai/streamUtils'
 import type { Role } from '@/app/type/api'
+import { isTextUIPart, type UIMessage } from 'ai'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
-type AIChatRequestBody = {
-  message: string
-  messages?: Array<{ role: 'user' | 'assistant'; content: string }>
+/*** Extract the latest user text from a UIMessage array.
+ * AI SDK v6 sends messages as UIMessage[] with parts[] — extract text content.
+ */
+function extractLatestUserText(messages: UIMessage[]): string {
+  const userMessages = messages.filter(m => m.role === 'user')
+  if (userMessages.length === 0) return ''
+  const last = userMessages[userMessages.length - 1]
+  return last.parts
+    .filter(isTextUIPart)
+    .map(p => p.text)
+    .join('')
+}
+
+/**
+ * Convert UIMessage[] to conversation format for callClaudeWithTools.
+ */
+function toConversationMessages(
+  messages: UIMessage[]
+): Array<{ role: 'user' | 'assistant'; content: string }> {
+  return messages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.parts
+        .filter(isTextUIPart)
+        .map(p => p.text)
+        .join(''),
+    }))
 }
 
 export async function POST(request: Request) {
@@ -35,46 +65,33 @@ export async function POST(request: Request) {
   const { userId } = authCtx
 
   if (!userId) {
-    return NextResponse.json(
-      { error: 'Unauthorized — please sign in to use the chatbot' },
-      { status: 401 }
-    )
+    return textToStream('Unauthorized — please sign in to use the chatbot.')
   }
 
   // ── 2. Rate limiting (Phase 5) ───────────────────────────────────────────────
   const { success: rateOk, remaining, reset } = await ratelimit.limit(userId)
   if (!rateOk) {
-    return NextResponse.json(
-      {
-        error: "You're sending messages too quickly. Please wait a moment and try again.",
-        type: 'nudge',
-      },
-      {
-        status: 429,
-        headers: {
-          'X-RateLimit-Remaining': String(remaining),
-          'X-RateLimit-Reset': String(reset),
-        },
-      }
+    return textToStream(
+      "You're sending messages too quickly. Please wait a moment and try again."
     )
   }
 
   // ── 3. Parse request body ────────────────────────────────────────────────────
-  let body: AIChatRequestBody
+  // AI SDK v6 useChat sends: { messages: UIMessage[], trigger, messageId }
+  let body: { messages: UIMessage[]; trigger?: string; messageId?: string }
   try {
-    body = (await request.json()) as AIChatRequestBody
+    body = (await request.json()) as typeof body
   } catch {
-    return NextResponse.json(
-      { error: 'Invalid request body — expected JSON with { message: string }' },
-      { status: 400 }
-    )
+    return textToStream('Invalid request body.')
   }
 
-  if (!body.message || typeof body.message !== 'string') {
-    return NextResponse.json(
-      { error: 'Missing required field: message (string)' },
-      { status: 400 }
-    )
+  if (!body.messages || !Array.isArray(body.messages)) {
+    return textToStream('Missing messages array.')
+  }
+
+  const latestUserText = extractLatestUserText(body.messages)
+  if (!latestUserText.trim()) {
+    return textToStream('No message provided.')
   }
 
   // ── 4. Resolve user role ─────────────────────────────────────────────────────
@@ -87,28 +104,22 @@ export async function POST(request: Request) {
       user_setting: {
         $: {
           where: {
-            clerk_id: userId
-          }
+            clerk_id: userId,
+          },
         },
-        users: {}
-      }
+        users: {},
+      },
     })
 
     const userSetting = userData.user_setting[0]
 
     if (!userSetting) {
-      return NextResponse.json(
-        { error: 'User settings not found — please complete onboarding' },
-        { status: 404 }
-      )
+      return textToStream('User settings not found — please complete onboarding.')
     }
 
     const rawRole = userSetting.role
     if (!requireRole(rawRole, ['ADMIN', 'STAFF', 'CUSTOMER'])) {
-      return NextResponse.json(
-        { error: 'Invalid user role' },
-        { status: 403 }
-      )
+      return textToStream('You do not have permission to use this feature.')
     }
 
     userRole = rawRole as Role
@@ -118,14 +129,10 @@ export async function POST(request: Request) {
       .join(' ') || userId
   } catch (error) {
     console.error('Error resolving user role:', error instanceof Error ? error.message : String(error))
-    return NextResponse.json(
-      { error: 'Failed to resolve user session — please try again' },
-      { status: 500 }
-    )
+    return textToStream('Failed to resolve user session — please try again.')
   }
 
   // ── 5. Get Clerk token for API forwarding ────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const clerkToken: string | null = await authCtx.getToken({ template: 'gochul-fitness' })
 
   // ── 6. Build system prompt ───────────────────────────────────────────────────
@@ -136,35 +143,22 @@ export async function POST(request: Request) {
   })
 
   // ── 7. Build conversation messages ───────────────────────────────────────────
-  const conversationMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
-    ...(body.messages ?? []),
-    { role: 'user', content: body.message },
-  ]
+  const conversationMessages = toConversationMessages(body.messages)
 
   // ── 8. Language switch detection (Phase 5) ───────────────────────────────────
-  const userMessages = conversationMessages.filter(m => m.role === 'user')
-  const lastTwoUsers = userMessages.slice(-2)
+  const userMsgs = conversationMessages.filter(m => m.role === 'user')
+  const lastTwo = userMsgs.slice(-2)
   const langSwitched =
-    lastTwoUsers.length >= 2 &&
-    detectLanguage([lastTwoUsers[lastTwoUsers.length - 2]]) !==
-      detectLanguage([lastTwoUsers[lastTwoUsers.length - 1]])
+    lastTwo.length >= 2 &&
+    detectLanguage([lastTwo[lastTwo.length - 2]]) !==
+      detectLanguage([lastTwo[lastTwo.length - 1]])
 
   if (langSwitched) {
-    const currentLang = detectLanguage([lastTwoUsers[lastTwoUsers.length - 1]])
+    const currentLang = detectLanguage([lastTwo[lastTwo.length - 1]])
     const detectedLabel = currentLang === 'vi' ? 'Vietnamese' : 'English'
     const nudgeText = `I noticed you switched language. I'll respond in ${detectedLabel}.`
-    const nudgeMessages = [
-      ...(body.messages ?? []),
-      { role: 'user', content: body.message },
-      { role: 'assistant', content: nudgeText },
-    ]
-    // Stream nudge as a non-streaming JSON response (small message, no streaming needed)
-    return NextResponse.json({
-      reply: nudgeText,
-      type: 'nudge' as const,
-      detectedLang: currentLang,
-      messages: nudgeMessages,
-    })
+    // Stream nudge as SSE
+    return textToStream(nudgeText)
   }
 
   // ── 9. Call Claude with tool-use loop ───────────────────────────────────────
@@ -178,37 +172,13 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Anthropic API error:', error instanceof Error ? error.message : String(error))
-    return NextResponse.json(
-      { error: 'AI service temporarily unavailable — please try again in a moment' },
-      { status: 502 }
-    )
+    return textToStream('AI service temporarily unavailable — please try again in a moment.')
   }
 
   const { type: responseType, text: botReply } = callResult
 
-  const finalMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
-    ...(body.messages ?? []),
-    { role: 'user', content: body.message },
-    { role: 'assistant', content: botReply },
-  ]
-
   // ── 10. Return response ──────────────────────────────────────────────────────
-  if (responseType === 'proposal') {
-    return NextResponse.json({
-      reply: botReply,
-      type: 'proposal' as const,
-      role: userRole,
-      messages: finalMessages,
-    })
-  }
-
-  // Stream text response using AI SDK data stream format (Phase 5)
-  const stream = textToStream(botReply)
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'X-RateLimit-Remaining': String(remaining),
-      'X-RateLimit-Reset': String(reset),
-    },
-  })
+  // All responses stream via SSE (AI SDK v6 useChat format)
+  // Proposals: stream the confirmation message
+  return textToStream(botReply)
 }

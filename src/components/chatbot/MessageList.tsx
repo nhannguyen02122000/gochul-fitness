@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import type { UIMessage } from 'ai'
+import { useChat } from '@ai-sdk/react'
+import { isTextUIPart, type UIMessage } from 'ai'
 import MessageBubble from './MessageBubble'
 import LoadingIndicator from './LoadingIndicator'
 
@@ -12,6 +13,17 @@ interface MessageListProps {
   isLoading: boolean
   status: 'submitted' | 'streaming' | 'ready' | 'error'
   onConfirm?: () => void
+}
+
+/**
+ * Extract readable text content from a UIMessage's parts array.
+ * AI SDK v6 uses a parts-based message model (not .content string).
+ */
+function getTextContent(msg: UIMessage): string {
+  return msg.parts
+    .filter(isTextUIPart)
+    .map((p) => p.text)
+    .join('')
 }
 
 export default function MessageList({
@@ -52,7 +64,14 @@ export default function MessageList({
 
       {messages.map((msg, index) => {
         const isLast = index === messages.length - 1
-        const msgType = (msg as any).type as 'normal' | 'error' | 'proposal' | 'warning' | 'nudge' | undefined
+        const content = getTextContent(msg)
+        const msgType = (msg as unknown as { type?: string }).type as
+          | 'normal'
+          | 'error'
+          | 'proposal'
+          | 'warning'
+          | 'nudge'
+          | undefined
 
         return (
           <MessageBubble
@@ -60,7 +79,7 @@ export default function MessageList({
             message={{
               id: String(msg.id),
               role: msg.role as 'user' | 'assistant',
-              content: String(msg.content),
+              content,
               timestamp: 0,
               type: msgType,
             }}

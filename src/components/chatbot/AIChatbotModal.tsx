@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { AIProvider } from '@ai-sdk/react'
+// No AIProvider needed in AI SDK v6 — useChat manages its own transport
 import { XIcon, Bot } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useAIChatbotStore } from '@/store/useAIChatbotStore'
@@ -71,10 +71,8 @@ export default function AIChatbotModal() {
           </button>
         </div>
 
-        {/* AI SDK provider wraps the chat components */}
-        <AIProvider>
-          <MessageInput />
-        </AIProvider>
+        {/* useChat manages its own transport — no AIProvider needed */}
+        <MessageInput />
       </DialogContent>
     </Dialog>
   )

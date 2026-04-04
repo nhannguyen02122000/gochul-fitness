@@ -1,45 +1,47 @@
 'use client'
 
-import { useChat } from 'ai/react'
+import { useState } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport } from 'ai'
 import { Send } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useAIChatbotStore } from '@/store/useAIChatbotStore'
 import { cn } from '@/lib/utils'
 import MessageList from './MessageList'
 
-interface MessageInputProps {
-  onConfirm?: () => void
-}
+export default function MessageInput({ onConfirm }: { onConfirm?: () => void }) {
+  // Local input state — AI SDK v6 useChat does not include input/setInput
+  const [input, setInput] = useState('')
 
-export default function MessageInput({ onConfirm }: MessageInputProps) {
   // Keep Zustand for modal open/close tracking only
   useAIChatbotStore()
 
-  const {
-    messages,
-    input,
-    setInput,
-    handleSubmit,
-    isLoading,
-    status,
-    append,
-  } = useChat({
-    api: '/api/ai-chatbot',
+  const { messages, status, sendMessage } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/ai-chatbot',
+    }),
   })
 
+  // Derive isLoading from status — v6 doesn't expose isLoading directly
+  const isLoading = status === 'submitted' || status === 'streaming'
+
   // Confirm flow: called when user clicks "Confirm" on a proposal bubble.
-  // Uses useChat's append() to inject the CONFIRMED message into the stream.
   const handleConfirm = () => {
     if (isLoading) return
-    const lastBotMsg = messages[messages.length - 1]
-    if (!lastBotMsg) return
-    append({ role: 'user', content: 'CONFIRMED' })
+    sendMessage({ text: 'CONFIRMED' })
+  }
+
+  const handleSubmit = () => {
+    const trimmed = input.trim()
+    if (!trimmed || isLoading) return
+    setInput('')
+    sendMessage({ text: trimmed })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e as unknown as React.FormEvent)
+      handleSubmit()
     }
   }
 
@@ -67,7 +69,7 @@ export default function MessageInput({ onConfirm }: MessageInputProps) {
         <button
           type="button"
           aria-label="Send message"
-          onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
+          onClick={handleSubmit}
           disabled={isLoading}
           className={cn(
             'size-8 rounded-full flex items-center justify-center shrink-0',
