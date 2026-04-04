@@ -198,6 +198,19 @@ input:-webkit-autofill:focus {
       rgba(0, 0, 0, 0.04) 8px);
 }
 
+/* Phase 5: Chatbot streaming cursor blink animation */
+@keyframes chatbot-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="chatbot-cursor-blink"],
+  .chatbot-cursor-blink {
+    animation-duration: 0.01ms !important;
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-sans);
   --color-ring: var(--ring);
