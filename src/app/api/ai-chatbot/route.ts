@@ -69,11 +69,14 @@ export async function POST(request: Request) {
   }
 
   // ── 2. Rate limiting (Phase 5) ───────────────────────────────────────────────
-  const { success: rateOk, remaining, reset } = await ratelimit.limit(userId)
-  if (!rateOk) {
-    return textToStream(
-      "You're sending messages too quickly. Please wait a moment and try again."
-    )
+  // ratelimit is undefined when UPSTASH_REDIS_REST_URL/TOKEN not configured
+  if (ratelimit) {
+    const { success: rateOk } = await ratelimit.limit(userId)
+    if (!rateOk) {
+      return textToStream(
+        "You're sending messages too quickly. Please wait a moment and try again."
+      )
+    }
   }
 
   // ── 3. Parse request body ────────────────────────────────────────────────────
