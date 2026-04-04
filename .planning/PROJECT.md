@@ -12,6 +12,8 @@ Users can manage their gym contracts and training sessions through natural conve
 
 ### Validated
 
+- ✓ AI Chatbot — Floating modal UI: FAB + modal overlay (Phase 2 — FloatingFAB, AIChatbotModal, Zustand store)
+- ✓ AI Chatbot — Message thread: Multi-turn conversation thread with user/bot bubbles, markdown rendering (Phase 2 — MessageBubble, MessageList, MessageInput, LoadingIndicator)
 - ✓ Contract lifecycle (NEWLY_CREATED → ACTIVE → EXPIRED/CANCELED) — existing
 - ✓ Session lifecycle (NEWLY_CREATED → CHECKED_IN/CANCELED/EXPIRED) — existing
 - ✓ RBAC for ADMIN, STAFF, CUSTOMER — existing
@@ -25,8 +27,6 @@ Users can manage their gym contracts and training sessions through natural conve
 
 ### Active
 
-- [ ] **AI Chatbot — Floating modal UI**: Floating chat button (FAB) that opens a chat modal overlay on any page
-- [ ] **AI Chatbot — Message thread**: Multi-turn conversation thread with user messages and bot responses
 - [ ] **AI Chatbot — API integration**: AI calls GoChul Fitness API endpoints based on user intent, respecting role permissions
 - [ ] **AI Chatbot — Parameter inference loop**: AI loops to gather missing parameters until all required fields are provided
 - [ ] **AI Chatbot — Vietnamese time inference**: AI infers morning/afternoon/evening/night time windows from natural language (Vietnamese-aware)
@@ -70,4 +70,4 @@ GoChul Fitness is a gym/fitness studio management app built with Next.js 16, Typ
 
 ---
 
-*Last updated: 2026-04-04 after initialization*
+*Last updated: 2026-04-04 after Phase 2 completion*
