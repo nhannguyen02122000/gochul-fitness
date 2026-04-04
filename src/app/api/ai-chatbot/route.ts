@@ -3,7 +3,7 @@
  *
  * Phase 1: Verifies auth (401 without session), resolves user role,
  * builds system prompt, returns a placeholder AI response.
- * Phase 3: Accepts messages[] array, returns bot response.
+ * Phase 3: Accepts messages[] array, returns type + bot response.
  * Phase 4: Implements tool-use loop with TOOL_DEFINITIONS.
  *
  * Auth: Clerk session cookie → auth() → getUserSetting() → role.
@@ -189,6 +189,7 @@ export async function POST(request: Request) {
   // ── 8. Return response ───────────────────────────────────────────────────────
   return NextResponse.json({
     reply: botReply,
+    type: 'text' as const, // Phase 3: type discriminator for client
     role: userRole,
     // Phase 3+: include conversation context for multi-turn
     messages: [
