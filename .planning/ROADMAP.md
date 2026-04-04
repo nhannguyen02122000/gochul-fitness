@@ -14,7 +14,7 @@
 | 2 | Client Shell | Build the FAB + modal UI, message thread, and Zustand store in isolation | CHAT-01–06, THRD-01–07 | 6 criteria | yes | ✅ Complete (2026-04-04) |
 | 3 | Wire API Route to Client | Connect the UI to the API route; verify Clerk cookie forwarding | THRD-03, THRD-04, API-01–10 | 5 criteria | yes | ✅ Complete (2026-04-04) |
 | 4 | Multi-Turn + Tool-Use Loop | Implement the full AI logic: parameter loop, Vietnamese time inference, structured results, error handling | LOOP-01–05, TIME-01–05, ERR-01–04, THRD-05–07 | 7 criteria | no |
-| 5 | Polish | Add streaming, follow-up entity references, availability check, English time parsing | (v2 deliverables, no v1 requirements) | 6 criteria | yes |
+| 5 | Polish | Add streaming, follow-up entity references, availability check, English time parsing | (v2 deliverables, no v1 requirements) | 6 criteria | yes | ✅ Complete (2026-04-04) — 10 tasks, 7 commits |
 
 ---
 
@@ -182,9 +182,9 @@
 
 ## Phase 5: Polish
 
-**Goal:** Complete the feature for a production-quality v1 launch. No new v1 requirements — all items are enhancements.
+**Status:** ✅ Complete (2026-04-04) — 10 tasks, 7 commits
 
-### Deliverables
+### Deliverables (All Implemented)
 
 - **Streaming responses** — Replace non-streaming `POST` with `ReadableStream` + `useChat` `stream` prop from the Vercel AI SDK (`ai`) for token-by-token rendering
 - **Inline entity references** — Bot assigns stable identifiers to list items ("[1]", "[2]"); subsequent turns resolve "cái thứ 2", "hợp đồng kia" to the correct entity via conversation history

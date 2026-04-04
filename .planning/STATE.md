@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-04T12:30:00.000Z"
+last_updated: "2026-04-04T14:23:00.454Z"
 progress:
   total_phases: 5
   completed_phases: 1
@@ -20,18 +20,19 @@ progress:
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (polish) — EXECUTING
+Plan: 1 of 1
 
 **Phase 1** — Complete ✓
 **Phase 2** — Complete ✓ (10 tasks, 10 commits)
 **Phase 3** — Complete ✓ (3 tasks, 5 commits)
+**Phase 5** — Complete ✓ (10 tasks, 7 commits)
 
 ---
 
 ## Phase
 
-**Phase 3** — Complete ✓
+**Phase 5** — Complete ✓
 
 ---
 
@@ -43,7 +44,7 @@ Plan: Not started
 | 2 | Client Shell | **Complete ✓** | — | 2026-04-04 | 10 tasks, 10 commits |
 | 3 | Wire API Route to Client | **Complete ✓** | — | 2026-04-04 | 3 tasks, 5 commits |
 | 4 | Multi-Turn + Tool-Use Loop | **In progress** | — | — | 9 tasks, 5 waves |
-| 5 | Polish | **Context gathered** | — | — | — |
+| 5 | Polish | **Complete ✓** | — | 2026-04-04 | 10 tasks, 7 commits |
 
 ---
 
@@ -58,6 +59,18 @@ Plan: Not started
 | Phase 5 | (v2 enhancements) | 0 v1 requirements |
 
 **Total v1 coverage:** 32 / 32 requirements (23/32 complete, 9 pending)
+
+---
+
+## Decisions Made (Phase 5)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D-17 | `textToStream()` with 10-char chunks in AI SDK data stream format | Compatible with useChat fetch transport; smooth streaming feel |
+| D-18 | `AIProvider` wraps `MessageInput` inside `AIChatbotModal` | Keeps useChat context scoped to modal lifecycle; no parent-level context needed |
+| D-19 | Rate limit 429 returns `type: 'nudge'` | Hint for client to render friendly error as nudge bubble (same as language switch) |
+| D-20 | Language switch detection on last two user messages only | Avoids false positives from older conversation history |
+| D-21 | `detectLanguage()` from last two user messages → nudge bubble | Language switch yields inline warning bubble, not blocking the conversation |
 
 ---
 
@@ -111,8 +124,10 @@ Plan: Not started
 | `src/components/chatbot/AIChatbotModal.tsx` | 2 | Dialog overlay with custom sizing |
 | `src/components/layout/MainLayout.tsx` | 2 | Integrated chatbot components |
 | `src/app/api/ai-chatbot/route.ts` | 1→4 | API route handler; Phase 4 replaces placeholder with `callClaudeWithTools` |
-| `src/lib/ai/anthropicService.ts` | 1→4 | AI service: Phase 1 placeholder; Phase 4 adds `callClaudeWithTools` + `executeTool` + `detectLanguage` |
-| `src/lib/ai/formatters.ts` | 4 | NEW — server-side markdown formatters for contract/session results and error translation |
+| `src/lib/ai/anthropicService.ts` | 1→5 | AI service: Phase 1 placeholder; Phase 4 adds `callClaudeWithTools`; Phase 5 adds `get_occupied_time_slots` dispatcher |
+| `src/lib/ai/formatters.ts` | 4 | Server-side markdown formatters for contract/session results and error translation |
+| `src/lib/ai/streamUtils.ts` | 5 | NEW — `textToStream()` ReadableStream in AI SDK data stream format |
+| `src/lib/ratelimit.ts` | 5 | NEW — Upstash `Ratelimit` singleton (20 req/min per userId) |
 
 ---
 
@@ -149,6 +164,18 @@ b377584 feat(chatbot): wire MessageInput to POST /api/ai-chatbot
 a370c8b feat(chatbot): add type field to ChatMessage for error bubble support
 ```
 
+## Phase 5 Git Commits
+
+```
+c48a487 chore(chatbot): install ai @ai-sdk/react @upstash/ratelimit @upstash/redis
+24a7404 feat(chatbot): add get_occupied_time_slots tool, dispatcher, and system prompt rules
+ea3e343 feat(chatbot): add Upstash rate limiter and AI SDK streaming utilities
+7bd0072 feat(chatbot): overhaul route handler with rate limiting, streaming, language nudge
+38122a3 feat(chatbot): slim Zustand store and migrate MessageInput to useChat
+8a06c9d feat(chatbot): update MessageList to useChat props and add AIProvider to modal
+52d2c0e feat(chatbot): add warning/nudge bubble variants, streaming cursor, phase-aware loading
+```
+
 ---
 
-*State last updated: 2026-04-04 after Phase 3 completion*
+*State last updated: 2026-04-04 after Phase 5 completion*
