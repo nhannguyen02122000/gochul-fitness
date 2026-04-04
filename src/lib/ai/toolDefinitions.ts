@@ -481,7 +481,32 @@ export const update_session_note: Tool = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TOOL_DEFINITIONS — ordered array of all 10 tools
+// 11. get_occupied_time_slots (Phase 5)
+// ─────────────────────────────────────────────────────────────────────────────
+export const get_occupied_time_slots: Tool = {
+  name: 'get_occupied_time_slots',
+  description:
+    'Check which time slots a trainer already has booked on a given date. ' +
+    'Returns a list of occupied time ranges as [from, to] minute pairs. ' +
+    'Use this before creating a session to avoid conflicts.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      trainer_id: {
+        type: 'string',
+        description: "Trainer's InstantDB $users.id (required)",
+      },
+      date: {
+        type: 'number',
+        description: 'Target date as Unix timestamp (ms, day precision) (required)',
+      },
+    },
+    required: ['trainer_id', 'date'],
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOOL_DEFINITIONS — ordered array of all 11 tools
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TOOL_DEFINITIONS: Tool[] = [
@@ -495,4 +520,6 @@ export const TOOL_DEFINITIONS: Tool[] = [
   update_session,
   update_session_status,
   update_session_note,
+  // Phase 5 additions:
+  get_occupied_time_slots,
 ]

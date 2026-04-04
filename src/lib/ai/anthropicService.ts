@@ -282,6 +282,32 @@ async function dispatchTool(
       return { success: true, formatted: formatActionResult('session', 'updated', data.history ?? {}) }
     }
 
+    case 'get_occupied_time_slots': {
+      // Fetch non-canceled sessions for this trainer on this date
+      const dayStart = new Date(Number(input.date)).setHours(0, 0, 0, 0)
+      const dayEnd = new Date(Number(input.date)).setHours(23, 59, 59, 999)
+      const params = new URLSearchParams({
+        teach_by: String(input.trainer_id),
+        start_date: String(dayStart),
+        end_date: String(dayEnd),
+      })
+      const res = await fetch(`${baseUrl}/api/history/getAll?${params}`, {
+        headers: { Authorization: headers.Authorization! },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      const occupied = (data.history ?? [])
+        .filter((h: any) => h.status !== 'CANCELED')
+        .map((h: any) => `[${h.from}, ${h.to}]`)
+        .join(', ')
+      return {
+        success: true,
+        formatted: occupied
+          ? `Occupied slots: ${occupied}`
+          : 'No existing bookings for this trainer on this date.',
+      }
+    }
+
     default:
       throw new Error(`Unknown tool: ${toolName}`)
   }
