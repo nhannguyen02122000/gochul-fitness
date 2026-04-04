@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-04-04T07:42:51.231Z"
+last_updated: "2026-04-04T11:10:48.123Z"
 progress:
   total_phases: 5
   completed_phases: 1
@@ -20,7 +20,7 @@ progress:
 
 ## Current Position
 
-Phase: 4
+Phase: 5
 Plan: Not started
 
 **Phase 1** — Complete ✓
@@ -42,7 +42,7 @@ Plan: Not started
 | 1 | Skeleton & Architecture | Complete ✓ | — | 2026-04-04 | — |
 | 2 | Client Shell | **Complete ✓** | — | 2026-04-04 | 10 tasks, 10 commits |
 | 3 | Wire API Route to Client | **Complete ✓** | — | 2026-04-04 | 3 tasks, 5 commits |
-| 4 | Multi-Turn + Tool-Use Loop | Not started | — | — | — |
+| 4 | Multi-Turn + Tool-Use Loop | **In progress** | — | — | 9 tasks, 5 waves |
 | 5 | Polish | Not started | — | — | — |
 
 ---
@@ -58,6 +58,19 @@ Plan: Not started
 | Phase 5 | (v2 enhancements) | 0 v1 requirements |
 
 **Total v1 coverage:** 32 / 32 requirements (23/32 complete, 9 pending)
+
+---
+
+## Decisions Made (Phase 4)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D-11 | `callClaudeWithTools()` in `anthropicService.ts` — loop lives in the AI service file, not route.ts | Keeps route.ts clean, makes AI logic reusable |
+| D-12 | `CallResult = { type: 'text' } \| { type: 'proposal' }` return type | Discriminator pattern lets route.ts return the correct JSON `type` field |
+| D-13 | Two-step confirm-then-execute via `CONFIRMED:` prefix | Proposed as a bubble with Confirm button → user confirms → second API call sends `CONFIRMED` |
+| D-14 | `translateError()` with static bilingual map | Predictable, zero AI hallucination risk for error messages |
+| D-15 | Retry loop `for (attempt < 2)` in `executeTool()` | Simple; retries once on any transient failure; ERR-03 satisfied |
+| D-16 | `detectLanguage()` via Vietnamese character regex on last user message | No ML, no external lib, fast and deterministic |
 
 ---
 
@@ -97,16 +110,18 @@ Plan: Not started
 | `src/components/chatbot/FloatingFAB.tsx` | 2 | 56px coral FAB, bottom-right |
 | `src/components/chatbot/AIChatbotModal.tsx` | 2 | Dialog overlay with custom sizing |
 | `src/components/layout/MainLayout.tsx` | 2 | Integrated chatbot components |
-| `src/app/api/ai-chatbot/route.ts` | 1→3 | API route handler; Phase 3 adds `type` field to response |
+| `src/app/api/ai-chatbot/route.ts` | 1→4 | API route handler; Phase 4 replaces placeholder with `callClaudeWithTools` |
+| `src/lib/ai/anthropicService.ts` | 1→4 | AI service: Phase 1 placeholder; Phase 4 adds `callClaudeWithTools` + `executeTool` + `detectLanguage` |
+| `src/lib/ai/formatters.ts` | 4 | NEW — server-side markdown formatters for contract/session results and error translation |
 
 ---
 
 ## Open Items
 
 - Phase 1: Verify Clerk session cookie forwarding from API route → GoChul API routes (curl test) — still open
+- Phase 4: Implement tool-use loop with `TOOL_DEFINITIONS` + `executeTool()` calls (PLAN.md created)
 - Phase 4: Codify Vietnamese time expression test harness before integration
 - Phase 4: Investigate `getOccupiedTimeSlots` + `history/create` race condition (C5, C6 in CONCERNS.md)
-- Phase 4: Implement tool-use loop with `TOOL_DEFINITIONS` + `executeTool()` calls
 
 ---
 

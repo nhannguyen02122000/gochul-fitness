@@ -5,11 +5,64 @@ import { Send } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { useAIChatbotStore } from '@/store/useAIChatbotStore'
 import { cn } from '@/lib/utils'
+import MessageList from './MessageList'
 
-export default function MessageInput() {
+export default function MessageInput({ onConfirm }: { onConfirm?: () => void }) {
   const [input, setInput] = useState('')
   const { messages, isLoading, addMessage, setLoading } = useAIChatbotStore()
   const isSubmittingRef = useRef(false)
+
+  const handleConfirm = async () => {
+    if (isLoading || isSubmittingRef.current) return
+
+    isSubmittingRef.current = true
+
+    // Build history: existing messages + the proposal bubble
+    const conversationHistory = messages.map(({ role, content }) => ({
+      role,
+      content,
+    }))
+    const lastBotMsg = messages[messages.length - 1]
+
+    // Add "Confirmed" user message
+    addMessage({ role: 'user', content: 'Confirmed', type: 'normal' })
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/ai-chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'CONFIRMED',
+          messages: [
+            ...conversationHistory,
+            ...(lastBotMsg ? [{ role: 'assistant' as const, content: lastBotMsg.content }] : []),
+            { role: 'user', content: 'Confirmed' },
+          ],
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok || data.type === 'error') {
+        addMessage({
+          role: 'assistant',
+          content: data.error ?? 'Something went wrong. Please try again.',
+          type: 'error',
+        })
+      } else {
+        addMessage({ role: 'assistant', content: data.reply })
+      }
+    } catch {
+      addMessage({
+        role: 'assistant',
+        content: 'Connection error. Please check your network and try again.',
+        type: 'error',
+      })
+    } finally {
+      setLoading(false)
+      isSubmittingRef.current = false
+    }
+  }
 
   const handleSubmit = async () => {
     const trimmed = input.trim()
@@ -69,7 +122,9 @@ export default function MessageInput() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-3 border-t bg-background">
+    <>
+      <MessageList onConfirm={onConfirm} />
+      <div className="flex items-center gap-2 px-4 py-3 border-t bg-background">
       <Input
         aria-label="Chat message"
         placeholder="Ask about your contracts or training sessions..."
@@ -98,5 +153,6 @@ export default function MessageInput() {
         <Send className="h-4 w-4" />
       </button>
     </div>
+    </>
   )
 }

@@ -8,12 +8,13 @@ import type { ChatMessage } from '@/store/useAIChatbotStore'
 
 interface MessageBubbleProps {
   message: ChatMessage
+  onConfirm?: () => void
 }
 
 const markdownStyles =
   'text-sm leading-relaxed [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_table]:w-full [&_thead]:bg-muted [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1'
 
-export default function MessageBubble({ message }: MessageBubbleProps) {
+export default function MessageBubble({ message, onConfirm }: MessageBubbleProps) {
   const { role, content, type } = message
   const isError = type === 'error'
 
@@ -36,7 +37,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <div
-      aria-label="AI Assistant response"
+      aria-label={type === 'proposal' ? 'Action requires confirmation' : 'AI Assistant response'}
       role="note"
       className="flex items-start gap-2 animate-in slide-in-from-bottom-1 duration-200"
     >
@@ -67,9 +68,35 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         {isError ? (
           <span>{content}</span>
         ) : (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {content}
-          </ReactMarkdown>
+          <>
+            {!type && (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            )}
+            {type === 'proposal' && (
+              <div className="flex flex-col gap-2">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {content}
+                </ReactMarkdown>
+                {onConfirm && (
+                  <button
+                    type="button"
+                    aria-label="Confirm action"
+                    onClick={onConfirm}
+                    className={cn(
+                      'self-start h-8 px-4 rounded-full',
+                      'bg-[var(--color-cta)] text-white text-sm font-medium',
+                      'transition-colors hover:bg-[var(--color-cta-hover)]',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                    )}
+                  >
+                    Confirm
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -10,7 +10,7 @@ export interface ChatMessage {
   content: string
   timestamp: number
   /** Phase 3: optional error flag — error bubbles render with AlertCircle icon + red styles */
-  type?: 'normal' | 'error'
+  type?: 'normal' | 'error' | 'proposal'
 }
 
 interface AIChatbotStore {

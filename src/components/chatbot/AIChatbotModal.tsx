@@ -6,7 +6,6 @@ import { XIcon, Bot } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useAIChatbotStore } from '@/store/useAIChatbotStore'
 import { cn } from '@/lib/utils'
-import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 
 export default function AIChatbotModal() {
@@ -74,10 +73,7 @@ export default function AIChatbotModal() {
           </button>
         </div>
 
-        {/* Message thread */}
-        <MessageList />
-
-        {/* Input */}
+        {/* Input — MessageList is rendered inside MessageInput */}
         <MessageInput />
       </DialogContent>
     </Dialog>

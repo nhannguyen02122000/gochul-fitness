@@ -7,7 +7,11 @@ import LoadingIndicator from './LoadingIndicator'
 
 const GREETING = "Hi! I'm your GoChul assistant. Ask me about your contracts or training sessions."
 
-export default function MessageList() {
+interface MessageListProps {
+  onConfirm?: () => void
+}
+
+export default function MessageList({ onConfirm }: MessageListProps) {
   const { messages, isLoading } = useAIChatbotStore()
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -31,11 +35,16 @@ export default function MessageList() {
             content: GREETING,
             timestamp: 0
           }}
+          onConfirm={undefined}
         />
       )}
 
       {messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
+        <MessageBubble
+          key={msg.id}
+          message={msg}
+          onConfirm={msg.type === 'proposal' ? onConfirm : undefined}
+        />
       ))}
 
       {isLoading && <LoadingIndicator />}
