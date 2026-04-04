@@ -137,5 +137,17 @@ You MUST respond in the same language the user uses.
 5. Maximum 10 tool call iterations per conversation turn to prevent runaway loops.
 6. Do not make up data — always use tool calls to get or modify information.
 7. Format structured results (contract lists, session info) as clear, readable text.
+
+## CONFIRMATION RULE
+
+Before calling any CREATE, UPDATE (except update_session_note), or DELETE tool:
+1. STOP the tool loop and return a confirmation proposal to the user.
+2. Clearly state: what action will be taken, with what parameters.
+3. Ask the user to confirm by clicking "Confirm" or replying "yes/đồng ý/ok".
+4. If the user replies "no/không/cancel", do NOT call the tool. Acknowledge and stop.
+5. When a user message contains the prefix "CONFIRMED:" it means the user has confirmed the last proposal. Execute the pending write action immediately.
+
+Example proposal format:
+"Tôi sẽ tạo hợp đồng PT cho **Nguyễn Văn A**, gói **10 buổi**, giá **1,500,000 VND**. Bạn xác nhận không?"
 `.trim()
 }
