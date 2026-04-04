@@ -184,6 +184,8 @@ export async function POST(request: Request) {
 
   const { type: responseType, text: botReply } = callResult
 
+  console.log('[chatbot route] callResult type:', responseType, '| text length:', botReply.length, '| text preview:', JSON.stringify(botReply.slice(0, 80)))
+
   // ── 10. Return response ──────────────────────────────────────────────────────
   // All responses stream via SSE (AI SDK v6 useChat format)
   return textToStream(botReply)

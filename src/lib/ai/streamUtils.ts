@@ -6,6 +6,9 @@
  * AI SDK v6 createUIMessageStreamResponse expects ReadableStream<UIMessageChunk>.
  * It handles SSE framing internally — DO NOT pre-encode as SSE here.
  *
+ * The complete chunk lifecycle for a text response:
+ *   start-step → text-start → text-delta* → text-end → finish-step → finish
+ *
  * @file src/lib/ai/streamUtils.ts
  */
 
@@ -21,11 +24,9 @@ function generateChunkId(): string {
  * Converts pre-computed bot text into a streaming Response.
  *
  * Creates a ReadableStream<UIMessageChunk> — NOT pre-encoded as SSE.
- * createUIMessageStreamResponse() handles SSE framing internally:
- *   data: {"type":"text-start","id":"..."}\n\n
- *   data: {"type":"text-delta","delta":"Hello"}\n\n
- *   ...
- *   data: [DONE]\n\n
+ * createUIMessageStreamResponse() handles SSE framing internally.
+ *
+ * The full lifecycle is: start-step → text-start → text-delta* → text-end → finish-step → finish
  */
 export function textToStream(text: string): Response {
   const id = generateChunkId()
@@ -33,18 +34,14 @@ export function textToStream(text: string): Response {
 
   const stream = new ReadableStream<UIMessageChunk>({
     start(controller) {
-      // 1. text-start
+      controller.enqueue({ type: 'start-step' })
       controller.enqueue({ type: 'text-start', id })
-      // 2. text-delta chunks
       for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-        controller.enqueue({
-          type: 'text-delta',
-          delta: text.slice(i, i + CHUNK_SIZE),
-          id,
-        })
+        controller.enqueue({ type: 'text-delta', delta: text.slice(i, i + CHUNK_SIZE), id })
       }
-      // 3. text-end
       controller.enqueue({ type: 'text-end', id })
+      controller.enqueue({ type: 'finish-step' })
+      controller.enqueue({ type: 'finish', finishReason: 'stop' })
       controller.close()
     },
   })
