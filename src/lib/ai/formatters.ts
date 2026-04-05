@@ -21,6 +21,69 @@ export type ToolResult =
 export type UserLanguage = 'vi' | 'en'
 
 // ─────────────────────────────────────────────────────────────────────────────
+// User search formatter
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Strips Vietnamese diacritical marks for fuzzy name matching.
+ * "Minh" → "minh" matches "Minh", "Mình", "Mính".
+ */
+export function stripDiacritics(str: string): string {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+/**
+ * Formats a user search result as a numbered markdown table for AI display.
+ *
+ * @param users   - Array of UserMatch objects from the search API
+ * @param total  - Total number of matches (may exceed the returned list)
+ * @param lang   - 'vi' | 'en'
+ * @returns Markdown string for display to the user
+ *
+ * @example
+ * const text = formatUserSearchResults(users, 15, 'vi')
+ */
+export function formatUserSearchResults(
+  users: Array<{ instant_id: string; first_name: string; last_name: string; full_name: string; role: string; match_index: number }>,
+  total: number,
+  lang: UserLanguage = 'vi',
+): string {
+  if (!users.length) {
+    return lang === 'vi'
+      ? 'Không tìm thấy người dùng nào.'
+      : 'No users found.'
+  }
+
+  const vi = lang === 'vi'
+
+  const heading = vi
+    ? `Tìm thấy **${total}** người dùng:`
+    : `Found **${total}** user${total !== 1 ? 's' : ''}:`
+
+  const rows = users.map((u) => {
+    return `| [${u.match_index}] | ${u.full_name} | ${u.role} | \`${u.instant_id}\` |`
+  })
+
+  const table = [
+    '| # | Họ và tên | Vai trò | ID |',
+    '|---|-----------|---------|-----|',
+    ...rows,
+  ].join('\n')
+
+  let suffix = ''
+  if (total > users.length) {
+    suffix = vi
+      ? `\n\nCó hơn **${users.length}** kết quả. Hiển thị đầu tiên.`
+      : `\n\nMore than **${users.length}** results. Showing first results.`
+  }
+  suffix += vi
+    ? '\n\nBạn muốn chọn người nào? (Vui lòng cho biết số thứ tự hoặc tên đầy đủ)'
+    : '\n\nWhich user did you mean? (Please specify by number or full name)'
+
+  return `${heading}\n\n${table}${suffix}`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Bilingual error translations
 // ─────────────────────────────────────────────────────────────────────────────
 

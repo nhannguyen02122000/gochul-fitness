@@ -14,6 +14,7 @@ import {
   formatContractList,
   formatSessionList,
   formatActionResult,
+  formatUserSearchResults,
   translateError,
   type UserLanguage,
 } from '@/lib/ai/formatters'
@@ -101,15 +102,17 @@ const MAX_TOOL_ITERATIONS = 10
  * Constructs a human-readable description of a proposed tool call
  * for display in a proposal bubble when the model provides no text.
  *
- * @param toolName - The name of the tool being proposed
- * @param input   - The tool input parameters
- * @param lang    - User's detected language for formatting
+ * @param toolName  - The name of the tool being proposed
+ * @param input     - The tool input parameters
+ * @param lang     - User's detected language for formatting
+ * @param userName  - Optional resolved user name (from get_user) to include in description
  * @returns A readable proposal description string
  */
 function buildProposalDescription(
   toolName: string,
   input: Record<string, unknown> | undefined,
-  lang: UserLanguage
+  lang: UserLanguage,
+  userName?: string
 ): string {
   if (!input) return `Proposing: ${toolName}`
 
@@ -122,9 +125,10 @@ function buildProposalDescription(
       const credits = Number(input.credits ?? 0)
       const endDate = input.end_date ? formatDate(Number(input.end_date), vi) : 'N/A'
       const duration = Number(input.duration_per_session ?? 0)
+      const forUser = userName ? (vi ? `cho **${userName}**` : `for **${userName}**`) : 'cho bạn'
       return vi
-        ? `Tôi sẽ tạo hợp đồng **${kind}** cho bạn — giá **${money.toLocaleString('vi-VN')} VND**, ${credits > 0 ? `${credits} buổi, ` : ''}${duration > 0 ? `mỗi buổi ${duration} phút, ` : ''}hạn đến **${endDate}**. Bạn xác nhận không?`
-        : `I'll create a **${kind}** contract for you — **${money.toLocaleString('en-US')} VND**${credits > 0 ? `, ${credits} sessions` : ''}${duration > 0 ? `, ${duration} min each` : ''}, valid until **${endDate}**. Confirm?`
+        ? `Tôi sẽ tạo hợp đồng **${kind}** ${forUser} — giá **${money.toLocaleString('vi-VN')} VND**, ${credits > 0 ? `${credits} buổi, ` : ''}${duration > 0 ? `mỗi buổi ${duration} phút, ` : ''}hạn đến **${endDate}**. Bạn xác nhận không?`
+        : `I'll create a **${kind}** contract ${forUser} — **${money.toLocaleString('en-US')} VND**${credits > 0 ? `, ${credits} sessions` : ''}${duration > 0 ? `, ${duration} min each` : ''}, valid until **${endDate}**. Confirm?`
     }
 
     case 'update_contract_status': {
@@ -153,9 +157,10 @@ function buildProposalDescription(
       const date = input.date ? formatDate(Number(input.date), vi) : 'N/A'
       const from = minutesToTime(String(input.from ?? '0'), vi)
       const to = minutesToTime(String(input.to ?? '0'), vi)
+      const withTrainer = userName ? (vi ? ` với PT **${userName}**` : ` with PT **${userName}**`) : ''
       return vi
-        ? `Tôi sẽ đặt buổi tập vào **${date}**, từ **${from}** đến **${to}**. Bạn xác nhận không?`
-        : `I'll book a session on **${date}**, from **${from}** to **${to}**. Confirm?`
+        ? `Tôi sẽ đặt buổi tập vào **${date}**, từ **${from}** đến **${to}**${withTrainer}. Bạn xác nhận không?`
+        : `I'll book a session on **${date}**, from **${from}** to **${to}**${withTrainer}. Confirm?`
     }
 
     case 'update_session': {
@@ -199,6 +204,35 @@ function minutesToTime(minutes: string | number, vi: boolean): string {
   const period = h < 12 ? 'AM' : 'PM'
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
   return `${h12}:${min.toString().padStart(2, '0')} ${period}`
+}
+
+/**
+ * Counts the number of user rows in a formatted user search table.
+ * Used to determine if disambiguation is needed (0, 1, or 2+ matches).
+ */
+function countTableRows(formatted: string): number {
+  const matches = formatted.match(/\n\| \[[\d-]+\] \|/g)
+  return matches ? matches.length : 0
+}
+
+/**
+ * Extracts the resolved InstantDB user ID from a user search table.
+ * Matches the ID in backticks from the table row, e.g.: "| [0] | Name | ROLE | `69be89a8-…` |"
+ */
+function extractResolvedId(formatted: string): string {
+  // Match the full UUID in backticks: 8-4-4-4-12 hex format
+  const match = formatted.match(/`([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`/i)
+  return match?.[1] ?? ''
+}
+
+/**
+ * Extracts the user's full name from a resolved user table line.
+ * Matches the "| [0] | Full Name | ROLE |" table row.
+ */
+function extractResolvedName(formatted: string): string {
+  // Matches "| [N] | Full Name Here | ROLE | `id…` |" and captures "Full Name Here"
+  const match = formatted.match(/\n\| \[[\d-]+\] \| ([^\n|]+) \| [A-Z_]+\|?/)
+  return match?.[1]?.trim() ?? 'Unknown'
 }
 
 /**
@@ -246,7 +280,7 @@ export async function executeTool(
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const result = await dispatchTool(toolName, input, baseUrl, headers)
+      const result = await dispatchTool(toolName, input, baseUrl, headers, lang)
       return result
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
@@ -271,7 +305,8 @@ async function dispatchTool(
   toolName: string,
   input: Record<string, unknown>,
   baseUrl: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  lang: UserLanguage
 ): Promise<{ success: true; formatted: string }> {
   switch (toolName) {
     case 'get_contracts': {
@@ -328,6 +363,23 @@ async function dispatchTool(
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       return { success: true, formatted: formatActionResult('contract', 'canceled', data.contract ?? {}) }
+    }
+
+    case 'get_user': {
+      const params = new URLSearchParams({ q: String(input.query ?? '') })
+      if (input.role) params.set('role', String(input.role))
+      if (input.resolved_index !== undefined) {
+        params.set('resolved_index', String(input.resolved_index))
+      }
+      const res = await fetch(`${baseUrl}/api/ai-chatbot/users/search?${params}`, {
+        headers: { Authorization: headers.Authorization! },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      return {
+        success: true,
+        formatted: formatUserSearchResults(data.users ?? [], data.pagination?.total ?? 0, lang),
+      }
     }
 
     case 'get_sessions': {
@@ -490,12 +542,17 @@ export async function callClaudeWithTools({
 
     // Check for confirmation in BOTH assistant text AND the last user message.
     // The system prompt says "CONFIRMED:" prefix triggers execution, but users may
-    // say "có", "yes", "đồng ý", "ok" instead. Check both to cover natural language.
+    // say "có", "yes", "đồng ý", "ok" instead.
+    // Also treat numeric picks ("số 1", "người thứ 2", "item 1") as implicit confirmations
+    // of a pending user resolution when they follow a disambiguation list.
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')
     const userText = lastUser?.content ?? ''
     const CONFIRM_KEYWORDS = /^(có|yep|yeah|đồng ý|ok|confirm|yes|vâng|được rồi)$/i
+    const PICK_KEYWORDS = /^(số|so|item|#|người thứ|nguoi thu|thứ|the|theo)$/i
     const hasConfirmed =
-      assistantText.includes('CONFIRMED:') || CONFIRM_KEYWORDS.test(userText.trim())
+      assistantText.includes('CONFIRMED:') ||
+      CONFIRM_KEYWORDS.test(userText.trim()) ||
+      PICK_KEYWORDS.test(userText.trim())
 
     // No tool calls → plain text
     if (toolCalls.length === 0) {
@@ -518,7 +575,93 @@ export async function callClaudeWithTools({
       return { type: 'proposal', text: proposalText, proposedAction: primaryToolName }
     }
 
-    // Execute all tool calls
+    // ── Special combo handling: get_user + write tool ──────────────────────────
+    // When get_user appears alongside a write tool, resolve the user FIRST.
+    // resolved_index provided → user already picked from disambiguation list → execute write immediately.
+    // resolved_index NOT provided → user named a person without picking → return proposal.
+    const getUserCall = toolCalls.find((tc: any) => tc.name === 'get_user')
+    const writeCall = toolCalls.find((tc: any) => writeToolNames.includes(tc.name))
+
+    // get_user ALONE (no other tools, no resolved_index) — just return the search results.
+    // Do NOT loop back to the model, as the user needs to see and pick from the list.
+    if (getUserCall && !writeCall && toolCalls.length === 1) {
+      const userResult = await executeTool(
+        getUserCall.name,
+        getUserCall.input as Record<string, unknown>,
+        clerkToken,
+        lang
+      )
+      // If resolved_index is provided, we got a specific pick — return it as text
+      if (getUserCall.input?.resolved_index !== undefined && getUserCall.input?.resolved_index !== null) {
+        return { type: 'text', text: userResult.formatted }
+      }
+      // Otherwise return the search results (possibly with disambiguation prompt)
+      return { type: 'text', text: userResult.formatted }
+    }
+
+    if (getUserCall && writeCall) {
+      // 1. Execute get_user to resolve the name
+      const userResult = await executeTool(
+        getUserCall.name,
+        getUserCall.input as Record<string, unknown>,
+        clerkToken,
+        lang
+      )
+
+      // 2. Parse match count from formatted table
+      const matchCount = countTableRows(userResult.formatted)
+
+      if (matchCount === 0) {
+        return { type: 'text', text: userResult.formatted }
+      }
+
+      if (matchCount > 1) {
+        // Multiple matches — stop loop, return disambiguation list
+        const askText = lang === 'vi'
+          ? '\n\nBạn muốn chọn người nào? (Vui lòng cho biết số thứ tự hoặc tên đầy đủ)'
+          : '\n\nWhich user did you mean? (Please specify by number or full name)'
+        return { type: 'text', text: userResult.formatted + askText }
+      }
+
+      // 3. Single match — extract resolved ID and merge into write tool input
+      const resolvedId = extractResolvedId(userResult.formatted)
+      if (!resolvedId) {
+        return { type: 'text', text: userResult.formatted }
+      }
+
+      const idParam = writeCall.name === 'create_session' ? 'teach_by' : 'purchased_by'
+      const mergedInput = { ...writeCall.input, [idParam]: resolvedId }
+      const userName = extractResolvedName(userResult.formatted)
+
+      // 4. If resolved_index was provided → user already picked → execute write immediately
+      const resolvedIndex = getUserCall.input?.resolved_index
+      if (resolvedIndex !== undefined && resolvedIndex !== null) {
+        const writeResult = await executeTool(
+          writeCall.name,
+          mergedInput,
+          clerkToken,
+          lang
+        )
+        const resolvedMention = lang === 'vi'
+          ? `✅ Đã xác định: **${userName}**\n\n`
+          : `✅ Identified: **${userName}**\n\n`
+        if (!writeResult.success) {
+          return { type: 'text', text: `❌ ${writeResult.formatted}` }
+        }
+        return { type: 'text', text: resolvedMention + writeResult.formatted }
+      }
+
+      // 5. No resolved_index → user just mentioned a name → return proposal
+      const resolvedMention = lang === 'vi'
+        ? `✅ Đã xác định: **${userName}**\n\n`
+        : `✅ Identified: **${userName}**\n\n`
+      const proposalText =
+        assistantText.trim() ||
+        buildProposalDescription(writeCall.name, mergedInput, lang, userName)
+      return { type: 'proposal', text: resolvedMention + proposalText, proposedAction: writeCall.name }
+    }
+
+    // ── Standard execution: all other tools ─────────────────────────────────
     const toolResults: ToolResultBlockParam[] = []
     for (const toolCall of toolCalls) {
       try {
@@ -546,7 +689,6 @@ export async function callClaudeWithTools({
     }
 
     // If ANY tool failed, return the error directly — do not loop back to the model.
-    // The AI proxy's tool ID format can cause mismatches on the next call.
     const anyFailed = toolResults.some((r) => r.is_error)
     if (anyFailed) {
       const errorResult = toolResults.find((r) => r.is_error)
@@ -557,13 +699,15 @@ export async function callClaudeWithTools({
       }
     }
 
-    // All tools succeeded. For write operations, return the formatted result as the final
-    // response — no need for another model call (avoids tool ID mismatch on loop).
-    const successResult = toolResults[0]
-    const successContent = successResult?.content
-    return {
-      type: 'text',
-      text: typeof successContent === 'string' ? successContent : 'Action completed.',
+    // All tools succeeded. For write operations, return the formatted result directly —
+    // no need for another model call (avoids tool ID mismatch on loop).
+    if (isWriteTool) {
+      const successResult = toolResults[0]
+      const successContent = successResult?.content
+      return {
+        type: 'text',
+        text: typeof successContent === 'string' ? successContent : 'Action completed.',
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

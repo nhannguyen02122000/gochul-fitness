@@ -56,7 +56,7 @@ export default function MessageInput({ onConfirm }: { onConfirm?: () => void }) 
       <div className="flex items-center gap-2 px-4 py-3 border-t bg-background">
         <Input
           aria-label="Chat message"
-          placeholder="Ask about your contracts or training sessions..."
+          placeholder="Hỏi về hợp đồng hoặc buổi tập của bạn..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}

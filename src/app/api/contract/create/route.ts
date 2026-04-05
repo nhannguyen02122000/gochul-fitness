@@ -76,70 +76,89 @@ export async function POST(request: Request) {
     }
 
     // Parse request body
-    const body = await request.json()
-    const { kind, money, purchased_by, duration_per_session, start_date, end_date, credits } = body
+    const body: Record<string, unknown> = await request.json()
 
-    // Validate required fields
-    if (!kind || money === undefined || !purchased_by || duration_per_session === undefined) {
+    // ── Required fields ─────────────────────────────────────────────────────────
+    const rawKind = body.kind
+    const rawMoney = body.money
+    const rawPurchasedBy = body.purchased_by
+    const rawDuration = body.duration_per_session
+
+    if (!rawKind || rawMoney === undefined || !rawPurchasedBy || rawDuration === undefined) {
       return NextResponse.json(
         { error: 'Missing required fields: kind, money, purchased_by, and duration_per_session are required' },
         { status: 400 }
       )
     }
 
-    // Validate field types
-    if (typeof kind !== 'string') {
+    if (typeof rawKind !== 'string') {
+      return NextResponse.json({ error: 'Invalid field: kind must be a string' }, { status: 400 })
+    }
+    const kind: string = rawKind
+
+    if (typeof rawPurchasedBy !== 'string') {
+      return NextResponse.json({ error: 'Invalid field: purchased_by must be a string' }, { status: 400 })
+    }
+    const purchased_by: string = rawPurchasedBy
+
+    // Validate purchased_by is a valid $users.id in InstantDB (required for link to work)
+    const allUserSettings = await instantServer.query({
+      user_setting: { users: {} }
+    })
+    const validUserIds = (allUserSettings.user_setting ?? [])
+      .map((s) => s.users?.[0]?.id)
+      .filter((id): id is string => typeof id === 'string')
+    console.log('[contract/create] valid user IDs count:', validUserIds.length)
+    console.log('[contract/create] purchased_by:', purchased_by)
+    console.log('[contract/create] is valid:', validUserIds.includes(purchased_by))
+    if (!validUserIds.includes(purchased_by)) {
       return NextResponse.json(
-        { error: 'Invalid field: kind must be a string' },
+        { error: `Invalid purchased_by: "${purchased_by}" is not a valid user ID. Must be an InstantDB $users.id of an existing user.` },
         { status: 400 }
       )
     }
 
-    if (typeof money !== 'number') {
+    // money: accept number or numeric string
+    const moneyRaw = typeof rawMoney === 'number' ? rawMoney : Number(rawMoney)
+    if (!Number.isFinite(moneyRaw) || moneyRaw <= 0) {
+      return NextResponse.json({ error: 'Invalid field: money must be a positive number' }, { status: 400 })
+    }
+    const money: number = moneyRaw
+
+    // duration_per_session: accept number or numeric string
+    const durationRaw = typeof rawDuration === 'number' ? rawDuration : Number(rawDuration)
+    if (!isValidDurationPerSession(durationRaw)) {
       return NextResponse.json(
-        { error: 'Invalid field: money must be a number' },
+        { error: `duration_per_session must be 15–180 and divisible by 15. Got: ${rawDuration}` },
         { status: 400 }
       )
     }
+    const duration_per_session: number = durationRaw
 
-    if (typeof purchased_by !== 'string') {
-      return NextResponse.json(
-        { error: 'Invalid field: purchased_by must be a string' },
-        { status: 400 }
-      )
+    // ── Optional fields ─────────────────────────────────────────────────────────
+    let start_date: number | undefined
+    let end_date: number | undefined
+    let credits: number | undefined
+
+    if (body.start_date !== undefined) {
+      const s = typeof body.start_date === 'number'
+        ? (body.start_date as number)
+        : new Date(String(body.start_date)).getTime()
+      if (Number.isFinite(s)) start_date = s
+    }
+    if (body.end_date !== undefined) {
+      const e = typeof body.end_date === 'number'
+        ? (body.end_date as number)
+        : new Date(String(body.end_date)).getTime()
+      if (Number.isFinite(e)) end_date = e
+    }
+    if (body.credits !== undefined) {
+      const c = typeof body.credits === 'number' ? (body.credits as number) : Number(body.credits)
+      if (Number.isFinite(c) && c > 0) credits = c
     }
 
-    if (!isValidDurationPerSession(duration_per_session)) {
-      return NextResponse.json(
-        { error: 'Invalid field: duration_per_session must be an integer between 15 and 180, divisible by 15' },
-        { status: 400 }
-      )
-    }
-
-    // Set default status to NEWLY_CREATED
+    // ── Status ─────────────────────────────────────────────────────────────────
     const status = 'NEWLY_CREATED'
-
-    // Validate optional fields if provided
-    if (start_date !== undefined && typeof start_date !== 'number') {
-      return NextResponse.json(
-        { error: 'Invalid field: start_date must be a number (timestamp)' },
-        { status: 400 }
-      )
-    }
-
-    if (end_date !== undefined && typeof end_date !== 'number') {
-      return NextResponse.json(
-        { error: 'Invalid field: end_date must be a number (timestamp)' },
-        { status: 400 }
-      )
-    }
-
-    if (credits !== undefined && typeof credits !== 'number') {
-      return NextResponse.json(
-        { error: 'Invalid field: credits must be a number' },
-        { status: 400 }
-      )
-    }
 
     // Auto-fill timestamps with current timestamp
     const created_at = Date.now()
@@ -159,9 +178,9 @@ export async function POST(request: Request) {
         sale_by: userInstantId,
         purchased_by,
         duration_per_session,
-        ...(start_date !== undefined && { start_date }),
-        ...(end_date !== undefined && { end_date }),
-        ...(credits !== undefined && { credits })
+        ...(start_date !== undefined ? { start_date } : {}),
+        ...(end_date !== undefined ? { end_date } : {}),
+        ...(credits !== undefined ? { credits } : {}),
       })
         .link({ sale_by_user: userInstantId })
         .link({ purchased_by_user: purchased_by })
@@ -208,11 +227,19 @@ export async function POST(request: Request) {
     )
 
   } catch (error) {
-    console.error('Error creating contract:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('Validation failed')) {
+      // Log the full input on validation failures so we can debug
+      console.error('[contract/create] Validation error:', msg)
+      return NextResponse.json(
+        { error: `Validation failed: ${msg}` },
+        { status: 400 }
+      )
+    }
+    console.error('[contract/create] Error:', msg)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
-

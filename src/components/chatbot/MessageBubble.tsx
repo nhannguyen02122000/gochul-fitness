@@ -118,7 +118,7 @@ export default function MessageBubble({ message, onConfirm, isStreaming = false 
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                 )}
               >
-                Confirm
+                Xác nhận
               </button>
             )}
           </div>

@@ -505,3 +505,25 @@ export interface GetHistoryByContractSuccessResponse {
 
 export type GetHistoryByContractResponse = GetHistoryByContractSuccessResponse | ApiErrorResponse
 
+// ============================================================================
+// User Search (AI Chatbot)
+// ============================================================================
+
+export interface UserMatch {
+  instant_id: string
+  first_name: string
+  last_name: string
+  full_name: string
+  role: Role
+  match_index: number
+}
+
+export interface UserSearchSuccessResponse {
+  users: UserMatch[]
+  pagination: {
+    total: number
+  }
+}
+
+export type UserSearchResponse = UserSearchSuccessResponse | ApiErrorResponse
+

@@ -6,7 +6,7 @@ import { isTextUIPart, type UIMessage } from 'ai'
 import MessageBubble from './MessageBubble'
 import LoadingIndicator from './LoadingIndicator'
 
-const GREETING = "Hi! I'm your GoChul assistant. Ask me about your contracts or training sessions."
+const GREETING = 'Xin chào! Tôi là trợ lý AI của GoChul Fitness. Bạn có thể hỏi về hợp đồng và buổi tập của mình.'
 
 interface MessageListProps {
   messages: UIMessage[]

@@ -20,7 +20,7 @@ import { auth } from '@clerk/nextjs/server'
 import { instantServer } from '@/lib/dbServer'
 import { NextResponse } from 'next/server'
 import { buildSystemPrompt } from '@/lib/ai/systemPrompt'
-import { callClaudeWithTools, detectLanguage } from '@/lib/ai/anthropicService'
+import { callClaudeWithTools } from '@/lib/ai/anthropicService'
 import { requireRole } from '@/lib/roleCheck'
 import { ratelimit } from '@/lib/ratelimit'
 import { textToStream } from '@/lib/ai/streamUtils'
@@ -148,23 +148,7 @@ export async function POST(request: Request) {
   // ── 7. Build conversation messages ───────────────────────────────────────────
   const conversationMessages = toConversationMessages(body.messages)
 
-  // ── 8. Language switch detection (Phase 5) ───────────────────────────────────
-  const userMsgs = conversationMessages.filter(m => m.role === 'user')
-  const lastTwo = userMsgs.slice(-2)
-  const langSwitched =
-    lastTwo.length >= 2 &&
-    detectLanguage([lastTwo[lastTwo.length - 2]]) !==
-      detectLanguage([lastTwo[lastTwo.length - 1]])
-
-  if (langSwitched) {
-    const currentLang = detectLanguage([lastTwo[lastTwo.length - 1]])
-    const detectedLabel = currentLang === 'vi' ? 'Vietnamese' : 'English'
-    const nudgeText = `I noticed you switched language. I'll respond in ${detectedLabel}.`
-    // Stream nudge as SSE
-    return textToStream(nudgeText)
-  }
-
-  // ── 9. Call Claude with tool-use loop (30s timeout) ──────────────────────────
+  // ── 8. Call Claude with tool-use loop (30s timeout) ──────────────────────────
   let callResult: { type: 'text' | 'proposal'; text: string }
   try {
     callResult = await callClaudeWithTools({

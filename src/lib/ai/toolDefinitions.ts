@@ -43,6 +43,48 @@ type Tool = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 0. get_user
+// ─────────────────────────────────────────────────────────────────────────────
+// All authenticated roles can search users. Supports partial name match
+// (diacritic-insensitive) and exact $users.id UUID lookup.
+// When multiple matches: returns numbered list; AI asks user to pick.
+// When user picks: next call includes resolved_index to confirm exact user.
+
+export const get_user: Tool = {
+  name: 'get_user',
+  description:
+    'Look up a user by their name or InstantDB $users.id. Use this to resolve ' +
+    'a name mention (e.g., "Minh", "Lan", "PT Minh Hoàng") to an InstantDB ID ' +
+    'before calling create_contract, create_session, update_session, etc. ' +
+    'ALWAYS execute this tool immediately — it is a READ-only tool (no confirmation needed). ' +
+    'Returns a numbered list. If more than one match: present the list and ask the user ' +
+    'to pick one by number (0, 1, 2…) or full name. If no match: tell the user to try a more specific name. ' +
+    'Supports both partial name search and exact $users.id lookup.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description:
+          'Name to search (partial, diacritic-insensitive) or exact InstantDB $users.id (UUID format).',
+      },
+      role: {
+        type: 'string',
+        description: 'Optional role filter: CUSTOMER | STAFF | ADMIN',
+        enum: ['CUSTOMER', 'STAFF', 'ADMIN'],
+      },
+      resolved_index: {
+        type: 'number',
+        description:
+          'Optional. When the user picks from a numbered list, pass the ' +
+          '0-based index here to confirm the exact user. Use -1 for the last item.',
+      },
+    },
+    required: ['query'],
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 1. get_contracts
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: all contracts
@@ -510,6 +552,7 @@ export const get_occupied_time_slots: Tool = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TOOL_DEFINITIONS: Tool[] = [
+  get_user,
   get_contracts,
   create_contract,
   update_contract_status,
