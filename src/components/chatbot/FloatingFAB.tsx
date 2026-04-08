@@ -9,6 +9,8 @@ export default function FloatingFAB() {
 
   if (isOpen) return null
 
+  return null
+
   return (
     <button
       aria-label="Open AI Assistant"
