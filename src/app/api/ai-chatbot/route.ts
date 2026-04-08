@@ -23,7 +23,7 @@ import { buildSystemPrompt } from '@/lib/ai/systemPrompt'
 import { callClaudeWithTools } from '@/lib/ai/anthropicService'
 import { requireRole } from '@/lib/roleCheck'
 import { ratelimit } from '@/lib/ratelimit'
-import { textToStream } from '@/lib/ai/streamUtils'
+import { textToStream, selectionToStream } from '@/lib/ai/streamUtils'
 import type { Role } from '@/app/type/api'
 import { isTextUIPart, type UIMessage } from 'ai'
 
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
   const conversationMessages = toConversationMessages(body.messages)
 
   // ── 8. Call Claude with tool-use loop (30s timeout) ──────────────────────────
-  let callResult: { type: 'text' | 'proposal'; text: string }
+  let callResult: { type: 'text' | 'proposal' | 'selection'; text: string; options?: { id: string; label: string; sublabel: string }[] }
   try {
     callResult = await callClaudeWithTools({
       messages: conversationMessages,
@@ -166,11 +166,27 @@ export async function POST(request: Request) {
     return textToStream(`AI error: ${msg}`)
   }
 
-  const { type: responseType, text: botReply } = callResult
+  const { type: responseType, text: botReply, options } = callResult
 
   console.log('[chatbot route] callResult type:', responseType, '| text length:', botReply.length, '| text preview:', JSON.stringify(botReply.slice(0, 80)))
 
   // ── 10. Return response ──────────────────────────────────────────────────────
-  // All responses stream via SSE (AI SDK v6 useChat format)
+  // 'selection' type: stream text + tool-result with __selection__ sentinel
+  // so the frontend renders tappable option cards.
+  if (responseType === 'selection' && options) {
+    return selectionToStream(botReply, options)
+  }
+
+  // 'proposal' type: stream text WITH message-metadata so frontend renders
+  // Confirm/Cancel buttons immediately (not waiting for a re-render).
+  if (responseType === 'proposal') {
+    return textToStream(botReply, {
+      type: 'proposal',
+      // proposedAction is only present on proposal responses
+      proposedAction: 'proposedAction' in callResult ? callResult.proposedAction : undefined,
+    })
+  }
+
+  // 'text': plain text stream
   return textToStream(botReply)
 }

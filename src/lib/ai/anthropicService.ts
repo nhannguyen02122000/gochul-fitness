@@ -17,6 +17,7 @@ import {
   formatUserSearchResults,
   translateError,
   type UserLanguage,
+  type SelectionOption,
 } from '@/lib/ai/formatters'
 
 const MODEL_NAME = process.env.MODEL_NAME ?? 'claude-opus-4-6'
@@ -95,6 +96,7 @@ export type CallClaudeParams = {
 export type CallResult =
   | { type: 'text'; text: string }
   | { type: 'proposal'; text: string; proposedAction: string }
+  | { type: 'selection'; text: string; options: SelectionOption[] }
 
 const MAX_TOOL_ITERATIONS = 10
 
@@ -127,30 +129,30 @@ function buildProposalDescription(
       const duration = Number(input.duration_per_session ?? 0)
       const forUser = userName ? (vi ? `cho **${userName}**` : `for **${userName}**`) : 'cho bạn'
       return vi
-        ? `Tôi sẽ tạo hợp đồng **${kind}** ${forUser} — giá **${money.toLocaleString('vi-VN')} VND**, ${credits > 0 ? `${credits} buổi, ` : ''}${duration > 0 ? `mỗi buổi ${duration} phút, ` : ''}hạn đến **${endDate}**. Bạn xác nhận không?`
-        : `I'll create a **${kind}** contract ${forUser} — **${money.toLocaleString('en-US')} VND**${credits > 0 ? `, ${credits} sessions` : ''}${duration > 0 ? `, ${duration} min each` : ''}, valid until **${endDate}**. Confirm?`
+        ? `Tôi sẽ tạo hợp đồng **${kind}** ${forUser} — giá **${money.toLocaleString('vi-VN')} VND**, ${credits > 0 ? `${credits} buổi, ` : ''}${duration > 0 ? `mỗi buổi ${duration} phút, ` : ''}hạn đến **${endDate}**.`
+        : `I'll create a **${kind}** contract ${forUser} — **${money.toLocaleString('en-US')} VND**${credits > 0 ? `, ${credits} sessions` : ''}${duration > 0 ? `, ${duration} min each` : ''}, valid until **${endDate}**.`
     }
 
     case 'update_contract_status': {
       const contractId = String(input.contract_id ?? '').slice(0, 8)
       const newStatus = String(input.status ?? '')
       return vi
-        ? `Tôi sẽ cập nhật hợp đồng **${contractId}…** sang trạng thái **${newStatus}**. Bạn xác nhận không?`
-        : `I'll update contract **${contractId}…** to status **${newStatus}**. Confirm?`
+        ? `Tôi sẽ cập nhật hợp đồng **${contractId}…** sang trạng thái **${newStatus}**.`
+        : `I'll update contract **${contractId}…** to status **${newStatus}**.`
     }
 
     case 'update_contract': {
       const contractId = String(input.contract_id ?? '').slice(0, 8)
       return vi
-        ? `Tôi sẽ cập nhật hợp đồng **${contractId}…**. Bạn xác nhận không?`
-        : `I'll update contract **${contractId}…**. Confirm?`
+        ? `Tôi sẽ cập nhật hợp đồng **${contractId}…**.`
+        : `I'll update contract **${contractId}…**.`
     }
 
     case 'delete_contract': {
       const contractId = String(input.contract_id ?? '').slice(0, 8)
       return vi
-        ? `Tôi sẽ hủy hợp đồng **${contractId}…**. Bạn xác nhận không?`
-        : `I'll cancel contract **${contractId}…**. Confirm?`
+        ? `Tôi sẽ hủy hợp đồng **${contractId}…**.`
+        : `I'll cancel contract **${contractId}…**.`
     }
 
     case 'create_session': {
@@ -159,16 +161,16 @@ function buildProposalDescription(
       const to = minutesToTime(String(input.to ?? '0'), vi)
       const withTrainer = userName ? (vi ? ` với PT **${userName}**` : ` with PT **${userName}**`) : ''
       return vi
-        ? `Tôi sẽ đặt buổi tập vào **${date}**, từ **${from}** đến **${to}**${withTrainer}. Bạn xác nhận không?`
-        : `I'll book a session on **${date}**, from **${from}** to **${to}**${withTrainer}. Confirm?`
+        ? `Tôi sẽ đặt buổi tập vào **${date}**, từ **${from}** đến **${to}**${withTrainer}.`
+        : `I'll book a session on **${date}**, from **${from}** to **${to}**${withTrainer}.`
     }
 
     case 'update_session': {
       const historyId = String(input.history_id ?? '').slice(0, 8)
       const date = input.date ? formatDate(Number(input.date), vi) : ''
       return vi
-        ? `Tôi sẽ cập nhật buổi tập **${historyId}…**${date ? ` sang ngày **${date}**` : ''}. Bạn xác nhận không?`
-        : `I'll update session **${historyId}…**${date ? ` to **${date}**` : ''}. Confirm?`
+        ? `Tôi sẽ cập nhật buổi tập **${historyId}…**${date ? ` sang ngày **${date}**` : ''}.`
+        : `I'll update session **${historyId}…**${date ? ` to **${date}**` : ''}.`
     }
 
     case 'update_session_status': {
@@ -176,14 +178,14 @@ function buildProposalDescription(
       const action = String(input.action ?? '')
       const actionText = action === 'check_in' ? (vi ? 'check-in' : 'check in') : (vi ? 'hủy' : 'cancel')
       return vi
-        ? `Tôi sẽ ${actionText} buổi tập **${historyId}…**. Bạn xác nhận không?`
-        : `I'll ${actionText} session **${historyId}…**. Confirm?`
+        ? `Tôi sẽ ${actionText} buổi tập **${historyId}…**.`
+        : `I'll ${actionText} session **${historyId}…**.`
     }
 
     default:
       return vi
-        ? `Tôi sẽ thực hiện thao tác **${toolName}**. Bạn xác nhận không?`
-        : `I'll perform **${toolName}**. Confirm?`
+        ? `Tôi sẽ thực hiện thao tác **${toolName}**.`
+        : `I'll perform **${toolName}**.`
   }
 }
 
@@ -195,6 +197,53 @@ function formatDate(ts: number, vi: boolean): string {
   })
 }
 
+/**
+ * Returns a list of missing required parameter labels for write tools.
+ * Used to prevent the model from calling an API with incomplete params
+ * (which would result in a silent failure rather than a helpful ask-for-more prompt).
+ */
+function getMissingRequiredParams(
+  toolName: string,
+  input: Record<string, unknown> | undefined
+): string[] {
+  if (!input) return ['purchased_by', 'kind', 'money', 'end_date']
+
+  const required: Record<string, string> = {
+    create_contract: 'Loại hợp đồng — PT (Personal Training), REHAB (Rehabilitation), hay PT_MONTHLY (Monthly PT)?',
+    create_session: 'ID hợp đồng (contract_id)',
+    update_contract: 'ID hợp đồng (contract_id)',
+    update_session: 'ID buổi tập (history_id)',
+    update_session_status: 'ID buổi tập (history_id) + action (check_in / cancel)',
+    delete_contract: 'ID hợp đồng (contract_id)',
+  }
+
+  switch (toolName) {
+    case 'create_contract': {
+      const missing: string[] = []
+      if (!input.purchased_by) missing.push('Người mua (purchased_by) — cần tên khách hàng')
+      if (!input.kind) missing.push('Loại hợp đồng (kind) — PT / REHAB / PT_MONTHLY')
+      if (input.money === undefined || input.money === null || input.money === '') missing.push('Giá tiền (money, VND)')
+      if (!input.end_date) missing.push('Ngày kết thúc (end_date)')
+      if (!input.credits && input.kind !== 'PT_MONTHLY') missing.push('Số buổi tập (credits, chỉ PT/REHAB)')
+      if (!input.duration_per_session) missing.push('Thời lượng mỗi buổi (duration_per_session, phút, chia hết cho 15)')
+      return missing
+    }
+
+    case 'create_session': {
+      const missing: string[] = []
+      if (!input.contract_id) missing.push('ID hợp đồng (contract_id)')
+      if (!input.date) missing.push('Ngày tập (date)')
+      if (input.from === undefined || input.from === null) missing.push('Giờ bắt đầu (from, phút từ 0:00)')
+      if (input.to === undefined || input.to === null) missing.push('Giờ kết thúc (to, phút từ 0:00)')
+      if (!input.teach_by) missing.push('PT / huấn luyện viên (teach_by) — cần tên PT')
+      return missing
+    }
+
+    default:
+      return []
+  }
+}
+
 /** Converts minute-of-day (e.g. 480) to time string (e.g. "8:00 AM"). */
 function minutesToTime(minutes: string | number, vi: boolean): string {
   const m = Number(minutes)
@@ -204,6 +253,31 @@ function minutesToTime(minutes: string | number, vi: boolean): string {
   const period = h < 12 ? 'AM' : 'PM'
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
   return `${h12}:${min.toString().padStart(2, '0')} ${period}`
+}
+
+/**
+ * Parses __selection__ sentinel from formatted tool result text.
+ * Returns the parsed options array or null if no sentinel present.
+ */
+function parseSelectionSentinel(formatted: string): SelectionOption[] | null {
+  // Use [\s\S] instead of dotAll 's' flag for ES2017 compatibility
+  const match = formatted.match(/<!-- __selection__ ([\s\S]+?) -->/)
+  if (!match) return null
+  try {
+    const parsed = JSON.parse(match[1]) as SelectionOption[]
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed
+  } catch {
+    // malformed JSON
+  }
+  return null
+}
+
+/**
+ * Strips the __selection__ sentinel comment from formatted tool result text.
+ */
+function stripSentinel(formatted: string): string {
+  // Use [\s\S] instead of dotAll 's' flag for ES2017 compatibility
+  return formatted.replace(/<!-- __selection__ [\s\S]+? -->\s*/, '')
 }
 
 /**
@@ -226,13 +300,28 @@ function extractResolvedId(formatted: string): string {
 }
 
 /**
- * Extracts the user's full name from a resolved user table line.
- * Matches the "| [0] | Full Name | ROLE |" table row.
+ * Extracts the user's full name from a formatted user search result.
+ * Handles two formats:
+ *   1. List format (formatUserSearchResults output):
+ *      "[0] Full Name (email@domain.com) — ROLE"
+ *   2. Table format (backwards compatibility):
+ *      "| [0] | Full Name | ROLE |"
  */
 function extractResolvedName(formatted: string): string {
-  // Matches "| [N] | Full Name Here | ROLE | `id…` |" and captures "Full Name Here"
-  const match = formatted.match(/\n\| \[[\d-]+\] \| ([^\n|]+) \| [A-Z_]+\|?/)
-  return match?.[1]?.trim() ?? 'Unknown'
+  // Try list format first: "[N] Full Name (email) — ROLE"
+  // Use [\s\S] instead of 's' flag for ES2017 compatibility
+  const listMatch = formatted.match(/\[\d+\]\s+([\s\S]+?)\s*\(/)
+  if (listMatch?.[1]) {
+    return listMatch[1].trim()
+  }
+
+  // Fallback to table format: "| [N] | Full Name | ROLE |"
+  const tableMatch = formatted.match(/\n\| \[[\d-]+\] \| ([^\n|]+) \| [A-Z_]+\|?/)
+  if (tableMatch?.[1]) {
+    return tableMatch[1].trim()
+  }
+
+  return 'Unknown'
 }
 
 /**
@@ -376,10 +465,19 @@ async function dispatchTool(
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
-      return {
-        success: true,
-        formatted: formatUserSearchResults(data.users ?? [], data.pagination?.total ?? 0, lang),
+      const { formatted, options } = formatUserSearchResults(
+        data.users ?? [],
+        data.pagination?.total ?? 0,
+        lang
+      )
+      // Embed __selection__ sentinel in the formatted string so the frontend
+      // can parse it out of tool-result content and render tappable cards.
+      // Wrapped in HTML comment so it does not render in markdown.
+      if (options.length >= 2) {
+        const sentinel = `\n<!-- __selection__ ${JSON.stringify(options)} -->`
+        return { success: true, formatted: formatted + sentinel }
       }
+      return { success: true, formatted }
     }
 
     case 'get_sessions': {
@@ -548,11 +646,25 @@ export async function callClaudeWithTools({
     const lastUser = [...messages].reverse().find((m) => m.role === 'user')
     const userText = lastUser?.content ?? ''
     const CONFIRM_KEYWORDS = /^(có|yep|yeah|đồng ý|ok|confirm|yes|vâng|được rồi)$/i
+    const CANCEL_KEYWORDS = /^(không|k hông|no|k no|cancel|hủy|huỷ|undo)$/i
     const PICK_KEYWORDS = /^(số|so|item|#|người thứ|nguoi thu|thứ|the|theo)$/i
     const hasConfirmed =
-      assistantText.includes('CONFIRMED:') ||
+      userText.trim() === 'Xác nhận' ||
       CONFIRM_KEYWORDS.test(userText.trim()) ||
       PICK_KEYWORDS.test(userText.trim())
+    const hasCanceled =
+      userText.trim() === 'Huỷ bỏ' ||
+      CANCEL_KEYWORDS.test(userText.trim().replace(/^Xác nhận\s*/, ''))
+
+    // Explicit cancel → acknowledge, no write executed
+    if (hasCanceled) {
+      return {
+        type: 'text',
+        text: lang === 'vi'
+          ? 'Đã huỷ thao tác. Nếu bạn cần thay đổi gì, cứ nhắn tôi nhé!'
+          : 'Action cancelled. Let me know if you need anything else!',
+      }
+    }
 
     // No tool calls → plain text
     if (toolCalls.length === 0) {
@@ -591,12 +703,31 @@ export async function callClaudeWithTools({
         clerkToken,
         lang
       )
+
       // If resolved_index is provided, we got a specific pick — return it as text
       if (getUserCall.input?.resolved_index !== undefined && getUserCall.input?.resolved_index !== null) {
         return { type: 'text', text: userResult.formatted }
       }
-      // Otherwise return the search results (possibly with disambiguation prompt)
-      return { type: 'text', text: userResult.formatted }
+
+      // Parse __selection__ sentinel to distinguish 0 / 1 / 2+ matches
+      const parsed = parseSelectionSentinel(userResult.formatted)
+
+      // 2+ user matches → return 'selection' type so the frontend renders tappable option cards
+      if (parsed) {
+        return { type: 'selection', text: stripSentinel(userResult.formatted), options: parsed }
+      }
+
+      // 1 match (no sentinel, no resolved_index) → push result back to the model and loop.
+      // Claude will then call create_contract (or whatever action the user requested)
+      // with the resolved user_id merged into the tool input.
+      // We use the plain formatted text (no ID shown to user) so the loop feels seamless.
+      const resolvedMention = lang === 'vi'
+        ? `Đã xác định người dùng.\n\n${userResult.formatted}`
+        : `User identified.\n\n${userResult.formatted}`
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      conversationMessages.push({ role: 'user', content: resolvedMention } as any)
+      iterations++
+      continue
     }
 
     if (getUserCall && writeCall) {
@@ -608,19 +739,22 @@ export async function callClaudeWithTools({
         lang
       )
 
-      // 2. Parse match count from formatted table
-      const matchCount = countTableRows(userResult.formatted)
+      // 2. Parse match count via sentinel
+      const parsed = parseSelectionSentinel(userResult.formatted)
+      const matchCount = parsed ? parsed.length : 0
 
       if (matchCount === 0) {
         return { type: 'text', text: userResult.formatted }
       }
 
       if (matchCount > 1) {
-        // Multiple matches — stop loop, return disambiguation list
-        const askText = lang === 'vi'
-          ? '\n\nBạn muốn chọn người nào? (Vui lòng cho biết số thứ tự hoặc tên đầy đủ)'
-          : '\n\nWhich user did you mean? (Please specify by number or full name)'
-        return { type: 'text', text: userResult.formatted + askText }
+        // Multiple matches — return 'selection' type so frontend renders tappable cards
+        // matchCount > 1 implies parsed is non-null (matchCount = parsed?.length ?? 0)
+        return {
+          type: 'selection',
+          text: stripSentinel(userResult.formatted),
+          options: parsed!,
+        }
       }
 
       // 3. Single match — extract resolved ID and merge into write tool input
@@ -662,6 +796,25 @@ export async function callClaudeWithTools({
     }
 
     // ── Standard execution: all other tools ─────────────────────────────────
+
+    // Guard: validate required params for write tools BEFORE executing.
+    // Even when hasConfirmed=true (e.g. user clicked Confirm), missing required
+    // params must surface as a proposal so the bot can ask for them instead of
+    // calling the API and failing silently.
+    if (isWriteTool) {
+      const missingParams = getMissingRequiredParams(primaryToolName, toolCalls[0]?.input as Record<string, unknown>)
+      if (missingParams.length > 0) {
+        const vi = lang === 'vi'
+        return {
+          type: 'proposal',
+          text: vi
+            ? `Để tạo hợp đồng, cần các thông tin sau:\n${missingParams.map((p, i) => `${i + 1}. ${p}`).join('\n')}\nBạn cung cấp giúp tôi nhé!`
+            : `To proceed, I need the following information:\n${missingParams.map((p, i) => `${i + 1}. ${p}`).join('\n')}\nCould you provide these details?`,
+          proposedAction: primaryToolName,
+        }
+      }
+    }
+
     const toolResults: ToolResultBlockParam[] = []
     for (const toolCall of toolCalls) {
       try {

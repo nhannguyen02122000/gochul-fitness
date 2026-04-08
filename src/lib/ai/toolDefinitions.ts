@@ -149,14 +149,15 @@ export const get_contracts: Tool = {
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: ✅ create for any customer
 // STAFF: ✅ create for any customer
-// CUSTOMER: ❌ forbidden — returns HTTP 403
+// CUSTOMER: ❌ blocked — do NOT call this tool; tell user politely instead
 
 export const create_contract: Tool = {
   name: 'create_contract',
   description:
-    'Create a new gym contract. Only ADMIN and STAFF roles can create contracts. ' +
-    'The contract is created with status NEWLY_CREATED and sale_by set to the ' +
-    'authenticated user. Returns the created contract object.',
+    'Create a new gym contract. ADMIN and STAFF roles only. ' +
+    'CUSTOMER role is BLOCKED — do not call this tool; explain politely. ' +
+    'Returns HTTP 403 if called by CUSTOMER. Contract is created with ' +
+    'status NEWLY_CREATED and sale_by set to the authenticated user.',
   input_schema: {
     type: 'object',
     properties: {
@@ -200,16 +201,19 @@ export const create_contract: Tool = {
 // ADMIN: can force-set most transitions (see PROGRAM.md §4.2)
 // STAFF: NEWLY_CREATED→CUSTOMER_REVIEW, CUSTOMER_PAID→PT_CONFIRMED, limited cancels
 // CUSTOMER: limited workflow transitions on own contracts only
+// See RBAC PRE-FILTER section in system prompt for full details.
 
 export const update_contract_status: Tool = {
   name: 'update_contract_status',
   description:
     'Update the status of a gym contract (workflow transitions). ' +
-    'ADMIN: can force-set most valid transitions. ' +
-    'STAFF: NEWLY_CREATED→CUSTOMER_REVIEW, CUSTOMER_PAID→PT_CONFIRMED, limited cancels. ' +
+    'ADMIN: all valid transitions. ' +
+    'STAFF: NEWLY_CREATED→CUSTOMER_REVIEW, CUSTOMER_PAID→PT_CONFIRMED, ' +
+    'NEWLY_CREATED/CUSTOMER_REVIEW/CUSTOMER_CONFIRMED→CANCELED. ' +
     'CUSTOMER: CUSTOMER_REVIEW→CUSTOMER_CONFIRMED/CANCELED, ' +
     'CUSTOMER_CONFIRMED→CUSTOMER_PAID/CANCELED, PT_CONFIRMED→ACTIVE. ' +
-    'ACTIVE contracts cannot be canceled by STAFF or CUSTOMER.',
+    'ACTIVE contracts cannot be canceled by STAFF or CUSTOMER. ' +
+    'See RBAC PRE-FILTER section in system prompt for blocked transitions.',
   input_schema: {
     type: 'object',
     properties: {
@@ -242,12 +246,13 @@ export const update_contract_status: Tool = {
 // 4. update_contract
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN only. Updates contract fields (not status).
-// STAFF/CUSTOMER: HTTP 403
+// STAFF/CUSTOMER: BLOCKED — do NOT call; explain politely instead.
 
 export const update_contract: Tool = {
   name: 'update_contract',
   description:
     'Update contract fields (not status). ADMIN role only. ' +
+    'STAFF and CUSTOMER are BLOCKED — do not call this tool; explain politely instead. ' +
     'Can update: kind, credits, duration_per_session, money, start_date, end_date.',
   input_schema: {
     type: 'object',
@@ -290,14 +295,14 @@ export const update_contract: Tool = {
 // 5. delete_contract
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN only. Soft-deletes by setting status to CANCELED.
-// STAFF/CUSTOMER: HTTP 403
+// STAFF/CUSTOMER: BLOCKED — do NOT call; explain politely instead.
 
 export const delete_contract: Tool = {
   name: 'delete_contract',
   description:
     'Cancel (soft-delete) a contract by setting its status to CANCELED. ' +
-    'ADMIN role only. Note: ACTIVE contracts cannot be deleted; ' +
-    'use update_contract_status with CANCELED instead.',
+    'ADMIN role only. STAFF and CUSTOMER are BLOCKED — do not call this tool; ' +
+    'explain politely instead. ACTIVE contracts cannot be deleted.',
   input_schema: {
     type: 'object',
     properties: {
@@ -374,7 +379,7 @@ export const get_sessions: Tool = {
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: no restrictions
 // STAFF: no restrictions
-// CUSTOMER: can only create for contracts they purchased
+// CUSTOMER: can only create for contracts they purchased (purchased_by = their ID)
 // Additional constraints: contract must be ACTIVE, not expired, no time overlap,
 // credits available (PT/REHAB). Duration must match contract.duration_per_session.
 
@@ -382,10 +387,10 @@ export const create_session: Tool = {
   name: 'create_session',
   description:
     'Book a new training session. ' +
-    'ADMIN/STAFF: no restrictions. CUSTOMER: can only create for their own contracts. ' +
-    'Additional constraints: contract must be ACTIVE and not expired, ' +
-    'no time overlap with existing sessions by the same trainer, ' +
-    'credits must be available for PT/REHAB contracts.',
+    'ADMIN/STAFF: any contract. CUSTOMER: only own ACTIVE contracts (purchased_by = your user ID), ' +
+    'not expired, credits available. ' +
+    'Do NOT call for another customer’s contract — explain politely instead. ' +
+    'Additional constraints: no time overlap with existing sessions by the same trainer.',
   input_schema: {
     type: 'object',
     properties: {
@@ -421,7 +426,7 @@ export const create_session: Tool = {
 // 8. update_session
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN: any session
-// STAFF: sessions they created
+// STAFF: sessions they created (users link)
 // CUSTOMER: sessions from contracts they purchased
 // Cannot update CHECKED_IN, CANCELED, or EXPIRED sessions.
 
@@ -429,7 +434,8 @@ export const update_session: Tool = {
   name: 'update_session',
   description:
     'Update a training session (date, time, or trainer). Reschedules a session. ' +
-    'ADMIN: any session. STAFF: sessions they created. CUSTOMER: sessions from their contracts. ' +
+    'ADMIN: any session. STAFF: sessions they created. CUSTOMER: sessions from their own contracts. ' +
+    'CUSTOMER attempting to update another person’s session: do NOT call; explain politely instead. ' +
     'Cannot update CHECKED_IN, CANCELED, or EXPIRED sessions.',
   input_schema: {
     type: 'object',

@@ -5,10 +5,15 @@ import remarkGfm from 'remark-gfm'
 import { Bot, AlertCircle, AlertTriangle, Languages } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChatMessage } from '@/store/useAIChatbotStore'
+import SelectionBubble from './SelectionBubble'
 
 interface MessageBubbleProps {
   message: ChatMessage
   onConfirm?: () => void
+  /** Called when user taps "Huỷ bỏ" on a proposal bubble */
+  onCancel?: () => void
+  /** Called when user taps a selection option card (type === 'selection') */
+  onSelect?: (value: string) => void
   /** Phase 5: true when this is the last assistant message and stream is active */
   isStreaming?: boolean
 }
@@ -16,11 +21,12 @@ interface MessageBubbleProps {
 const markdownStyles =
   'text-sm leading-relaxed [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_table]:w-full [&_thead]:bg-muted [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1'
 
-export default function MessageBubble({ message, onConfirm, isStreaming = false }: MessageBubbleProps) {
+export default function MessageBubble({ message, onConfirm, onCancel, onSelect, isStreaming = false }: MessageBubbleProps) {
   const { role, content, type } = message
   const isError = type === 'error'
   const isWarning = type === 'warning'
   const isNudge = type === 'nudge'
+  const isSelection = type === 'selection'
 
   // ── User bubble ──────────────────────────────────────────────────────────────
   if (role === 'user') {
@@ -91,6 +97,16 @@ export default function MessageBubble({ message, onConfirm, isStreaming = false 
         ) : isError ? (
           // Error: plain text, no markdown
           <span>{content}</span>
+        ) : isSelection ? (
+          // Selection: tappable option cards instead of markdown
+          onSelect && message.selectionOptions ? (
+            <SelectionBubble
+              options={message.selectionOptions}
+              onSelect={onSelect}
+            />
+          ) : (
+            <span>{content}</span>
+          )
         ) : (
           // Normal / proposal / warning: markdown + optional streaming cursor + optional confirm button
           <div className={!isError && markdownStyles}>
@@ -105,21 +121,38 @@ export default function MessageBubble({ message, onConfirm, isStreaming = false 
                 aria-hidden="true"
               />
             )}
-            {/* Confirm button for proposal */}
+            {/* Confirm / Cancel buttons for proposal */}
             {type === 'proposal' && onConfirm && (
-              <button
-                type="button"
-                aria-label="Confirm action"
-                onClick={onConfirm}
-                className={cn(
-                  'self-start h-8 px-4 rounded-full mt-2',
-                  'bg-[var(--color-cta)] text-white text-sm font-medium',
-                  'transition-colors hover:bg-[var(--color-cta-hover)]',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  aria-label="Xác nhận thao tác"
+                  onClick={onConfirm}
+                  className={cn(
+                    'h-9 px-4 rounded-full text-sm font-medium',
+                    'bg-[var(--color-cta)] text-white',
+                    'transition-colors hover:bg-[var(--color-cta-hover)]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  )}
+                >
+                  Xác nhận
+                </button>
+                {onCancel && (
+                  <button
+                    type="button"
+                    aria-label="Huỷ bỏ thao tác"
+                    onClick={onCancel}
+                    className={cn(
+                      'h-9 px-4 rounded-full text-sm font-medium',
+                      'bg-transparent text-muted-foreground border border-border',
+                      'transition-colors hover:bg-muted hover:text-foreground',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                    )}
+                  >
+                    Huỷ bỏ
+                  </button>
                 )}
-              >
-                Xác nhận
-              </button>
+              </div>
             )}
           </div>
         )}

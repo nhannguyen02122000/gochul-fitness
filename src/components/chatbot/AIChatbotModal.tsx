@@ -35,10 +35,20 @@ export default function AIChatbotModal() {
       <DialogContent
         showCloseButton={false}
         className={cn(
-          'fixed bottom-0 right-0 top-auto translate-x-0 translate-y-0',
-          'w-full rounded-b-none rounded-t-2xl',
-          'flex flex-col p-0 gap-0',
-          'sm:rounded-2xl sm:bottom-6 sm:right-6 sm:top-auto sm:max-w-[400px] sm:h-[560px] sm:translate-x-0 sm:translate-y-0'
+          // Mobile: full-width bottom sheet, anchor to bottom of viewport
+          // Use ! to override DialogContent's built-in positioning
+          '!fixed !bottom-0 !top-auto !left-0 !right-0',
+          '!w-full !max-w-full !h-[85dvh] !max-h-[85dvh]',
+          '!rounded-b-none !rounded-t-2xl',
+          '!flex !flex-col !p-0 !gap-0',
+          // Override the built-in translate-x-1/2 translate-y-1/2 centering
+          '!translate-x-0 !-translate-y-0',
+          // Desktop: floating panel anchored bottom-right
+          'sm:!fixed sm:!bottom-6 sm:!right-6 sm:!top-auto',
+          'sm:!left-auto sm:!right-6',
+          'sm:!w-[400px] sm:!max-w-[400px] sm:!min-w-[320px]',
+          'sm:!rounded-2xl sm:!rounded-b-2xl',
+          'sm:!translate-x-0 sm:!-translate-y-0'
         )}
       >
         {/* Header */}

@@ -14,11 +14,26 @@ import 'server-only'
 // Exported types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ToolResult =
-  | { success: true; formatted: string }
-  | { success: false; formatted: string }
+/**
+ * A single selectable option rendered inside a selection bubble.
+ * Used when the bot needs the user to pick from a disambiguation list.
+ */
+export interface SelectionOption {
+  /** Unique identifier (e.g., InstantDB user ID) */
+  id: string
+  /** Primary label shown as the main text (e.g., full name) */
+  label: string
+  /** Secondary label shown as a badge/chip (e.g., role) */
+  sublabel: string
+}
 
 export type UserLanguage = 'vi' | 'en'
+
+export type UserSearchResult = {
+  formatted: string
+  /** Populated when matchCount >= 2 — sent via __selection__ sentinel to frontend */
+  options: SelectionOption[]
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // User search formatter
@@ -33,54 +48,64 @@ export function stripDiacritics(str: string): string {
 }
 
 /**
- * Formats a user search result as a numbered markdown table for AI display.
+ * Formats a user search result as a numbered list for AI display AND
+ * returns structured selection options for tappable UI.
+ *
+ * Used by get_user tool — the formatted string serves as a plain fallback,
+ * while `options` is embedded as a __selection__ sentinel for the frontend.
  *
  * @param users   - Array of UserMatch objects from the search API
  * @param total  - Total number of matches (may exceed the returned list)
  * @param lang   - 'vi' | 'en'
- * @returns Markdown string for display to the user
+ * @returns { formatted, options } — formatted markdown string + tappable option list
  *
  * @example
- * const text = formatUserSearchResults(users, 15, 'vi')
+ * const { formatted, options } = formatUserSearchResults(users, 15, 'vi')
  */
 export function formatUserSearchResults(
-  users: Array<{ instant_id: string; first_name: string; last_name: string; full_name: string; role: string; match_index: number }>,
+  users: Array<{ instant_id: string; first_name: string; last_name: string; full_name: string; email: string; role: string; match_index: number }>,
   total: number,
   lang: UserLanguage = 'vi',
-): string {
+): UserSearchResult {
   if (!users.length) {
-    return lang === 'vi'
-      ? 'Không tìm thấy người dùng nào.'
-      : 'No users found.'
+    return {
+      formatted: lang === 'vi'
+        ? 'Không tìm thấy người dùng nào.'
+        : 'No users found.',
+      options: [],
+    }
   }
 
   const vi = lang === 'vi'
 
   const heading = vi
-    ? `Tìm thấy **${total}** người dùng:`
+    ? `Tìm thấy **${total}** người:`
     : `Found **${total}** user${total !== 1 ? 's' : ''}:`
 
-  const rows = users.map((u) => {
-    return `| [${u.match_index}] | ${u.full_name} | ${u.role} | \`${u.instant_id}\` |`
+  const lines = users.map((u) => {
+    const email = u.email ? ` (${u.email})` : ''
+    // Include instant_id in backticks so extractResolvedId() works for all cases
+    const id = u.instant_id ? ` \`${u.instant_id}\`` : ''
+    return `[${u.match_index}] ${u.full_name}${email} — ${u.role}${id}`
   })
 
-  const table = [
-    '| # | Họ và tên | Vai trò | ID |',
-    '|---|-----------|---------|-----|',
-    ...rows,
-  ].join('\n')
+  const body = lines.join('\n')
 
-  let suffix = ''
-  if (total > users.length) {
-    suffix = vi
-      ? `\n\nCó hơn **${users.length}** kết quả. Hiển thị đầu tiên.`
-      : `\n\nMore than **${users.length}** results. Showing first results.`
+  const suffix = vi
+    ? '\n\nTrả lời bằng số thứ tự (ví dụ: 0, 1, 2) hoặc tên đầy đủ.'
+    : '\n\nReply with the number (e.g. 0, 1, 2) or the full name.'
+
+  // Build structured options for tappable selection UI
+  const options: SelectionOption[] = users.map((u) => ({
+    id: u.instant_id,
+    label: u.full_name,
+    sublabel: u.role,
+  }))
+
+  return {
+    formatted: `${heading}\n\n${body}${suffix}`,
+    options,
   }
-  suffix += vi
-    ? '\n\nBạn muốn chọn người nào? (Vui lòng cho biết số thứ tự hoặc tên đầy đủ)'
-    : '\n\nWhich user did you mean? (Please specify by number or full name)'
-
-  return `${heading}\n\n${table}${suffix}`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

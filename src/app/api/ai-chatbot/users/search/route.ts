@@ -93,6 +93,7 @@ export async function GET(request: Request) {
           first_name: matched.first_name ?? '',
           last_name: matched.last_name ?? '',
           full_name: [matched.first_name, matched.last_name].filter(Boolean).join(' ') || 'Unknown',
+          email: u.email ?? '',
           role: matched.role,
           match_index: 0,
         }]
@@ -130,6 +131,7 @@ export async function GET(request: Request) {
           first_name: picked.first_name ?? '',
           last_name: picked.last_name ?? '',
           full_name: [picked.first_name, picked.last_name].filter(Boolean).join(' ') || 'Unknown',
+          email: u.email ?? '',
           role: picked.role,
           match_index: idx,
         }]
@@ -142,18 +144,19 @@ export async function GET(request: Request) {
     const sliced = sorted.slice(0, limit)
 
     const users: UserMatch[] = sliced.map((s, i) => {
-      const u = s.users && s.users[0] ? s.users[0] : { id: '' }
+      const u = s.users && s.users[0] ? s.users[0] : { id: '', email: '' }
       return {
         instant_id: u.id,
         first_name: s.first_name ?? '',
         last_name: s.last_name ?? '',
         full_name: [s.first_name, s.last_name].filter(Boolean).join(' ') || 'Unknown',
+        email: u.email ?? '',
         role: s.role,
         match_index: i,
       }
     })
 
-    return NextResponse.json({ users, pagination: { total } })
+    return NextResponse.json({ users, pagination: { total } } satisfies UserSearchSuccessResponse)
   } catch (err) {
     console.error('[user-search] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
