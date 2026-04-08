@@ -1,5 +1,5 @@
 /**
- * Anthropic Claude SDK client wrapper for GoChul Fitness AI Chatbot.
+ * Anthropic Claude SDK client wrapper for ChulFitCoach AI Chatbot.
  * Phase 1: Configured client + placeholder call (no tool-use loop yet).
  * Phase 4: Will add callClaudeWithTools() and executeTool() functions.
  * @file src/lib/ai/anthropicService.ts
@@ -343,7 +343,7 @@ export function detectLanguage(messages: ConversationMessage[]): UserLanguage {
 }
 
 /**
- * Executes a named tool by dispatching to the appropriate GoChul API route.
+ * Executes a named tool by dispatching to the appropriate ChulFitCoach API route.
  * Implements a single retry for transient errors (429 / 5xx / network).
  * All results are formatted server-side before being returned.
  *

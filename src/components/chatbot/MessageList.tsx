@@ -7,7 +7,7 @@ import MessageBubble from './MessageBubble'
 import LoadingIndicator from './LoadingIndicator'
 import type { SelectionOption } from '@/store/useAIChatbotStore'
 
-const GREETING = 'Xin chào! Tôi là trợ lý AI của GoChul Fitness. Bạn có thể hỏi về hợp đồng và buổi tập của mình.'
+const GREETING = 'Xin chào! Tôi là trợ lý AI của ChulFitCoach. Bạn có thể hỏi về hợp đồng và buổi tập của mình.'
 
 type MessageType = 'normal' | 'error' | 'proposal' | 'warning' | 'nudge' | 'selection'
 

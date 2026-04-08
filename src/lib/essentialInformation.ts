@@ -18,9 +18,9 @@ export type EssentialAnswerValue = string | string[]
 export type EssentialAnswers = Record<string, EssentialAnswerValue>
 
 export const ESSENTIAL_INFORMATION_FORM = {
-    title: 'GoChul Onboarding',
+    title: 'ChulFitCoach Onboarding',
     description:
-        "Thank you for choosing GoChul. I'm grateful to accompany you on this journey. To make sure your training plan is safe, effective, and perfectly aligned with who you are, I'll need a bit of information from you. Your responses will help me build a program that truly fits you.\n\nCam on ban da chon GoChul. Toi rat vui duoc dong hanh cung ban tren hanh trinh ren luyen. De hieu ro hon ve ban va thiet ke mot chuong trinh tap luyen phu hop voi the trang, loi song va muc tieu cua ban, vui long cung cap nhung thong tin ben duoi.",
+        "Thank you for choosing ChulFitCoach. I'm grateful to accompany you on this journey. To make sure your training plan is safe, effective, and perfectly aligned with who you are, I'll need a bit of information from you. Your responses will help me build a program that truly fits you.\n\nCam on ban da chon ChulFitCoach. Toi rat vui duoc dong hanh cung ban tren hanh trinh ren luyen. De hieu ro hon ve ban va thiet ke mot chuong trinh tap luyen phu hop voi the trang, loi song va muc tieu cua ban, vui long cung cap nhung thong tin ben duoi.",
     questions: [
         { id: 'section_basic_info', title: 'Thông tin cơ bản', type: 'PAGE_BREAK' },
         { id: 'q1_full_name', title: '1. Họ và tên', type: 'TEXT' },

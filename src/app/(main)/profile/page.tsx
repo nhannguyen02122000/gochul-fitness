@@ -437,7 +437,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">
-                      GoChul Onboarding Form
+                      ChulFitCoach Onboarding Form
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {userInfo.essential_ready ? 'Completed' : 'Incomplete'}
@@ -477,7 +477,7 @@ export default function ProfilePage() {
       {/* Version Information */}
       <div className="px-4 pt-4 pb-4 text-center">
         <p className="text-[11px] text-muted-foreground/60">
-          GoChul Fitness · v{packageJson.version}
+          ChulFitCoach · v{packageJson.version}
         </p>
       </div>
     </div>

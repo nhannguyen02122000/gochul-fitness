@@ -68,7 +68,7 @@ export default function OnboardingModal({ open, onComplete }: OnboardingModalPro
               <Smile className="h-5 w-5 text-white" />
             </div>
             <div>
-              <DialogTitle className="text-lg">Welcome to GoChul Fitness!</DialogTitle>
+              <DialogTitle className="text-lg">Welcome to ChulFitCoach!</DialogTitle>
               <DialogDescription>Let&apos;s set up your profile</DialogDescription>
             </div>
           </div>

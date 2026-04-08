@@ -1,4 +1,4 @@
-// Service Worker for GoChul Fitness PWA
+// Service Worker for ChulFitCoach PWA
 const CACHE_NAME = 'gochul-fitness-v2'; // Bumped version to force cache refresh
 const RUNTIME_CACHE = 'gochul-runtime-v2'; // Bumped version to force cache refresh
 
@@ -190,7 +190,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('GoChul Fitness', options)
+    self.registration.showNotification('ChulFitCoach', options)
   );
 });
 

@@ -99,7 +99,7 @@ export default function PWAInstaller() {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-foreground mb-0.5">
-              Install GoChul Fitness
+              Install ChulFitCoach
             </h3>
             <p className="text-xs text-muted-foreground mb-3">
               Install for quick access and offline features

@@ -21,13 +21,13 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export const metadata: Metadata = {
-  title: 'GoChul - ComeFit',
-  description: 'An application for booking services and ChulFitness',
+  title: 'ChulFitCoach - ComeFit',
+  description: 'An application for booking services and ChulFitCoach',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'GoChul Fitness'
+    title: 'ChulFitCoach'
   },
   formatDetection: {
     telephone: false

@@ -1,5 +1,5 @@
 /**
- * System prompt builder for GoChul Fitness AI Chatbot.
+ * System prompt builder for ChulFitCoach AI Chatbot.
  *
  * Assembles the full system prompt string injected into Claude for every
  * chatbot request. Includes: role context, RBAC matrix, Vietnamese time
@@ -31,7 +31,7 @@ function getServerDateVietnam(): string {
 }
 
 /**
- * Builds the complete system prompt for the GoChul Fitness chatbot.
+ * Builds the complete system prompt for the ChulFitCoach chatbot.
  *
  * @param input.role          - The calling user's role (ADMIN | STAFF | CUSTOMER)
  * @param input.userName      - The calling user's display name
@@ -43,7 +43,7 @@ export function buildSystemPrompt(input: SystemPromptInput): string {
   const serverDate = getServerDateVietnam()
 
   return `
-You are an AI assistant for the GoChul Fitness gym management app.
+You are an AI assistant for the ChulFitCoach gym management app.
 You help users manage their gym contracts and training sessions through
 natural conversation — in English or Vietnamese.
 
@@ -163,7 +163,7 @@ resolve names to InstantDB IDs first:
 
 ## AVAILABLE TOOLS
 
-You have access to the following tools to interact with the GoChul Fitness app.
+You have access to the following tools to interact with the ChulFitCoach app.
 Use these tools to fulfill user requests — do not make up information.
 If you need more information to call a tool (missing required parameters), ask the user.
 If a tool returns a permission error, translate it to a friendly message in the user's language.

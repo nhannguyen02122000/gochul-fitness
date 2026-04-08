@@ -1,6 +1,6 @@
 {
-  "name": "GoChul Fitness",
-  "short_name": "GoChul",
+  "name": "ChulFitCoach",
+  "short_name": "ChulFitCoach",
   "description": "Fitness training session and contract management app",
   "start_url": "/",
   "display": "standalone",

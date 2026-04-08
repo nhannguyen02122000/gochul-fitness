@@ -11,7 +11,7 @@ export default function LoadingIndicator({
   phase = 'thinking',
   hasContent = false,
 }: LoadingIndicatorProps) {
-  const label = hasContent ? 'Responding...' : 'GoChul is thinking...'
+  const label = hasContent ? 'Responding...' : 'ChulFitCoach is thinking...'
 
   return (
     <div

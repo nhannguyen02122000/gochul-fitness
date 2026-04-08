@@ -1,7 +1,7 @@
 /**
- * GoChul Fitness AI Chatbot — Tool Definitions
+ * ChulFitCoach AI Chatbot — Tool Definitions
  *
- * Phase 1: All 10 GoChul API endpoints defined as Anthropic tool_use objects.
+ * Phase 1: All 10 ChulFitCoach API endpoints defined as Anthropic tool_use objects.
  * Phase 4: TOOL_DEFINITIONS is passed to anthropicClient.messages.create({ tools }).
  *
  * ══════════════════════════════════════════════════════════════
