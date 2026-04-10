@@ -17,14 +17,14 @@ Requirements for v1.1 milestone. Each maps to roadmap phases.
 
 ### Type & API
 
-- [ ] **TYPE-01**: `ContractStatus` union type removes `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` (kept: `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED`)
-- [ ] **API-01**: STAFF can transition `NEWLY_CREATED` → `CANCELED` (cancel)
-- [ ] **API-02**: ADMIN can transition `NEWLY_CREATED` → `CANCELED` (cancel)
-- [ ] **API-03**: ADMIN can transition `ACTIVE` → `CANCELED` (force-cancel, existing behavior preserved)
-- [ ] **API-04**: CUSTOMER can transition `NEWLY_CREATED` → `ACTIVE` (activate)
-- [ ] **API-05**: `updateStatus` `validStatuses` array removes deprecated status values
-- [ ] **API-06**: CUSTOMER can view contracts with status `NEWLY_CREATED` (previously hidden)
-- [ ] **API-07**: Session creation guard: contract must be `ACTIVE` (guard unchanged but path simplified)
+- [x] **TYPE-01**: `ContractStatus` union type removes `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` (kept: `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED`)
+- [x] **API-01**: STAFF can transition `NEWLY_CREATED` → `CANCELED` (cancel)
+- [x] **API-02**: ADMIN can transition `NEWLY_CREATED` → `CANCELED` (cancel)
+- [x] **API-03**: ADMIN can transition `ACTIVE` → `CANCELED` (force-cancel, existing behavior preserved)
+- [x] **API-04**: CUSTOMER can transition `NEWLY_CREATED` → `ACTIVE` (activate)
+- [x] **API-05**: `updateStatus` `validStatuses` array removes deprecated status values
+- [x] **API-06**: CUSTOMER can view contracts with status `NEWLY_CREATED` (previously hidden)
+- [x] **API-07**: Session creation guard: contract must be `ACTIVE` (guard unchanged but path simplified)
 
 ### UI
 
@@ -64,14 +64,14 @@ Which phases cover which requirements.
 | MIGRATE-02 | Phase 6 | Pending |
 | MIGRATE-03 | Phase 6 | Pending |
 | MIGRATE-04 | Phase 6 | Pending |
-| TYPE-01 | Phase 7 | Pending |
-| API-01 | Phase 7 | Pending |
-| API-02 | Phase 7 | Pending |
-| API-03 | Phase 7 | Pending |
-| API-04 | Phase 7 | Pending |
-| API-05 | Phase 7 | Pending |
-| API-06 | Phase 7 | Pending |
-| API-07 | Phase 7 | Pending |
+| TYPE-01 | Phase 7 | Complete |
+| API-01 | Phase 7 | Complete |
+| API-02 | Phase 7 | Complete |
+| API-03 | Phase 7 | Complete |
+| API-04 | Phase 7 | Complete |
+| API-05 | Phase 7 | Complete |
+| API-06 | Phase 7 | Complete |
+| API-07 | Phase 7 | Complete |
 | UI-01 | Phase 8 | Pending |
 | UI-02 | Phase 8 | Pending |
 | UI-03 | Phase 8 | Pending |
