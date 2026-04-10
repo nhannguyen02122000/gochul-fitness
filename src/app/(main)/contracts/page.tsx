@@ -62,10 +62,6 @@ const CONTRACT_KINDS: { value: ContractKind; label: string }[] = [
 const CONTRACT_STATUSES: { value: ContractStatus; label: string }[] = [
   { value: 'ACTIVE', label: 'Active' },
   { value: 'NEWLY_CREATED', label: 'Newly Created' },
-  { value: 'CUSTOMER_REVIEW', label: 'Customer Review' },
-  { value: 'CUSTOMER_CONFIRMED', label: 'Customer Confirmed' },
-  { value: 'CUSTOMER_PAID', label: 'Payment Completed by Customer' },
-  { value: 'PT_CONFIRMED', label: 'PT Confirmed Receipt' },
   { value: 'EXPIRED', label: 'Expired' },
   { value: 'CANCELED', label: 'Canceled' },
 ]
@@ -144,18 +140,9 @@ export default function ContractsPage() {
       : undefined
   const isStaffOrAdmin = userRole === 'ADMIN' || userRole === 'STAFF'
 
-  const availableStatuses = useMemo(() => {
-    if (userRole === 'CUSTOMER') {
-      return CONTRACT_STATUSES.filter((status) => status.value !== 'NEWLY_CREATED')
-    }
-    return CONTRACT_STATUSES
-  }, [userRole])
+  const availableStatuses = CONTRACT_STATUSES
 
-  const effectiveStatuses = useMemo<ContractStatus[]>(() => {
-    return userRole === 'CUSTOMER'
-      ? statuses.filter((status) => status !== 'NEWLY_CREATED')
-      : statuses
-  }, [userRole, statuses])
+  const effectiveStatuses = statuses
 
   const filters = useMemo<ContractFilters>(() => {
     const next: ContractFilters = {
@@ -182,7 +169,7 @@ export default function ContractsPage() {
 
     return next
   }, [
-    effectiveStatuses,
+    statuses,
     fromDate,
     toDate,
     kind,
@@ -224,12 +211,7 @@ export default function ContractsPage() {
         (c) => c.status === 'ACTIVE' && hasAvailableCredits(c)
       ).length,
       pending: allContracts.filter(
-        (c) =>
-          c.status === 'NEWLY_CREATED' ||
-          c.status === 'CUSTOMER_REVIEW' ||
-          c.status === 'CUSTOMER_CONFIRMED' ||
-          c.status === 'CUSTOMER_PAID' ||
-          c.status === 'PT_CONFIRMED'
+        (c) => c.status === 'NEWLY_CREATED'
       ).length,
       inactive: allContracts.filter(
         (c) =>

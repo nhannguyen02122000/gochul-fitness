@@ -11,10 +11,6 @@ export const revalidate = 0
 
 const CONTRACT_STATUS_VALUES: ContractStatus[] = [
   'NEWLY_CREATED',
-  'CUSTOMER_REVIEW',
-  'CUSTOMER_CONFIRMED',
-  'CUSTOMER_PAID',
-  'PT_CONFIRMED',
   'ACTIVE',
   'CANCELED',
   'EXPIRED'
@@ -248,43 +244,10 @@ export async function GET(request: Request) {
       contractWhere.kind = kindFilter
     }
 
-    // CUSTOMER must never see NEWLY_CREATED contracts
-    if (role === 'CUSTOMER') {
-      const customerVisibleStatuses = CONTRACT_STATUS_VALUES.filter(
-        (status) => status !== 'NEWLY_CREATED'
-      )
-
-      if (statusesFilter.length === 0) {
-        contractWhere.status = { $in: customerVisibleStatuses }
-      } else {
-        const filteredStatuses = statusesFilter.filter(
-          (status) => status !== 'NEWLY_CREATED'
-        )
-
-        if (filteredStatuses.length === 0) {
-          return NextResponse.json({
-            contracts: [],
-            pagination: {
-              page,
-              limit,
-              total: 0,
-              hasMore: false
-            },
-            role
-          })
-        }
-
-        contractWhere.status =
-          filteredStatuses.length === 1
-            ? filteredStatuses[0]
-            : { $in: filteredStatuses }
-      }
-    } else {
-      if (statusesFilter.length === 1) {
-        contractWhere.status = statusesFilter[0]
-      } else if (statusesFilter.length > 1) {
-        contractWhere.status = { $in: statusesFilter }
-      }
+    if (statusesFilter.length === 1) {
+      contractWhere.status = statusesFilter[0]
+    } else if (statusesFilter.length > 1) {
+      contractWhere.status = { $in: statusesFilter }
     }
 
     // Name filters -> resolve to user IDs, then apply as DB-level id filters

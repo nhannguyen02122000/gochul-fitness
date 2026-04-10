@@ -7,10 +7,6 @@ import type { ContractStatus } from '@/app/type/api'
 
 const CONTRACT_STATUS_VALUES: ContractStatus[] = [
     'NEWLY_CREATED',
-    'CUSTOMER_REVIEW',
-    'CUSTOMER_CONFIRMED',
-    'CUSTOMER_PAID',
-    'PT_CONFIRMED',
     'ACTIVE',
     'CANCELED',
     'EXPIRED'

@@ -35,57 +35,25 @@ export function getContractActionButtons(
   const buttons: ActionButton[] = []
 
   if (role === 'ADMIN') {
-    // ADMIN can perform transitions at specific stages
     switch (status) {
       case 'NEWLY_CREATED':
-        buttons.push({ label: 'Send to Customer', nextStatus: 'CUSTOMER_REVIEW', type: 'primary' })
         buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-        break
-      case 'CUSTOMER_REVIEW':
-        // No buttons - waiting for CUSTOMER to confirm
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-        break
-      case 'CUSTOMER_CONFIRMED':
-        // No buttons - waiting for CUSTOMER payment completion
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-        break
-      case 'CUSTOMER_PAID':
-        buttons.push({ label: 'PT Confirm Receipt', nextStatus: 'PT_CONFIRMED', type: 'primary' })
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
-        break
-      case 'PT_CONFIRMED':
-        // No buttons - waiting for CUSTOMER activation
         break
       case 'ACTIVE':
+        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+        break
       case 'CANCELED':
       case 'EXPIRED':
-        // No actions for terminal/active statuses
+        // No actions for terminal statuses
         break
     }
   } else if (role === 'STAFF') {
-    // STAFF can: NEWLY_CREATED → CUSTOMER_REVIEW, CUSTOMER_PAID → PT_CONFIRMED
     if (status === 'NEWLY_CREATED') {
-      buttons.push({ label: 'Send to Customer', nextStatus: 'CUSTOMER_REVIEW', type: 'primary' })
-    } else if (status === 'CUSTOMER_PAID') {
-      buttons.push({ label: 'PT Confirm Receipt', nextStatus: 'PT_CONFIRMED', type: 'primary' })
-    }
-
-    // STAFF can cancel any pre-ACTIVE status except terminal statuses and PT_CONFIRMED
-    if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED' && status !== 'PT_CONFIRMED') {
       buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
     }
   } else if (role === 'CUSTOMER') {
-    // CUSTOMER can: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → CUSTOMER_PAID → ACTIVE
-    if (status === 'CUSTOMER_REVIEW') {
-      buttons.push({ label: 'Confirm Details', nextStatus: 'CUSTOMER_CONFIRMED', type: 'primary' })
-    } else if (status === 'CUSTOMER_CONFIRMED') {
-      buttons.push({ label: 'Payment Completed', nextStatus: 'CUSTOMER_PAID', type: 'primary' })
-    } else if (status === 'PT_CONFIRMED') {
+    if (status === 'NEWLY_CREATED') {
       buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
-    }
-
-    // CUSTOMER can cancel any pre-ACTIVE status except terminal statuses and PT_CONFIRMED
-    if (status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED' && status !== 'PT_CONFIRMED') {
       buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
     }
   }
@@ -128,13 +96,7 @@ export function isCompletedHistoryStatus(status: string): boolean {
  * Returns true for statuses that are in workflow before ACTIVE.
  */
 export function isPreActiveContractStatus(status: ContractStatus): boolean {
-  return (
-    status === 'NEWLY_CREATED' ||
-    status === 'CUSTOMER_REVIEW' ||
-    status === 'CUSTOMER_CONFIRMED' ||
-    status === 'CUSTOMER_PAID' ||
-    status === 'PT_CONFIRMED'
-  )
+  return status === 'NEWLY_CREATED'
 }
 
 /**
@@ -149,11 +111,8 @@ export function canViewContract(status: ContractStatus, role: Role): boolean {
     return true
   }
 
-  // CUSTOMER cannot see NEWLY_CREATED contracts
-  if (role === 'CUSTOMER' && status === 'NEWLY_CREATED') {
-    return false
-  }
-
+  // CUSTOMER can view NEWLY_CREATED contracts (to see pending contracts to activate)
+  // No restriction based on status for CUSTOMER
   return true
 }
 
@@ -185,10 +144,6 @@ export function canCancelHistory(status: HistoryStatus): boolean {
 export function getContractStatusText(status: ContractStatus): string {
   const statusMap: Record<ContractStatus, string> = {
     'NEWLY_CREATED': 'Newly Created',
-    'CUSTOMER_REVIEW': 'Customer Review',
-    'CUSTOMER_CONFIRMED': 'Customer Confirmed',
-    'CUSTOMER_PAID': 'Payment Completed by Customer',
-    'PT_CONFIRMED': 'PT Confirmed Receipt',
     'ACTIVE': 'Active',
     'CANCELED': 'Canceled',
     'EXPIRED': 'Expired'
@@ -217,33 +172,21 @@ export function getHistoryStatusText(status: HistoryStatus): string {
  * @returns Badge variant + class tuple
  */
 export function getContractStatusVariant(status: ContractStatus): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string } {
-  // Uses Padlet palette semantic tokens for consistency with dark mode
   const variantMap: Record<ContractStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-    // Pending / in-progress states → warm orange (warning)
-    'NEWLY_CREATED':   { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
-    'CUSTOMER_REVIEW': { variant: 'secondary', className: 'bg-[var(--color-pt-bg)] text-[var(--color-pt)]' },
-    'CUSTOMER_CONFIRMED': { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
-    'CUSTOMER_PAID':   { variant: 'secondary', className: 'bg-[var(--color-pt-bg)] text-[var(--color-pt)]' },
-    'PT_CONFIRMED':     { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
-    'EXPIRED':          { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
-    // Active / completed → teal green (success)
-    'ACTIVE':   { variant: 'secondary', className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
-    // Destructive → semantic red (no Padlet token for danger)
-    'CANCELED': { variant: 'destructive', className: 'bg-red-50 text-red-700' },
+    'NEWLY_CREATED': { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    'EXPIRED':       { variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+    'ACTIVE':        { variant: 'secondary', className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+    'CANCELED':      { variant: 'destructive', className: 'bg-red-50 text-red-700' },
   }
   return variantMap[status] || variantMap['NEWLY_CREATED']
 }
 
 /** Lucide icon names for each contract status — provides non-color meaning */
 export const CONTRACT_STATUS_ICON: Record<ContractStatus, string> = {
-  'NEWLY_CREATED':    'Circle',
-  'CUSTOMER_REVIEW':  'Eye',
-  'CUSTOMER_CONFIRMED': 'Check',
-  'CUSTOMER_PAID':    'CreditCard',
-  'PT_CONFIRMED':     'CheckCircle',
-  'ACTIVE':           'Zap',
-  'CANCELED':         'XCircle',
-  'EXPIRED':          'Clock',
+  'NEWLY_CREATED': 'Circle',
+  'ACTIVE':        'Zap',
+  'CANCELED':      'XCircle',
+  'EXPIRED':       'Clock',
 }
 
 /**
@@ -281,10 +224,6 @@ export const HISTORY_STATUS_ICON: Record<HistoryStatus, string> = {
 export function getContractStatusColor(status: ContractStatus): string {
   const colorMap: Record<ContractStatus, string> = {
     'NEWLY_CREATED': 'default',
-    'CUSTOMER_REVIEW': 'processing',
-    'CUSTOMER_CONFIRMED': 'warning',
-    'CUSTOMER_PAID': 'processing',
-    'PT_CONFIRMED': 'warning',
     'ACTIVE': 'success',
     'CANCELED': 'error',
     'EXPIRED': 'default'

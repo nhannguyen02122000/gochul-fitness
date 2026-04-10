@@ -131,10 +131,6 @@ export async function POST(request: Request) {
 
     const validStatuses: ContractStatus[] = [
       'NEWLY_CREATED',
-      'CUSTOMER_REVIEW',
-      'CUSTOMER_CONFIRMED',
-      'CUSTOMER_PAID',
-      'PT_CONFIRMED',
       'ACTIVE',
       'CANCELED',
       'EXPIRED'
@@ -177,59 +173,59 @@ export async function POST(request: Request) {
     // Validate status transitions based on role
     if (role === 'ADMIN') {
       // ADMIN can force any status change
-    } else if (newStatus === 'CANCELED') {
-      // Non-admin can cancel only pre-ACTIVE and non-terminal statuses
-      if (currentStatus === 'ACTIVE') {
-        return NextResponse.json(
-          { error: 'Cannot cancel an ACTIVE contract. Only ADMIN can perform this action.' },
-          { status: 403 }
-        )
-      }
-      if (currentStatus === 'CANCELED') {
-        return NextResponse.json(
-          { error: 'Contract is already canceled' },
-          { status: 400 }
-        )
-      }
-      if (currentStatus === 'EXPIRED') {
-        return NextResponse.json(
-          { error: 'Cannot cancel an expired contract' },
-          { status: 400 }
-        )
-      }
-
-      if (role === 'CUSTOMER' && contract.purchased_by !== userInstantId) {
-        return NextResponse.json(
-          { error: 'Forbidden - You can only cancel contracts you purchased' },
-          { status: 403 }
-        )
-      }
     } else if (role === 'STAFF') {
-      // STAFF can: NEWLY_CREATED -> CUSTOMER_REVIEW -> (customer steps) -> CUSTOMER_PAID -> PT_CONFIRMED
-      const isAllowedStaffTransition =
-        (currentStatus === 'NEWLY_CREATED' && newStatus === 'CUSTOMER_REVIEW') ||
-        (currentStatus === 'CUSTOMER_PAID' && newStatus === 'PT_CONFIRMED')
-
-      if (!isAllowedStaffTransition) {
+      // STAFF can cancel NEWLY_CREATED contracts (with sale_by ownership check)
+      if (newStatus === 'CANCELED' && currentStatus === 'NEWLY_CREATED') {
+        // ownership check: STAFF can only cancel contracts they sold
+        if (contract.sale_by !== userInstantId) {
+          return NextResponse.json(
+            { error: 'Forbidden - You can only cancel contracts you sold' },
+            { status: 403 }
+          )
+        }
+      } else {
         return NextResponse.json(
           { error: 'Invalid status transition for STAFF role' },
           { status: 403 }
         )
       }
     } else if (role === 'CUSTOMER') {
-      if (contract.purchased_by !== userInstantId) {
-        return NextResponse.json(
-          { error: 'Forbidden - You can only update contracts you purchased' },
-          { status: 403 }
-        )
-      }
-
-      const isAllowedCustomerTransition =
-        (currentStatus === 'CUSTOMER_REVIEW' && newStatus === 'CUSTOMER_CONFIRMED') ||
-        (currentStatus === 'CUSTOMER_CONFIRMED' && newStatus === 'CUSTOMER_PAID') ||
-        (currentStatus === 'PT_CONFIRMED' && newStatus === 'ACTIVE')
-
-      if (!isAllowedCustomerTransition) {
+      if (newStatus === 'CANCELED') {
+        // Non-admin can cancel only pre-ACTIVE and non-terminal statuses
+        if (currentStatus === 'ACTIVE') {
+          return NextResponse.json(
+            { error: 'Cannot cancel an ACTIVE contract. Only ADMIN can perform this action.' },
+            { status: 403 }
+          )
+        }
+        if (currentStatus === 'CANCELED') {
+          return NextResponse.json(
+            { error: 'Contract is already canceled' },
+            { status: 400 }
+          )
+        }
+        if (currentStatus === 'EXPIRED') {
+          return NextResponse.json(
+            { error: 'Cannot cancel an expired contract' },
+            { status: 400 }
+          )
+        }
+        if (contract.purchased_by !== userInstantId) {
+          return NextResponse.json(
+            { error: 'Forbidden - You can only cancel contracts you purchased' },
+            { status: 403 }
+          )
+        }
+      } else if (newStatus === 'ACTIVE' && currentStatus === 'NEWLY_CREATED') {
+        // CUSTOMER activates their own NEWLY_CREATED contract
+        // Dates are reset to today in the update below (D-12)
+        if (contract.purchased_by !== userInstantId) {
+          return NextResponse.json(
+            { error: 'Forbidden - You can only update contracts you purchased' },
+            { status: 403 }
+          )
+        }
+      } else {
         return NextResponse.json(
           { error: 'Invalid status transition for CUSTOMER role' },
           { status: 403 }
@@ -242,33 +238,17 @@ export async function POST(request: Request) {
       )
     }
 
-    // Handle date adjustments when activating a contract and start_date differs from current time
-    const dateUpdates: { start_date?: number; end_date?: number } = {}
-
-    if (newStatus === 'ACTIVE' && contract.start_date && contract.end_date) {
-      // If activating at a time different from start_date, adjust both dates while preserving duration
-      if (now !== contract.start_date) {
-        // Calculate the original contract duration (in milliseconds)
-        const contractDuration = contract.end_date - contract.start_date
-
-        // Set new start_date to current date
-        dateUpdates.start_date = now
-
-        // Set new end_date to current date + original duration
-        dateUpdates.end_date = now + contractDuration
-      }
-    }
-
-    // Update the contract status and dates if needed
+    // Update the contract status
     const updateData: {
       status: ContractStatus
       updated_at: number
-      start_date?: number
-      end_date?: number
+      start_date: number
+      end_date: number
     } = {
       status: newStatus,
       updated_at: now,
-      ...dateUpdates
+      start_date: now,
+      end_date: now
     }
 
     await instantServer.transact([
