@@ -2,13 +2,14 @@
 
 **Created:** 2026-04-04
 **Updated:** 2026-04-10
-**Version:** v1.0 shipped
+**Version:** v1.1 in-progress
 
 ---
 
 ## Milestones
 
 - ✅ **v1.0 MVP** — AI Chatbot (shipped 2026-04-10)
+- 🔄 **v1.1** — Enhance Contract Flow (in-progress, started 2026-04-10)
 
 ## Phases
 
@@ -25,9 +26,129 @@
 
 </details>
 
+<details open>
+<summary>🔄 v1.1 Enhance Contract Flow (Phases 6–9)</summary>
+
+> **Critical ordering:** Phase 6 (Data Migration) MUST run before the new TypeScript code ships. Existing contracts in removed states will break at runtime if migration is skipped. Migration is a pre-flight step that sets deprecated statuses to `ACTIVE` before any other phase deploys.
+
+**Requirement coverage:** 25/25 ✓
+
+---
+
+### Phase 6: Data Migration
+
+**Goal:** Backfill existing contracts from removed intermediate states → `ACTIVE` so the codebase is clean when TypeScript types change.
+
+**Requirements:** MIGRATE-01, MIGRATE-02, MIGRATE-03, MIGRATE-04
+
+**Key files to modify:**
+- `src/app/api/admin/backfillTimestamps/` — extend or create a dedicated migration endpoint (e.g. `src/app/api/admin/migrateContractStatuses/route.ts`)
+- Alternatively: standalone migration script using `@instantdb/admin`
+
+**What to do:**
+1. Query all contracts where `status ∈ {CUSTOMER_REVIEW, CUSTOMER_CONFIRMED, CUSTOMER_PAID, PT_CONFIRMED}`
+2. For each contract, set `status = 'ACTIVE'` (preserve existing `start_date` and all other fields)
+3. Run as a one-time admin-only API call or script before Phase 7 deploys
+4. Verify count of updated contracts matches expectations
+
+**Success criteria:**
+- [ ] `CUSTOMER_REVIEW` contracts: status → `ACTIVE`, `start_date` unchanged ✓
+- [ ] `CUSTOMER_CONFIRMED` contracts: status → `ACTIVE`, `start_date` unchanged ✓
+- [ ] `CUSTOMER_PAID` contracts: status → `ACTIVE`, `start_date` unchanged ✓
+- [ ] `PT_CONFIRMED` contracts: status → `ACTIVE`, `start_date` unchanged ✓
+- [ ] Migration runs before TypeScript types in Phase 7 are deployed ✓
+
+---
+
+### Phase 7: Type & API
+
+**Goal:** Remove 4 deprecated `ContractStatus` values from TypeScript types; add transition guards for `NEWLY_CREATED → ACTIVE` (CUSTOMER) and `NEWLY_CREATED → CANCELED` (STAFF/ADMIN); expose `NEWLY_CREATED` to CUSTOMER.
+
+**Requirements:** TYPE-01, API-01, API-02, API-03, API-04, API-05, API-06, API-07
+
+**Key files to modify:**
+- `src/app/type/api/index.ts` — `ContractStatus` union type
+- `src/app/api/contract/updateStatus/route.ts` — validStatuses array + transition guards
+- `src/app/api/history/create/route.ts` — ACTIVE-only session creation guard
+
+**What to do:**
+1. `ContractStatus` union: remove `CUSTOMER_REVIEW | CUSTOMER_CONFIRMED | CUSTOMER_PAID | PT_CONFIRMED`; keep `NEWLY_CREATED | ACTIVE | CANCELED | EXPIRED`
+2. Update `validStatuses` array in `updateStatus/route.ts` to match new type
+3. Add transition `NEWLY_CREATED → CANCELED` for STAFF and ADMIN roles
+4. Add transition `ACTIVE → CANCELED` for ADMIN (preserve existing force-cancel)
+5. Add transition `NEWLY_CREATED → ACTIVE` for CUSTOMER role (the activate path)
+6. In `canViewContract()` or equivalent: CUSTOMER can see `NEWLY_CREATED` contracts
+7. Session creation: confirm contract `status === 'ACTIVE'` guard is present
+
+**Success criteria:**
+- [ ] TypeScript compilation: no references to 4 removed status values in type definitions ✓
+- [ ] `updateStatus`: STAFF can cancel `NEWLY_CREATED` contracts via API ✓
+- [ ] `updateStatus`: ADMIN can cancel `NEWLY_CREATED` and `ACTIVE` contracts via API ✓
+- [ ] `updateStatus`: CUSTOMER can activate `NEWLY_CREATED` contracts via API ✓
+- [ ] Session creation: returns error if contract is not `ACTIVE` ✓
+- [ ] CUSTOMER role can list/view `NEWLY_CREATED` contracts via API ✓
+
+---
+
+### Phase 8: UI
+
+**Goal:** Update all UI components to reflect the 2-state model — red Cancel button for ADMIN/STAFF on `NEWLY_CREATED`, green Activate button for CUSTOMER on `NEWLY_CREATED`, correct status badges, correct utility function outputs.
+
+**Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08
+
+**Key files to modify:**
+- `src/components/cards/ContractCard.tsx` — Cancel + Activate buttons with confirmation popups
+- `src/utils/statusUtils.ts` — `getContractActionButtons()`, `getContractStatusVariant()`, `getContractStatusText()`, `isPreActiveContractStatus()`, `canViewContract()`
+
+**What to do:**
+1. `getContractActionButtons()`: ADMIN/STAFF → "Hủy" red button on `NEWLY_CREATED`; CUSTOMER → "Kích hoạt" button on `NEWLY_CREATED`; ADMIN → "Hủy" red button on `ACTIVE`
+2. `getContractStatusVariant()`: map `NEWLY_CREATED` → appropriate badge variant; map `ACTIVE` → active variant; removed statuses → `undefined` or error variant
+3. `getContractStatusText()`: `NEWLY_CREATED` → "Mới tạo", `ACTIVE` → "Đang hoạt động"
+4. `isPreActiveContractStatus()`: returns `true` only for `NEWLY_CREATED`
+5. `canViewContract()`: CUSTOMER → `true` for `NEWLY_CREATED`
+6. ContractCard: render Cancel button with `<AlertDialog>` confirmation before API call
+7. ContractCard: render Activate button with trigger-date modal if `start_date !== today`
+8. All status badges: only valid statuses rendered; no broken/missing mappings
+
+**Success criteria:**
+- [ ] ADMIN/STAFF sees red "Hủy" button + confirmation popup on `NEWLY_CREATED` contracts ✓
+- [ ] CUSTOMER sees "Kích hoạt" button on `NEWLY_CREATED` contracts ✓
+- [ ] Trigger-date modal appears when activating a contract with future `start_date` ✓
+- [ ] `getContractActionButtons()` returns correct buttons per role for all 3 valid statuses ✓
+- [ ] Status badge renders correctly for `NEWLY_CREATED` and `ACTIVE`; removed statuses throw or return undefined ✓
+- [ ] `isPreActiveContractStatus()` returns `true` only for `NEWLY_CREATED` ✓
+- [ ] CUSTOMER can see `NEWLY_CREATED` contracts in list view ✓
+
+---
+
+### Phase 9: Documentation
+
+**Goal:** Keep `docs/PROGRAM.md` and `.cursor/rules/gochul-fitness-rules.mdc` in sync with the 2-state contract model.
+
+**Requirements:** DOCS-01, DOCS-02, DOCS-03, DOCS-04
+
+**Key files to modify:**
+- `docs/PROGRAM.md` — lifecycle diagram, RBAC transition table, expiry rules
+- `.cursor/rules/gochul-fitness-rules.mdc` — contract lifecycle section
+
+**What to do:**
+1. Lifecycle diagram: replace 6-state diagram with 4-state diagram (`NEWLY_CREATED → ACTIVE`, side branches to `CANCELED`, final state `EXPIRED`)
+2. RBAC table: remove rows for deprecated transitions; add `CUSTOMER → NEWLY_CREATED → ACTIVE`; add `STAFF/ADMIN → NEWLY_CREATED → CANCELED`; preserve `ADMIN → ACTIVE → CANCELED`
+3. Expiry rules: update to reflect `ACTIVE → EXPIRED` only
+4. Cursor rules: update `ContractStatus` type, state machine rules, role permissions
+
+**Success criteria:**
+- [ ] PROGRAM.md lifecycle diagram shows only `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED` ✓
+- [ ] PROGRAM.md RBAC table has no entries for `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` ✓
+- [ ] PROGRAM.md expiry rules describe `ACTIVE → EXPIRED` path only ✓
+- [ ] cursor/rules reflect new type, transitions, and role permissions ✓
+
+---
+
+</details>
+
 ---
 
 ## Next
 
-No next milestone planned yet. Run `/gsd:new-milestone` to start the next milestone.
-
+No next milestone planned. Run `/gsd:new-milestone` to start the next milestone.
