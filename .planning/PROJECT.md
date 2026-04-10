@@ -12,7 +12,7 @@ Users can manage their gym contracts and training sessions through natural conve
 
 ### Validated
 
-- ✓ AI Chatbot — Floating modal UI: FAB + modal overlay (Phase 2 — FloatingFAB, AIChatbotModal, Zustand store)
+- ✓ AI Chatbot — Floating modal UI: FAB + modal overlay (Phase 2 — FloatingFAB, AIChatbotModal, Zustand store → useChat migration in Phase 5)
 - ✓ AI Chatbot — Message thread: Multi-turn conversation thread with user/bot bubbles, markdown rendering (Phase 2 — MessageBubble, MessageList, MessageInput, LoadingIndicator)
 - ✓ Contract lifecycle (NEWLY_CREATED → ACTIVE → EXPIRED/CANCELED) — existing
 - ✓ Session lifecycle (NEWLY_CREATED → CHECKED_IN/CANCELED/EXPIRED) — existing
@@ -26,13 +26,22 @@ Users can manage their gym contracts and training sessions through natural conve
 - ✓ API-12: Bot authenticated with Clerk session token server-side (Phase 1 — `auth()` + `getToken()`)
 - ✓ AI Chatbot — API integration wired: Client `POST /api/ai-chatbot` with Clerk auth forwarded, multi-turn context in request body, typed response `{ reply, type, role, messages }` (Phase 3)
 - ✓ AI Chatbot — Error display: Inline error bubbles in thread with `AlertCircle` icon, `bg-red-50 text-red-700` styling, no markdown (Phase 3)
+- ✓ AI Chatbot — Parameter inference loop: AI loops to gather missing parameters until all required fields are provided (Phase 4 — `callClaudeWithTools()` + system prompt rules)
+- ✓ AI Chatbot — Vietnamese time inference: AI infers morning/afternoon/evening/night time windows from natural language (Phase 4 — system prompt time rules)
+- ✓ AI Chatbot — Structured result display: Bot confirms actions with formatted markdown summaries after API calls (Phase 4 — `formatContractList`, `formatSessionList`, `formatActionResult` in `formatters.ts`)
+- ✓ AI Chatbot — Streaming: Token-by-token rendering via `textToStream()` + AI SDK data stream format (Phase 5)
+- ✓ AI Chatbot — Rate limiting: Upstash Redis 20 req/min per userId (Phase 5 — gracefully falls back if env vars not set)
+- ✓ AI Chatbot — Language nudge: Detect mid-conversation language switch → inline nudge bubble (Phase 5 — `detectLanguage()`)
+- ✓ AI Chatbot — Trainer availability check: `get_occupied_time_slots` tool before booking (Phase 5 — tool #11 + dispatcher)
+- ✓ AI Chatbot — Inline entity references: [1]/[2] numbering + "cái thứ 2" resolution rules (Phase 5 — system prompt)
+- ✓ AI Chatbot — English time parsing: "tomorrow at 9am", "next Thursday" rules (Phase 5 — system prompt)
+- ✓ AI Chatbot — Streaming cursor + phase-aware LoadingIndicator (Phase 5)
+- ✓ AI Chatbot — Warning + nudge bubble variants (Phase 5)
 
 ### Active
 
-
-- [ ] **AI Chatbot — Parameter inference loop**: AI loops to gather missing parameters until all required fields are provided
-- [ ] **AI Chatbot — Vietnamese time inference**: AI infers morning/afternoon/evening/night time windows from natural language (Vietnamese-aware)
-- [ ] **AI Chatbot — Structured result display**: AI confirms actions with formatted summaries after API calls
+- [ ] **Phase 4 end-to-end verification** — Live test of tool-use loop with real data
+- [ ] **Vietnamese time expression test harness** — Codify test cases for sáng/chiều/tối/đêm parsing
 
 ### Out of Scope
 
@@ -45,16 +54,22 @@ Users can manage their gym contracts and training sessions through natural conve
 
 GoChul Fitness is a gym/fitness studio management app built with Next.js 16, TypeScript, InstantDB, Clerk, Ably, and TanStack Query. Users manage PT (personal training) and rehab contracts with scheduled sessions. Three roles exist: ADMIN (full access), STAFF (trainers), CUSTOMER (gym members). The app already has a working API layer with role-based permission guards. The AI chatbot is a new interface layer on top of the existing API.
 
-**Existing codebase map:** `.planning/codebase/` — contains full STACK, ARCHITECTURE, STRUCTURE, CONVENTIONS, TESTING, INTEGRATIONS, and CONCERNS documents.
+**AI chatbot shipped in v1.0** — All 32 v1 requirements implemented across 5 phases.
 
-**AI provider already configured:**
+**Codebase map:** `.planning/codebase/` — contains full STACK, ARCHITECTURE, STRUCTURE, CONVENTIONS, TESTING, INTEGRATIONS, and CONCERNS documents.
+
+**AI provider configured:**
 - `CLAUDE_API_KEY` — via `@anthropic-ai/sdk`
 - `CLAUDE_BASE_URL` — Anthropic-compatible proxy
 - `MODEL_NAME` — configured model name
 
+**External setup (manual):**
+- Clerk Dashboard: create JWT template named `gochul-fitness`
+- Upstash Redis (optional for dev): `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`
+
 ## Constraints
 
-- **Tech stack**: Next.js 16 App Router, TypeScript, `@anthropic-ai/sdk`, existing InstantDB/Clerk/Ably stack
+- **Tech stack**: Next.js 16 App Router, TypeScript, `@anthropic-ai/sdk`, `@ai-sdk/react`, `ai`, existing InstantDB/Clerk/Ably stack
 - **Auth**: Chatbot must use the current Clerk session token (server-side) — role permissions enforced by API layer
 - **API limits**: Must not exceed rate limits; API calls are synchronous per message (no streaming required)
 - **Language**: Must support both English and Vietnamese prompts
@@ -63,13 +78,23 @@ GoChul Fitness is a gym/fitness studio management app built with Next.js 16, Typ
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Floating FAB + modal | Non-intrusive; accessible from any page without navigation | — Pending |
-| Role-aware via API | Leverages existing API permission guards; no duplicate auth logic | — Pending |
-| Multi-turn conversation | Allows follow-up questions and parameter gathering in a natural loop | — Pending |
-| Structured summary responses | Clearer than raw API responses; users understand what happened | — Pending |
-| Anthropic SDK | Already configured in codebase; proxy URL supports it | — Pending |
+|----------|-----------|--------|
+| Floating FAB + modal | Non-intrusive; accessible from any page without navigation | ✅ Confirmed — clean UX |
+| Role-aware via API | Leverages existing API permission guards; no duplicate auth logic | ✅ Confirmed — hybrid prompt + API enforcement |
+| Multi-turn conversation | Allows follow-up questions and parameter gathering in a natural loop | ✅ Confirmed — core chatbot value |
+| Structured summary responses | Clearer than raw API responses; users understand what happened | ✅ Confirmed — markdown tables in all results |
+| Anthropic SDK | Already configured in codebase; proxy URL supports it | ✅ Confirmed — all 5 phases used `@anthropic-ai/sdk` |
+| Two-step confirm flow | Proposed as bubble + Confirm button → `CONFIRMED:` message | ✅ Confirmed — avoids silent writes |
+| `CallResult` discriminator union | `{ type: 'text' | 'proposal' | 'selection' }` discriminated return | ✅ Confirmed — clean client routing |
+| Server-side result formatting | Format API JSON into markdown before returning to AI and client | ✅ Confirmed — AI sees formatted context |
+| `translateError()` static bilingual map | Predictable; zero AI hallucination risk | ✅ Confirmed — 5xx/4xx/429 all mapped |
+| Retry loop `attempt < 2` | Simple; handles 429/5xx/network failures | ✅ Confirmed — Phase 5 adds Upstash rate limiting |
+| Post-computation streaming | `callClaudeWithTools()` runs to completion; final text streamed | ✅ Confirmed — Phase 5 |
+| `AIProvider` wraps `MessageInput` | Scopes useChat context to modal lifecycle | ✅ Confirmed — no parent context needed |
+| Upstash Redis rate limiting (20 req/min) | Works across serverless instances | ✅ Confirmed — falls back gracefully without env vars |
+| `detectLanguage()` via VI diacritics | Fast, deterministic, no external lib | ✅ Confirmed |
+| `useChat` replaces Zustand for chat state | AI SDK manages streaming natively | ✅ Confirmed — Zustand kept for modal open/close only |
 
 ---
 
-*Last updated: 2026-04-04 after Phase 3 completion*
+*Last updated: 2026-04-10 after v1.0 milestone complete*
