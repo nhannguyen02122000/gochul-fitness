@@ -528,3 +528,40 @@ export interface UserSearchSuccessResponse {
 
 export type UserSearchResponse = UserSearchSuccessResponse | ApiErrorResponse
 
+// ============================================================================
+// /api/admin/migrateContractStatuses
+// ============================================================================
+
+export type DeprecatedContractStatus = 'CUSTOMER_REVIEW' | 'CUSTOMER_CONFIRMED' | 'CUSTOMER_PAID' | 'PT_CONFIRMED'
+
+export interface MigrateContractStatusesPreviewContract {
+    id: string
+    current_status: DeprecatedContractStatus
+    start_date: number | null
+    purchased_by: string
+    kind: ContractKind
+}
+
+export interface MigrateContractStatusesPreview {
+    counts: {
+        CUSTOMER_REVIEW: number
+        CUSTOMER_CONFIRMED: number
+        CUSTOMER_PAID: number
+        PT_CONFIRMED: number
+    }
+    total: number
+    contracts: MigrateContractStatusesPreviewContract[]
+}
+
+export interface MigrateContractStatusesSuccessResponse {
+    message: string
+    migrated: number
+    by_status: {
+        CUSTOMER_REVIEW: number
+        CUSTOMER_CONFIRMED: number
+        CUSTOMER_PAID: number
+        PT_CONFIRMED: number
+    }
+}
+
+export type MigrateContractStatusesResponse = MigrateContractStatusesSuccessResponse | ApiErrorResponse
