@@ -22,8 +22,9 @@ progress:
 
 Phase: Not started (planning)
 Plan: —
-Status: Planning v1.1 roadmap
-Last activity: 2026-04-10 — v1.1 roadmap created
+Status: Phase 6 context gathered
+Last activity: 2026-04-10 — Phase 6 context gathered via /gsd:discuss-phase
+Resume: .planning/phases/06-data-migration/06-CONTEXT.md
 
 ---
 
