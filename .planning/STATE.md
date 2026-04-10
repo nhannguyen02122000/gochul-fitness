@@ -1,9 +1,10 @@
 ---
-gsd_state_version: 1.1
+gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: Enhance Contract Flow
-status: planning
-last_updated: "2026-04-10T05:20:00.000Z"
+milestone_name: milestone
+status: executing
+last_updated: "2026-04-10T11:43:17.288Z"
+last_activity: 2026-04-10
 progress:
   total_phases: 4
   completed_phases: 0
@@ -20,10 +21,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (planning)
-Plan: —
-Status: Phase 6 context gathered
-Last activity: 2026-04-10 — Phase 6 context gathered via /gsd:discuss-phase
+Phase: 7
+Plan: Not started
+Status: Executing Phase 06
+Last activity: 2026-04-10
 Resume: .planning/phases/06-data-migration/06-CONTEXT.md
 
 ---
@@ -33,6 +34,7 @@ Resume: .planning/phases/06-data-migration/06-CONTEXT.md
 **Goal:** Simplify contract lifecycle from 6 states to 4 (NEWLY_CREATED → ACTIVE → EXPIRED; side branches to CANCELED). Remove customer review/payment/confirmation steps.
 
 **Target features:**
+
 - Data migration: backfill deprecated statuses → ACTIVE (Phase 6)
 - Type & API: remove 4 deprecated ContractStatus values; add transition guards (Phase 7)
 - UI: Cancel button (ADMIN/STAFF), Activate button (CUSTOMER), correct badges (Phase 8)
