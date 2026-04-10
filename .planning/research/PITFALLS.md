@@ -1,192 +1,216 @@
 # Pitfalls Research
 
-**Domain:** AI Chatbot Feature — GoChul Fitness (Next.js 16, TypeScript, Anthropic SDK, Clerk Auth, InstantDB)
-**Researched:** 2026-04-04
+**Domain:** Contract Lifecycle Simplification — GoChul Fitness (Next.js 16, TypeScript, InstantDB, TanStack Query, Anthropic AI SDK)
+**Researched:** 2026-04-10
 **Confidence:** HIGH
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: AI Calls GoChul Fitness API Endpoints Without Permission Scoping
+### Pitfall 1: Legacy Contracts Stuck in Removed Intermediate States
 
 **What goes wrong:**
-The AI model is given the full list of API endpoints and decides which to call based on user intent. Without strict scoping, a CUSTOMER asking to "list all contracts" could have the AI call `/api/contract/getAll` — an endpoint that returns all contracts in the system (including other customers' data), because the AI doesn't know that `getAll` returns everything, not just the current user's data. ADMIN-level endpoints could be invoked by any authenticated user if the AI is not explicitly told which role maps to which permissions. The result: unauthorized data disclosure or privilege escalation via natural-language instruction.
+Existing contracts in InstantDB that are currently in `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, or `PT_CONFIRMED` have no valid transition path under the new 2-state model. These contracts become permanently dead-ended: they cannot advance to `ACTIVE` (because `updateStatus` for `PT_CONFIRMED → ACTIVE` requires `role === 'CUSTOMER'` but the state machine no longer routes through `PT_CONFIRMED`), and they cannot go to `ACTIVE` from `CUSTOMER_PAID` because `CUSTOMER_PAID → ACTIVE` was never a valid transition in the current model. The contracts appear in the UI with buttons that do nothing or with error-toast failures.
 
 **Why it happens:**
-The AI receives a system prompt describing all endpoints and their allowed roles, but the model cannot reliably enforce server-side RBAC logic from a prompt description alone. The assumption that "the API layer will handle permissions" is only true if every route correctly validates the caller's role. The codebase already has known RBAC inconsistencies (C7 — `roleCheck.ts` is unused; role checks are inlined with varying patterns). If even one route has a missing or buggy role check, the AI can exploit it. Additionally, passing a Clerk session token server-side does not automatically scope InstantDB queries to the user — the `INSTANTDB_ADMIN_TOKEN` is used for all operations (C2).
+Migration is planned but not automated. The simplification removes all intermediate statuses and routes all NEWLY_CREATED contracts directly to ACTIVE. Any contract currently in `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, or `PT_CONFIRMED` was created under the old flow and has no equivalent "resume" path. Manual one-by-one fixing is error-prone and slow at scale.
 
 **How to avoid:**
-1. **Route-level:** Treat every AI-callable endpoint as if it has no permission guard. Audit each route the AI is permitted to call and confirm it validates `role` from the Clerk session before any data access. Prefer endpoints that scope data by `userId`/`clerk_id` (e.g., `/api/contract/getAll?mine=true`) rather than endpoints that return global data.
-2. **System prompt:** Explicitly list per-role permitted actions in the AI system prompt (not just endpoint names) so the model self-restricts before it even decides which endpoint to call.
-3. **Parameter allowlist:** The AI should only pass parameters defined in the endpoint's schema — not arbitrary fields from the conversation. Reject unexpected parameters server-side.
-4. **Read-only by default:** Default AI behavior to read-only operations unless the user explicitly requests a write action, and require at least one additional confirmation step for destructive actions (cancel, delete).
+1. **Write a one-time migration script** (`POST /api/admin/backfillContractStatuses`) that:
+   - Finds all contracts where `status IN ('CUSTOMER_REVIEW', 'CUSTOMER_CONFIRMED', 'CUSTOMER_PAID', 'PT_CONFIRMED')`
+   - Sets them to `ACTIVE` if `end_date >= now` (they were paid and confirmed, just not yet activated)
+   - Sets them to `CANCELED` if `end_date < now` (expired before activation)
+   - Sets them to `CANCELED` if `end_date >= now` but the customer never completed payment (treat as abandoned)
+   - Logs every change with timestamp and reason for audit
+2. **Add a dry-run mode** to the migration: `--dry-run` returns a count of what would change without modifying anything
+3. **Notify affected customers** before migration if any contract is moved to `CANCELED`
+4. **Add a database-level constraint** (after migration) that `updateStatus` only accepts `NEWLY_CREATED → ACTIVE` for non-ADMIN roles, making it impossible to create new intermediate-state contracts
 
 **Warning signs:**
-- AI returns data belonging to another user or role — caught in first QA pass
-- System prompt does not enumerate role-to-action mappings
-- API route lacks an explicit `role` check (grep for `role ===` and compare against `roleCheck.ts`)
-- `INSTANTDB_ADMIN_TOKEN` is used without a `clerk_id` filter in the query `where` clause
+- Contracts appear in the UI with no buttons (status stuck, no valid action)
+- API `updateStatus` returns 400 with "Invalid status transition for CUSTOMER/STAFF role" on contracts users expect to work
+- Database query shows non-zero count for `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` after migration
 
 **Phase to address:**
-**Phase 1 — Foundation** (Architecture & Security). Must be resolved before any API integration work begins.
+**Phase 1 — Data Migration** (before any code changes are deployed to production). Must be resolved before the simplified UI ships.
 
 ---
 
-### Pitfall 2: Unbounded Parameter Gathering Loops
+### Pitfall 2: AI Chatbot Still Mentions Removed Status Names in Its Responses
 
 **What goes wrong:**
-The AI loops to collect missing required parameters (e.g., contract type, customer ID, date, trainer) until all fields are satisfied. Without strict termination rules, the loop either (a) never exits because the AI keeps asking re-phrased versions of the same question, frustrating the user; or (b) exits prematurely with partial data, then calls the API with undefined/null parameters, causing 400 errors or wrong records. In the worst case, the AI fills in missing parameters with hallucinated values ("I'll use your last contract's customer ID") rather than asking.
+The AI chatbot system prompt and tool descriptions reference `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, and `PT_CONFIRMED` extensively. After the simplification, the AI may still say things like: "Your contract is in CUSTOMER_REVIEW status" or "You need to complete payment first" — statuses that no longer exist. Even worse: the AI may attempt to call `update_contract_status` with one of the removed status values, causing the API to reject it (since `validStatuses` in the route will be updated to only accept the 4-valid statuses), resulting in a confusing 400 error surfaced to the user.
 
 **Why it happens:**
-The AI's objective is to complete the user's request, and if the user never provides a required field, the model may hallucinate a plausible value rather than give up. The loop termination condition is typically "all parameters satisfied" — but the definition of "satisfied" is fuzzy when the AI can substitute defaults. Additionally, the CONCERNS.md documents known race conditions in concurrent booking (C5, C6) — parameter gathering loops that span multiple API calls (e.g., first look up a customer ID, then create a session) compound those race windows.
+The AI model was trained with the old lifecycle. Its internal knowledge (grounded via the system prompt) includes the removed statuses. The tool definition `update_contract_status` enum currently lists all 6 workflow statuses — if only `ACTIVE`, `CANCELED`, and `EXPIRED` remain, the enum must be trimmed, but the AI may still generate the old status values as part of its reasoning.
 
 **How to avoid:**
-1. **Explicit parameter contract:** Define a strict schema per intent — required vs. optional fields, max attempts before giving up, and a final "I couldn't gather" response template.
-2. **Required-field validation:** Before calling the API, the server-side handler validates that all required fields are present. If not, return a structured error the UI displays, not a raw API error to the user.
-3. **No hallucinated defaults:** System prompt must explicitly forbid the AI from inventing user data (IDs, dates, names). The only valid source of data is the conversation history or an explicit API lookup.
-4. **Loop depth limit:** Cap the number of follow-up questions per parameter (e.g., 3 attempts) and surface a clear failure message: "I need [field] to do this — could you provide it?"
-5. **Cancellation path:** Always allow the user to type "cancel" or "never mind" to exit the loop cleanly.
+1. **Update `update_contract_status` tool definition** (`src/lib/ai/toolDefinitions.ts`): Remove `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` from the `status` enum. Keep only: `ACTIVE`, `CANCELED`, `EXPIRED`.
+2. **Update the system prompt RBAC section**: Replace the old 6-state transition table with the new 2-state table:
+   - `NEWLY_CREATED → ACTIVE` (CUSTOMER activates)
+   - `NEWLY_CREATED → CANCELED` (ADMIN/STAFF/CUSTOMER cancel)
+   - `ACTIVE → CANCELED` (ADMIN only)
+   - Any → `EXPIRED` (ADMIN only)
+3. **Update the AI's description of the contract lifecycle**: Remove all references to review, payment, and PT-confirmation steps. Replace with: "Contracts start as NEWLY_CREATED. The customer activates the contract to start sessions."
+4. **Add a translation layer in `translateError()`**: If the API ever receives an old status value (defensive), return a clear message: "This contract status is no longer valid in the current system. Please contact support."
+5. **Test with AI conversation prompts** that reference old statuses: "Where's my contract? I already confirmed it." — AI should respond with the correct simplified flow, not refer to removed statuses.
 
 **Warning signs:**
-- AI response contains a value the user never mentioned (hallucination signal)
-- Conversation thread exceeds 8–10 turns without resolution
-- API call returns 400 with "missing required field" error — indicates premature call
-- No "cancel" path visible in conversation flow
+- AI chatbot responds with "Your contract is in CUSTOMER_REVIEW" — old status surfaced to user
+- AI calls `update_contract_status` with `status: 'CUSTOMER_REVIEW'` — API 400 error returned to user
+- Tool definition enum still contains `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED`
 
 **Phase to address:**
-**Phase 2 — Core Integration** (Parameter inference loop implementation). Design the loop schema before writing any loop logic.
+**Phase 4 — AI Chatbot Update** (simultaneous with UI and API changes). Must be tested in the same deployment that ships the new UI.
 
 ---
 
-### Pitfall 3: Vietnamese Time Inference Collapses Under Ambiguity
+### Pitfall 3: UI Renders Removed Status Badges and Ghost Buttons
 
 **What goes wrong:**
-The AI is instructed to infer time windows from Vietnamese natural language ("sáng mai", "chiều thứ 6", "tối nay"). When inference is wrong, sessions are created for the wrong day or time. For example, if a user says "sáng mai" on a Thursday and the server's `now()` is Friday, the AI might interpret "tomorrow" as Saturday. Or "chiều" (afternoon) may be interpreted as 12:00–17:59 instead of the gym's actual business hours, leading to sessions booked outside operating hours. Time zone handling is also a risk — the server uses UTC `now()` but users think in Vietnam Time (UTC+7), and the AI does not consistently account for this.
+The UI (`ContractCard`, `StatusBadge`, `getContractActionButtons` in `statusUtils.ts`) still maps removed statuses to visual elements. Contracts in `CUSTOMER_REVIEW` or `CUSTOMER_PAID` still show colored badges ("Customer Review", "Payment Completed by Customer") even though these states no longer exist in the flow. Worse: `getContractActionButtons` still returns buttons for removed transitions — e.g., STAFF sees "Send to Customer" on `NEWLY_CREATED`, CUSTOMER sees "Confirm Details" on `CUSTOMER_REVIEW`. These buttons either do nothing or call APIs that return errors.
 
 **Why it happens:**
-Vietnamese time expressions are relative and context-dependent. "Ngày mai" (tomorrow) requires knowing what "today" is — which depends on the server's clock, not the client's. The PROBLEM.md specifies time windows (morning = 0:00–11:59, afternoon = 12:00–14:59, evening = 15:00–17:59, night = 18:00–23:59), but these windows are gym-specific business logic that must be explicitly encoded — not inferred by the AI from natural language. The AI's base training data reflects general time conventions, not GoChul Fitness-specific windows.
+`getContractStatusVariant` in `statusUtils.ts` has a full mapping for all 8 statuses. `getContractStatusText` has display strings for all 8 statuses. `getContractActionButtons` has a switch over all roles and all 8 statuses. The simplification removes statuses but these functions keep returning values for them (as long as the TypeScript type still includes them).
 
 **How to avoid:**
-1. **Encode time windows in the system prompt as strict rules**, not examples: "Morning = 00:00–11:59, Afternoon = 12:00–14:59, Evening = 15:00–17:59, Night = 18:00–23:59. All times in Vietnam Time (UTC+7). Server time is the source of truth for 'today'."
-2. **Server-side time resolution:** Do not rely on the AI to convert Vietnamese relative dates to ISO timestamps. After the AI extracts the user's intent and rough time reference, the server should resolve the actual timestamp using a date library (e.g., `date-fns`, `Temporal`) with the gym's timezone config. The AI's role is to extract the *intent* (create session) and *relative reference* (sáng thứ 6), not to compute the final timestamp.
-3. **Confirmation before API call:** Before calling the API, the bot responds with a structured confirmation: "Create a session for [customer] with [trainer] at [date] [time] — is that correct?" The user must confirm before the write operation executes.
-4. **Operating hours validation:** The server must validate that the resolved time falls within the gym's operating hours and reject out-of-hours requests with a clear message.
-5. **Edge case list:** Document and test all ambiguous Vietnamese time expressions: "sáng nay" vs "sáng mai", "tuần sau", "thứ 2 tuần này", "cuối tuần".
+1. **Update `getContractStatusVariant`** — remove mappings for `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED`. Add a fallback: if an unexpected status is encountered, return `variant: 'secondary', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'` with a console.warn.
+2. **Update `getContractStatusText`** — remove display strings for removed statuses. Fallback to `status` (the raw enum value) for unknown statuses.
+3. **Update `getContractActionButtons`** — simplify the switch to only 3 cases: `NEWLY_CREATED`, `ACTIVE`, and terminal (`CANCELED`/`EXPIRED`). All other statuses (if any legacy data slips through) should return no buttons and log a warning.
+4. **Update `CONTRACT_STATUS_ICON`** — remove icons for removed statuses.
+5. **Add a runtime guard in `ContractCard`**: If `contract.status` is a removed value, display a "Legacy Contract" badge with a neutral style and hide action buttons.
 
 **Warning signs:**
-- Sessions created on the wrong day — caught when trainer checks their schedule
-- AI responds with a time that conflicts with gym operating hours
-- "sáng" or "chiều" used without the exact window definition in the system prompt
-- No server-side timezone handling — AI doing all time math
+- Browser console shows: `No variant mapping for status CUSTOMER_PAID`
+- User sees a "Customer Review" badge on a contract
+- User clicks "Confirm Details" button and gets a 403 or 400 error
 
 **Phase to address:**
-**Phase 2 — Core Integration** (Vietnamese time inference). System prompt rules + server-side resolution must be in place before parameter gathering loop testing begins.
+**Phase 3 — UI Component Update** (after API and types are updated, before deployment).
 
 ---
 
-### Pitfall 4: Floating Modal UI Bleeds State Into Pages and Breaks Accessibility
+### Pitfall 4: Session Creation Guard Still Checks `PT_CONFIRMED` — Blocks All Bookings
 
 **What goes wrong:**
-The floating action button (FAB) + modal overlay renders on top of every page. Without proper boundary management, the modal's React context and animation state leak into the underlying page's React tree, causing subtle bugs: TanStack Query caches from the modal's API calls bleed into the page's query cache; a page with an open modal that navigates (via Next.js link) keeps the modal mounted in the background; keyboard focus traps fail on certain pages, trapping users; screen readers announce the modal but then resume reading the page behind it. On mobile, the modal may cover critical UI elements with no close affordance.
+The `create_session` API route checks `contract.status !== 'ACTIVE'` as the guard that allows session creation. This is already correct for the new flow — only `ACTIVE` contracts allow sessions. However, the `updateStatus` transition that activates contracts is now `NEWLY_CREATED → ACTIVE` (bypassing `PT_CONFIRMED`). If the session creation guard also checks intermediate statuses (e.g., `PT_CONFIRMED`) it will reject sessions on legacy contracts that were migrated to `ACTIVE`. More subtly: if the session creation guard checks `status !== 'ACTIVE'` but also has an explicit allowlist that includes `PT_CONFIRMED`, legacy contracts in `PT_CONFIRMED` that were never migrated will block sessions.
 
 **Why it happens:**
-Next.js 16 App Router uses React's concurrent features — navigating away from a page does not unmount the previous page's components immediately if something (like a portal-rendered modal) holds a reference to the old tree. The modal uses `createPortal` to render into `document.body`, which is correct, but if the modal's state is managed by a context provider that wraps the entire app (e.g., a chatbot provider in `layout.tsx`), that provider stays mounted across navigations. The FAB button must also be accessible — a `button` with `aria-label`, keyboard operable, and visually persistent without obscuring content.
+The session creation permission check in `/api/history/create` was written against the 6-state model. Its logic was: "session can be created if contract is in `PT_CONFIRMED` or `ACTIVE`". After simplification, `PT_CONFIRMED` no longer exists, but if the guard still has an explicit `PT_CONFIRMED` check (for backward compat during migration), legacy contracts in `PT_CONFIRMED` will still pass the guard even after migration ends.
 
 **How to avoid:**
-1. **Isolate chatbot state:** The chatbot provider should be as close to the modal as possible — not wrapping the entire app. Prefer a lightweight client-side component rendered in a portal, with state scoped to the modal itself. Use `useState` for open/close rather than a global context unless sharing state across multiple entry points.
-2. **Focus management:** Implement `useEffect` to trap focus inside the modal when open (`aria-modal="true"`, `role="dialog"`). On close, return focus to the FAB button. Handle `Escape` key to close.
-3. **Route change listener:** Listen to Next.js router events (`usePathname` or `useSearchParams`) — if the route changes while the modal is open, close the modal automatically.
-4. **Z-index layering:** Ensure the modal's z-index is above all page content but below any full-screen overlays (e.g., image lightboxes). The FAB button should have a fixed position with consistent z-index.
-5. **Accessibility audit:** Test with VoiceOver/NVDA — modal must be announced on open, and focus must be trapped. The FAB button must have a visible focus ring.
+1. **Simplify the guard in `/api/history/create`** to a single check: `if (contract.status !== 'ACTIVE') return 400 'Contract must be ACTIVE to create a session'`. Remove all `PT_CONFIRMED` and other intermediate checks.
+2. **Verify no other route** has a `PT_CONFIRMED` status check. Grep the codebase for `PT_CONFIRMED` occurrences and remove all references outside of the legacy-data migration script.
+3. **Add a defensive check**: If a contract with a removed status somehow reaches the session creation guard, return a specific error: "This contract is in a legacy status and cannot be used for new sessions. Please contact support."
 
 **Warning signs:**
-- Modal stays open after Next.js navigation (check with router-based navigation tests)
-- TanStack Query cache keys appear in browser DevTools with chatbot-related data
-- Focus visibly moves behind the modal when opened
-- No `aria-modal` attribute on the modal container
+- Session creation returns 400 "Contract must be ACTIVE" for contracts that appear ACTIVE in the UI
+- Session creation returns 400 "Contract must be ACTIVE" for contracts migrated to ACTIVE that have `PT_CONFIRMED` still lingering in the history link
+- Grep finds `PT_CONFIRMED` outside of the migration script or TypeScript types
 
 **Phase to address:**
-**Phase 1 — Foundation** (FAB + modal UI). UI isolation and accessibility must be designed upfront, not retrofitted after the feature works.
+**Phase 2 — API Route Logic** (concurrent with type updates).
 
 ---
 
-### Pitfall 5: Auth Token Passed to AI or Mismanaged in Server-Side Route
+## High-Risk Pitfalls
+
+### Pitfall 5: `validStatuses` in `updateStatus` Route Still Includes Removed Statuses
 
 **What goes wrong:**
-The chatbot's server-side route (the Next.js API route that calls the Anthropic SDK) needs the user's Clerk session token to make authenticated API calls on behalf of the user. Two failure modes:
-(a) **Token leaked to AI:** The Clerk session token (or Clerk secret key) is included in the messages sent to the AI model, either in the system prompt or in user messages. The AI could theoretically echo it back or be tricked into disclosing it via prompt injection. More critically, the token is now in a third-party system's logs.
-(b) **Token not forwarded:** The server-side route calls the GoChul Fitness API without passing the Clerk session token, so the API route falls back to the `INSTANTDB_ADMIN_TOKEN` (C2) — running with full admin privileges for what should be a scoped user operation.
-(c) **Token stored or logged:** The server-side route logs the request or stores it, inadvertently persisting the user's auth token.
+The `POST /api/contract/updateStatus` route has a local `validStatuses` array that validates incoming status values. It currently lists all 8 statuses. After simplification, if this array is not updated, the route will still accept `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, and `PT_CONFIRMED` as valid status values — even though the TypeScript `ContractStatus` type may have been updated to remove them. A malicious or buggy client could pass these old statuses, and the route would pass the validation but fail at the transition logic (because the transition guards won't match any case). The result is a confusing silent failure — no error, no update.
 
 **Why it happens:**
-The typical Next.js API route pattern (`const { userId } = await auth()`) works for routes that call Clerk directly, but the chatbot server route calls the Anthropic SDK — which is a separate API call. Developers often concatenate the Clerk session token into the request headers sent to GoChul Fitness API routes, and if that token ends up in the Anthropic API call (because the AI system prompt contains the token for "context"), it leaks. The codebase also has a known issue (C2) where `INSTANTDB_ADMIN_TOKEN` is used for all operations — without forwarding the user's token, every chatbot API operation runs as admin.
+The `validStatuses` array is a secondary validation layer inside the route handler, separate from the TypeScript type. Type-only changes don't automatically update runtime arrays. The route also has `isPreActiveContractStatus` which checks against removed statuses — this function will always return `true` for removed statuses, causing expired-check logic to fire on contracts that shouldn't be in that path anymore.
 
 **How to avoid:**
-1. **Never send tokens to the AI model:** The Anthropic API call should contain no user credentials, session tokens, or secret keys. The AI receives only: conversation history, system prompt (endpoint list + role rules + time rules), and resolved parameters.
-2. **Forward Clerk token to GoChul Fitness API routes:** In the server-side chatbot route, obtain the session token via `const { userId, getToken } = await auth()` and forward `Authorization: Bearer <token>` to downstream GoChul API routes. This ensures RBAC is enforced at the target route level.
-3. **Use short-lived tokens:** Clerk's `getToken({ template: 'gochul-fitness' })` issues short-lived tokens scoped to the app. Use this instead of raw Clerk session tokens.
-4. **No logging of tokens:** Audit `console.log` statements in the chatbot server route. Ensure no request/response objects are logged that might contain the auth header.
-5. **Separate concerns:** The chatbot route authenticates the user (via Clerk), resolves the AI parameters, calls Anthropic, then calls the GoChul API — with the user's token forwarded. Never combine these steps in a way that bleeds credentials.
+1. **Update `validStatuses`** in `updateStatus/route.ts` to only: `['NEWLY_CREATED', 'ACTIVE', 'CANCELED', 'EXPIRED']`.
+2. **Update `isPreActiveContractStatus`** in `statusUtils.ts` — it currently returns `true` for `NEWLY_CREATED | CUSTOMER_REVIEW | CUSTOMER_CONFIRMED | CUSTOMER_PAID | PT_CONFIRMED`. After simplification, only `NEWLY_CREATED` is pre-active. Rename the function to `isPreActiveContractStatus` and simplify: `return status === 'NEWLY_CREATED'`. Update all call sites.
+3. **Audit all `isPreActiveContractStatus` call sites** in the codebase — it's called in `getAll` for auto-expiry and in `updateStatus` for the date-expiry check. Both need updating.
+4. **Update the expiry rules in PROGRAM.md §5**: Rule C1 currently says pre-ACTIVE statuses include all intermediate states. Simplify to only `NEWLY_CREATED`.
 
 **Warning signs:**
-- `Authorization` header appears in any Anthropic API call payload (search for `getToken`, `Authorization` near Anthropic call sites)
-- `console.log` or `console.error` in the chatbot API route logs request objects
-- GoChul API routes called without `Authorization` header — requests run as INSTANTDB_ADMIN_TOKEN
-- System prompt contains any Clerk key or token value
+- Route accepts `CUSTOMER_PAID` as a valid status value (passes `validStatuses.includes()` check)
+- `isPreActiveContractStatus('CUSTOMER_PAID')` returns `true` — triggers incorrect auto-expiry logic
+- TypeScript type updated but runtime array not — type/behavior mismatch
 
 **Phase to address:**
-**Phase 1 — Foundation** (Architecture & Security). Auth token architecture must be designed before the chatbot API route is implemented.
+**Phase 2 — API Route Logic**.
 
 ---
 
-### Pitfall 6: AI Hallucinates API Endpoints or Invalid Parameter Combinations
+### Pitfall 6: TanStack Query Cache Returns Stale Status Badges After Navigation
 
 **What goes wrong:**
-The AI is given a list of endpoints and their parameters in the system prompt. It may invent endpoint names that don't exist (e.g., `/api/contract/search` or `/api/session/create`) and attempt to call them. Even when calling a real endpoint, it may pass invalid parameter combinations — e.g., setting `status: 'ACTIVE'` on a newly created contract (invalid lifecycle transition), or passing `credits: 0` when the API requires a positive integer. The GoChul Fitness API routes use `INSTANTDB_ADMIN_TOKEN` with no parameter validation depth, so invalid writes succeed or fail with cryptic database errors.
+Contracts are fetched via `useContracts()` and cached in TanStack Query. After a user navigates away and returns, the cached contract data may show the old status (e.g., `CUSTOMER_PAID`) even though the contract was migrated to `ACTIVE` in the database. The UI renders the old badge because the cache wasn't invalidated. This is particularly insidious because the data "looks right" on first load (it's cached) — it only shows the wrong status if you know to look.
 
 **Why it happens:**
-LLMs hallucinate, especially under prompt injection or when given long lists of available tools. The more endpoints and parameters listed in the system prompt, the higher the chance of a hallucinated call. Additionally, GoChul Fitness contract and session lifecycles have specific state transition rules (NEWLY_CREATED → ACTIVE → EXPIRED/CANCELED; NEWLY_CREATED → CHECKED_IN/CANCELED/EXPIRED) that are enforced at the API route level — but the AI has no intrinsic knowledge of these rules unless explicitly encoded in the system prompt.
+TanStack Query caches by query key. If the query key doesn't change between navigations, the stale cache is returned. The `RealtimeProvider` invalidates the `['contracts']` query key on `contract.changed` events, but if the cache was populated before the provider subscribed, or if the realtime event doesn't fire (e.g., migration is a direct DB write, not an API call), the cache stays stale.
 
 **How to avoid:**
-1. **Strict endpoint allowlist in system prompt:** Only list endpoints the AI is actually permitted to call. Include exact HTTP method, exact path, and required parameters. Do not include endpoints that exist in the codebase but should not be accessible via the chatbot.
-2. **Lifecycle rules in system prompt:** Encode state transition rules explicitly: "Contracts start in NEWLY_CREATED status and transition to ACTIVE when the start_date is reached. A session status can only transition to CHECKED_IN when both customer and staff have checked in."
-3. **Server-side parameter validation:** The chatbot server-side handler should validate the resolved parameters against the endpoint's schema before making the API call. Reject invalid combinations with a structured error, not a raw API error.
-4. **Dry-run option:** For write operations, the bot should first describe the action it will take (endpoint, method, parameters) and wait for user confirmation before executing.
+1. **After running the migration script**, call `queryClient.invalidateQueries({ queryKey: contractKeys.all() })` to clear the contract cache.
+2. **Use `staleTime: 0`** on the contracts query to ensure fresh data on every mount (acceptable for contract lists — they're small and change infrequently).
+3. **Add cache invalidation** in the realtime event handler to cover both `create` and `update` actions.
+4. **Test the migration with a fresh browser session** (no cache) to confirm contracts show the correct status after migration.
 
 **Warning signs:**
-- API route receives a request with an unknown endpoint path
-- Invalid status transition in API route logs
-- Parameters passed that don't match the schema (e.g., wrong type, missing required field)
-- AI response says "I've created your session" but the API returned an error
+- Contract shows old status badge after migration, even after page refresh (but not hard refresh)
+- Hard refresh (Ctrl+Shift+R) shows correct status — cache is the culprit
+- `queryClient.getQueryData(contractKeys.all())` returns stale data
 
 **Phase to address:**
-**Phase 2 — Core Integration** (API integration + parameter validation). Endpoint allowlist and lifecycle rules must be in the system prompt before any integration testing.
+**Phase 3 — UI Cache & Realtime** (after migration script runs).
 
 ---
 
-### Pitfall 7: Multi-turn Conversation Context Bleeds Across Sessions
+### Pitfall 7: Expiry Rules Check Removed Statuses and Break Auto-Expiry
 
 **What goes wrong:**
-The chatbot's conversation history is stored in React state (in-memory) and cleared on modal close (per the out-of-scope note). However, the AI model receives prior conversation turns as `messages` history. If the chatbot API route passes the full message history to the Anthropic API on every request, a user who opened the modal, partially set up a contract, then closed the modal (history cleared) — but the session token was somehow retained or the message history was stored server-side — could result in context carryover. More subtly: if the modal reopens and the frontend re-sends a cached message history, or if the AI system prompt is built by concatenating previous responses, data from one conversation can bleed into another.
+Rule C1 in PROGRAM.md §5 says: "A contract is in a pre-ACTIVE status (`NEWLY_CREATED`, `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED`) AND its `end_date` has passed → `EXPIRED`." After simplification, only `NEWLY_CREATED` is pre-ACTIVE. The expiry check in `getAll` (auto-expire in-memory) and in `updateStatus` (reject transition on expired contracts) both use `isPreActiveContractStatus`, which still returns `true` for removed statuses. Legacy contracts migrated to `ACTIVE` won't auto-expire correctly if they slip through with a removed status.
 
 **Why it happens:**
-The project spec says "Chat history cleared on modal close" — but if the implementation stores history server-side (e.g., to resume long conversations), it may persist beyond the modal session. Additionally, Next.js React Server Components and client component hydration can cause the message state to briefly outlive the modal's unmount. If the chatbot provider wraps the layout, the provider instance persists across modal close/open cycles, and message arrays defined outside the component scope could persist.
+The expiry logic is spread across two places: the `getAll` route (auto-expire on read) and the `updateStatus` route (reject transition if already expired). Both call `isPreActiveContractStatus`, which includes all removed statuses. After simplification, this causes two problems:
+1. Contracts with removed statuses never get auto-expired (because the migration moved them to `ACTIVE` or `CANCELED`)
+2. If a contract is accidentally left in `CUSTOMER_PAID` and its `end_date` passes, it won't auto-expire under the new `isPreActiveContractStatus` logic
 
 **How to avoid:**
-1. **Client-side only state:** Store message history in `useState` inside the modal component. Do not lift it to a provider or context. On modal close (`onOpenChange(false)`), reset the state.
-2. **No server-side conversation persistence:** The chatbot API route should be stateless — it receives the current message + the conversation history (from the client), processes it, and returns a response. The server should not store conversation history.
-3. **Conversation window limit:** Cap the number of messages sent to the AI model (e.g., last 20 turns) to avoid token limit issues and reduce the surface area for context bleed.
-4. **User ID in API call:** Include the Clerk `userId` in the API request so the server can associate the conversation with a user, even if the frontend clears history. This is also needed for rate limiting per user.
+1. **Simplify `isPreActiveContractStatus`** as described in Pitfall 5.
+2. **Update the expiry check in `getAll`** to use the simplified function.
+3. **Write the migration script to set all removed-status contracts to `ACTIVE` or `CANCELED`** (see Pitfall 1) before the simplified expiry logic goes live.
+4. **Add a monitoring alert**: After deployment, query for any contract with a removed status value. This should always return 0. If it returns > 0, the migration failed.
 
 **Warning signs:**
-- Conversation history persists across modal close/open cycles in the UI
-- Chatbot API route has a database write or session storage operation
-- `messages` array sent to Anthropic grows unbounded between turns
-- No `userId` in chatbot API request payload
+- Database query returns contracts in `CUSTOMER_PAID` or `PT_CONFIRMED` status after migration
+- `isPreActiveContractStatus('CUSTOMER_PAID')` returns `true` in runtime — expiry logic fires on wrong statuses
+- Expiry check in `getAll` silently updates a contract's status to `EXPIRED` when it shouldn't
 
 **Phase to address:**
-**Phase 1 — Foundation** (FAB + modal UI). State management architecture must be defined alongside the modal implementation.
+**Phase 2 — API Route Logic** (simultaneous with Pitfall 5).
+
+---
+
+### Pitfall 8: Customer Visibility Filter Still Excludes `NEWLY_CREATED`
+
+**What goes wrong:**
+PROGRAM.md §4.2 currently states: "CUSTOMER: Contracts where `purchased_by` = their user ID; `NEWLY_CREATED` is always excluded." Under the new flow, `NEWLY_CREATED` is the customer-visible starting state — the customer must see the contract and click "Activate" on it. If the filter still excludes `NEWLY_CREATED`, customers will see an empty contract list after STAFF creates a contract for them. They won't know a contract exists.
+
+**Why it happens:**
+The exclusion of `NEWLY_CREATED` for CUSTOMER was intentional under the old flow (customer shouldn't see a contract until STAFF sends it to them). The new flow inverts this: customer should see `NEWLY_CREATED` immediately so they can activate it.
+
+**How to avoid:**
+1. **Update the `getAll` route filter for CUSTOMER role**: Remove the `status !== 'NEWLY_CREATED'` exclusion. Now CUSTOMER can see their own `NEWLY_CREATED` contracts.
+2. **Update `canViewContract`** in `statusUtils.ts`: Change `if (role === 'CUSTOMER' && status === 'NEWLY_CREATED') return false` to `return true` for all CUSTOMER statuses.
+3. **Update the RBAC table in PROGRAM.md §4.2**: "CUSTOMER: All contracts where `purchased_by` = their user ID (including `NEWLY_CREATED`)."
+4. **Update the chatbot `get_contracts` tool description**: Remove "CUSTOMER role cannot request NEWLY_CREATED status" from the `statuses` parameter description.
+
+**Warning signs:**
+- CUSTOMER sees empty contract list after STAFF creates a contract for them
+- Grep finds `NEWLY_CREATED` excluded in a filter for CUSTOMER role
+- `canViewContract('CUSTOMER', 'NEWLY_CREATED')` returns `false`
+
+**Phase to address:**
+**Phase 3 — UI Component Update** (concurrent with Pitfall 3).
 
 ---
 
@@ -194,12 +218,12 @@ The project spec says "Chat history cleared on modal close" — but if the imple
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Use `INSTANTDB_ADMIN_TOKEN` for all chatbot API calls | Simpler auth, no per-user token forwarding | Runs every operation as admin; any AI error has max blast radius (C2) | Never — always forward the user's Clerk token |
-| Skip parameter validation on the server side | Faster initial implementation | AI passes invalid params → 400/500 errors surface to user | Never — server must validate all AI-resolved parameters |
-| Send full conversation history to AI on every request | Better context for the model | Token cost grows, latency increases, context contamination risk | Only if window is capped (last N turns) |
-| Hardcode time window rules in system prompt only | Quick to iterate on prompt | Rules drift out of sync with business logic; no test coverage | Only acceptable in Phase 1, must be codified in server logic by Phase 2 |
-| Skip accessibility on modal (no focus trap, no ARIA) | Faster initial UI | Blocks keyboard users, fails WCAG, blocks screen readers | Never — FAB and modal are core UX; accessibility is non-negotiable |
-| Store conversation history server-side to resume sessions | Users can pick up where they left off | Complexity: need auth, encryption, retention policy; spec explicitly excludes this | Never — per project spec, chat history is cleared on close |
+| Only update TypeScript types, not runtime validation arrays | TypeScript compiles cleanly | Route accepts invalid statuses at runtime; subtle silent failures | Never — always update types AND runtime arrays in the same PR |
+| Update `statusUtils.ts` but not `updateStatus/route.ts` | Status utilities consistent | API route has independent logic that contradicts utilities | Never — both must be updated together |
+| Update UI but not AI chatbot | UI ships cleanly | Users interacting with chatbot still see old statuses and old behaviors | Never — AI chatbot must ship in the same deployment as UI |
+| Skip the migration script, rely on manual fixes | Avoids writing migration code | Human error: some contracts miss the manual fix, users see broken contracts | Never |
+| Keep removed status values in TypeScript type as deprecated | Avoids breaking changes | Developers import the type and use removed values; API rejects them at runtime | Never — remove from type entirely |
+| Add `PT_CONFIRMED` → `ACTIVE` as a backward-compat transition in the API | Supports legacy contracts without migration | Any contract in `PT_CONFIRMED` never gets migrated; flow stays broken | Only as a temporary bridge in the migration script, then remove |
 
 ---
 
@@ -207,11 +231,12 @@ The project spec says "Chat history cleared on modal close" — but if the imple
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Anthropic SDK → GoChul API | Passing Clerk token to Anthropic call | Anthropic receives only messages + system prompt. Clerk token forwarded only to GoChul API routes. |
-| Clerk auth → chatbot API route | Using `auth()` without `getToken()` for downstream calls | Use `const token = await getToken({ template: 'gochul-fitness' })` to get a scoped short-lived token for forwarding |
-| InstantDB → AI-sourced writes | Using `INSTANTDB_ADMIN_TOKEN` for writes initiated by AI | Forward user's Clerk token so InstantDB queries are scoped; admin token only for non-user-specific operations |
-| AI → Vietnamese time | AI computes timestamps itself | AI extracts intent + relative reference; server resolves to UTC+7 timestamp using a date library |
-| AI → parameter resolution | AI fills missing params with hallucinated defaults | System prompt forbids defaults; server validates required fields before API call |
+| InstantDB (runtime) → TypeScript types | Type updated but `validStatuses` array in route not updated; runtime rejects valid new statuses or accepts removed ones | Update TypeScript types AND runtime arrays AND `isPreActiveContractStatus` AND all switch statements in the same PR |
+| TanStack Query cache → Realtime invalidation | Cache not invalidated after migration (direct DB write); stale status badge shown | Invalidate cache after migration; set `staleTime: 0` on contracts query |
+| AI chatbot → API route | Tool definition enum still contains removed statuses; AI generates old status values | Update tool enum AND system prompt RBAC table AND lifecycle description in the same PR |
+| UI components → API routes | `getContractActionButtons` still returns buttons for removed transitions; buttons call APIs that return 403 | Update button logic to only handle `NEWLY_CREATED → ACTIVE` and `NEWLY_CREATED → CANCELED` |
+| PROGRAM.md → Codebase | Docs describe 6-state flow after code ships with 2-state flow | Update PROGRAM.md §4.2, §5, §6, §7 AND all RBAC tables AND expiry rules AND lifecycle diagrams in the same PR |
+| `.cursor/rules` → Codebase | Cursor AI still gives guidance based on old 6-state flow | Update `gochul-fitness-rules.mdc` with new lifecycle, new RBAC, new expiry rules, removed statuses |
 
 ---
 
@@ -219,10 +244,9 @@ The project spec says "Chat history cleared on modal close" — but if the imple
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Unbounded message history sent to AI | Token count grows with each turn; API cost doubles every N turns; eventual 4096/8192 token overflow | Cap at last 20 messages; summarize older turns if needed | Chat sessions longer than ~15 turns |
-| AI calls GoChul `getAll` endpoints for every lookup | Each AI lookup fetches thousands of records; InstantDB query cost + AI parsing time | Use scoped lookups (by `userId`, `contractId`); AI should call targeted endpoints, not `getAll` | More than 5 lookups per conversation |
-| Modal component re-renders on every route change | FAB or modal blinks/flickers on navigation; React DevTools shows excessive renders | Isolate chatbot component; memoize FAB button; use `useCallback` for handlers | Frequent navigators; pages with frequent data refresh |
-| AI makes sequential API calls in a loop (parameter gathering) | Each missing parameter = 1 API call to AI + 1 round trip; 5 missing params = 10 round trips | Batch parameter requests: ask for all missing fields in one response | Users with complex requests (e.g., "create a contract") |
+| Migration script queries all contracts without pagination | Memory explosion on large InstantDB dataset; timeout or OOM | Use cursor-based pagination (batch of 100); add `limit` and `startAfter` to migration query | More than ~500 contracts in the database |
+| `getAll` route auto-expires contracts on every read | Extra InstantDB write on every contract list load (once per user per navigation) | Auto-expire only on the `updateStatus` route; `getAll` should be read-only | High-traffic contract list page |
+| `isPreActiveContractStatus` called in `getAll` for every contract | O(n) check over all statuses for each contract in the list | Remove the auto-expire from `getAll`; rely on migration script + `updateStatus` guard only | Large contract lists |
 
 ---
 
@@ -230,12 +254,9 @@ The project spec says "Chat history cleared on modal close" — but if the imple
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Clerk token forwarded to Anthropic | Token logged by Anthropic or its proxy; exposed in server logs | Never include `Authorization` headers or tokens in any Anthropic API call payload |
-| AI receives `INSTANTDB_ADMIN_TOKEN` | Full database write access via prompt injection or hallucination | Token stays server-side only; never in system prompt or messages |
-| AI calls ADMIN-only endpoints for CUSTOMER users | Privilege escalation via natural language | System prompt enumerates per-role allowed actions; API route enforces role check |
-| No rate limiting on chatbot API route | User or external actor spams AI calls → cost explosion | Add per-user rate limit: max N AI calls per minute (e.g., `@upstash/ratelimit`) |
-| Conversation history stored server-side without encryption | User's gym data (contracts, sessions) persisted in plaintext logs | Do not persist conversations server-side; keep stateless per spec |
-| AI prompt injection from user input | Malicious user embeds instructions in their message to override the AI's behavior | Sanitize user input; use strict output validation schema for AI responses |
+| ADMIN force-transition bypass still allows setting removed statuses | If `role === 'ADMIN'` skips all transition validation (as it currently does), ADMIN could set any contract to `CUSTOMER_PAID` — a removed status that breaks downstream logic | After simplification: ADMIN can still force-set to `ACTIVE`, `CANCELED`, `EXPIRED`; all other values should return 400 even for ADMIN |
+| Removed statuses still accepted as valid input | Malicious client sends `status: 'PT_CONFIRMED'`; route passes `validStatuses` check; silently does nothing | Tighten `validStatuses` to only the 4 valid statuses; add explicit reject for removed values |
+| CUSTOMER can still activate any `NEWLY_CREATED` contract (not just their own) | Information disclosure: customer can see contracts they don't own | The ownership check (`contract.purchased_by !== userInstantId`) must remain in place for `NEWLY_CREATED → ACTIVE` |
 
 ---
 
@@ -243,28 +264,31 @@ The project spec says "Chat history cleared on modal close" — but if the imple
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| AI asks for parameters one at a time in a loop | Tedious — user must answer 6+ questions before anything happens | Ask for all missing parameters in one concise message: "I need a few details: [customer name], [contract type], and [start date]." |
-| No visible confirmation before a write action | User doesn't know the bot is about to modify their data | Structured summary before every write: "I'll create a PT contract for [Name] starting [Date]. Confirm?" with Yes/Cancel buttons |
-| Error messages surface raw API errors | Cryptic: "400 Bad Request: undefined is not a valid status" | Map API errors to user-friendly messages: "I couldn't create the session — the trainer is already booked at that time." |
-| Chatbot modal blocks the entire page with no close affordance | User feels trapped; cannot interact with the page | Always show a close button (×) in the modal header; Escape key closes; click-outside closes |
-| AI responds in a different language than the user | Confusing if user wrote in Vietnamese but AI responds in English | Detect and match the user's language; system prompt instructs AI to respond in the same language as the user's last message |
-| No loading indicator during AI processing | User doesn't know if the bot is thinking or stuck | Show a typing indicator ("...") while waiting for the AI response; show inline loading during API calls |
-| AI creates a session without checking trainer availability | Double-booking the trainer (also: known race condition C5 in codebase) | Before creating, call `getOccupiedTimeSlots` for the trainer on the target date; surface conflicts to the user |
+| Customer sees empty contract list after STAFF creates contract | Customer doesn't know a contract was made for them; no activation button visible | Remove `NEWLY_CREATED` exclusion for CUSTOMER (see Pitfall 8) |
+| Cancel button on `NEWLY_CREATED` still says "Send to Customer" or shows wrong role's buttons | Wrong button label confuses users about what action to take | Simplify `getContractActionButtons` to only return "Activate" (CUSTOMER) and "Cancel" (ADMIN/STAFF) |
+| Legacy contract shows old status badge after migration | Users see "Payment Completed" badge on a contract that was auto-migrated; doesn't match the actual simplified flow | Add runtime guard to show "Legacy Contract" badge for any removed status; clear cache after migration |
+| AI chatbot says "Your contract is in CUSTOMER_REVIEW" | User confused — no such status exists in the new UI | Update AI system prompt and tool definitions before shipping (see Pitfall 2) |
+| Error message still says "Invalid transition for CUSTOMER role" when user tries old flow | After simplification, this message might appear for transitions that were removed | Add specific error translation: if the requested transition no longer exists in the 2-state model, say "This contract status is no longer valid. Please contact support." |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **API integration:** Endpoint allowlist exists in system prompt — verify by grepping for all `/api/` paths in the prompt; compare against actual route files
-- [ ] **RBAC scoping:** AI cannot access ADMIN-only endpoints when logged in as CUSTOMER — test by prompting as CUSTOMER with admin intent
-- [ ] **Parameter loop:** Bot gives up after N attempts with a clear message — test with deliberately missing required fields
-- [ ] **Vietnamese time:** "sáng thứ 6" resolves to correct date/time in Vietnam Time — test all four time windows + relative references
-- [ ] **Modal accessibility:** Focus trapped in modal when open; Escape closes; FAB focusable — test with keyboard + VoiceOver
-- [ ] **Auth token:** Clerk token never appears in Anthropic API call — audit network tab + server logs
-- [ ] **Confirmation step:** Write operations (create, update, cancel) require user confirmation before execution — test every write action
-- [ ] **Rate limiting:** Chatbot API route has per-user rate limits — verify 429 returned after threshold
-- [ ] **Session token forwarding:** GoChul API routes receive `Authorization` header from chatbot — verify with mock or logs
-- [ ] **No conversation persistence:** Chat history cleared on modal close — verify in React DevTools that state resets
+- [ ] **Migration script:** Database query returns 0 contracts with removed statuses (`CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED`) — verify after running migration
+- [ ] **TypeScript types:** `ContractStatus` type has only `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED` — grep the type file
+- [ ] **`validStatuses` in route:** Only includes `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED` — grep the route file
+- [ ] **`isPreActiveContractStatus`:** Only returns `true` for `NEWLY_CREATED` — verify all call sites
+- [ ] **AI tool enum:** `update_contract_status` tool's `status` enum contains only `ACTIVE`, `CANCELED`, `EXPIRED`
+- [ ] **AI system prompt:** RBAC section describes only `NEWLY_CREATED → ACTIVE` and `NEWLY_CREATED → CANCELED` for non-ADMIN roles
+- [ ] **`getContractActionButtons`:** Returns only "Activate" (CUSTOMER on `NEWLY_CREATED`) and "Cancel" (ADMIN/STAFF on `NEWLY_CREATED`)
+- [ ] **`canViewContract`:** CUSTOMER can see `NEWLY_CREATED` contracts — test with CUSTOMER login
+- [ ] **Session creation:** `ACTIVE` is the only status that allows session creation; `PT_CONFIRMED` not in guard
+- [ ] **Expiry rules:** Rule C1 applies only to `NEWLY_CREATED`, not removed statuses
+- [ ] **TanStack Query cache:** Fresh browser load shows correct simplified statuses after migration
+- [ ] **PROGRAM.md:** All RBAC tables, lifecycle diagrams, expiry rules, and API contracts reflect 2-state model
+- [ ] **`.cursor/rules`:** Runtime behavior document updated with new lifecycle, removed statuses, new expiry rules
+- [ ] **AI chatbot test:** "Where's my contract?" → no mention of removed statuses; "How do I activate?" → correct flow
+- [ ] **ADMIN force-transition:** ADMIN can still force to `ACTIVE`, `CANCELED`, `EXPIRED` but not to removed statuses
 
 ---
 
@@ -272,13 +296,13 @@ The project spec says "Chat history cleared on modal close" — but if the imple
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| AI called wrong endpoint / invalid params | MEDIUM | API returns error → surface user-friendly message → bot asks user to rephrase; no data written |
-| Vietnamese time miscalculated | MEDIUM | Session created at wrong time → STAFF can update or cancel; add explicit time confirmation step to prevent |
-| Auth token leaked to AI | HIGH | Rotate the Clerk token immediately; audit all Anthropic logs for the token; review access logs |
-| Modal breaks page navigation (stays open) | LOW | Force close on route change; add `useEffect` on `usePathname`; fix in next patch release |
-| Race condition in concurrent booking (C5/C6) | HIGH | Already a known issue in codebase; chatbot makes it worse by increasing booking rate; prioritize fix in Phase 3 |
-| AI hallucinates endpoint | MEDIUM | API returns 404; surface error; update system prompt to remove hallucinated endpoint; add server-side route allowlist validation |
-| Prompt injection | HIGH | If user input overrides AI behavior, audit what data the AI accessed; revoke any tokens; review logs; update input sanitization |
+| Legacy contracts still in removed statuses | MEDIUM | Re-run migration script with corrected logic; verify with database query |
+| AI chatbot still generating removed status values | LOW | Deploy updated tool definitions and system prompt; no database changes needed |
+| UI shows old status badges | LOW | Deploy updated `statusUtils.ts`; hard refresh browser to clear cache |
+| CUSTOMER can't see `NEWLY_CREATED` contracts | MEDIUM | Update `canViewContract` and `getAll` filter; invalidate TanStack cache |
+| Session creation fails for migrated contracts | MEDIUM | Verify contract is actually `ACTIVE`; if stuck in removed status, re-run migration |
+| PROGRAM.md still describes 6-state flow | LOW | Update docs in same PR that ships code; no deployment needed |
+| Cursor AI gives old guidance | LOW | Update `.cursor/rules/gochul-fitness-rules.mdc`; changes apply to future sessions |
 
 ---
 
@@ -286,27 +310,31 @@ The project spec says "Chat history cleared on modal close" — but if the imple
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| P1 — Unscoped API calls | Phase 1: Architecture & Security | RBAC test: CUSTOMER cannot access STAFF/ADMIN endpoints via chatbot |
-| P2 — Unbounded parameter loops | Phase 2: Core Integration | Test: missing params → capped follow-up → clear failure message |
-| P3 — Vietnamese time ambiguity | Phase 2: Core Integration | Test: "sáng thứ 6" → correct UTC+7 timestamp; operating hours validation |
-| P4 — Modal state bleed | Phase 1: Foundation | Test: navigate while modal open → modal closes; React DevTools shows clean unmount |
-| P5 — Auth token mismanagement | Phase 1: Architecture & Security | Audit: `Authorization` header absent from Anthropic network calls |
-| P6 — Hallucinated endpoints/params | Phase 2: Core Integration | Test: prompt for non-existent endpoint → graceful error; invalid params → validation error |
-| P7 — Context bleed across sessions | Phase 1: Foundation | Test: close modal → reopen → conversation starts fresh |
+| P1 — Legacy contracts stuck in removed states | Phase 1: Data Migration | Database query returns 0 contracts in removed statuses after migration |
+| P2 — AI chatbot mentions removed statuses | Phase 4: AI Chatbot Update | AI conversation test: "Where's my contract?" → no removed status names in response |
+| P3 — UI renders removed status badges | Phase 3: UI Component Update | Browser shows no removed status badges; `getContractActionButtons` only returns Activate + Cancel |
+| P4 — Session creation guard blocks bookings | Phase 2: API Route Logic | Create session on migrated ACTIVE contract → succeeds |
+| P5 — `validStatuses` includes removed statuses | Phase 2: API Route Logic | POST `updateStatus` with `CUSTOMER_PAID` → 400; POST with `ACTIVE` → 200 |
+| P6 — TanStack Query cache stale after migration | Phase 3: UI Cache & Realtime | Fresh browser load shows correct statuses; hard refresh confirms |
+| P7 — Expiry rules check removed statuses | Phase 2: API Route Logic | Contract in `CUSTOMER_PAID` with expired `end_date` → not auto-expired (migration should have resolved it) |
+| P8 — CUSTOMER excluded from `NEWLY_CREATED` | Phase 3: UI Component Update | CUSTOMER login → sees newly created contract in list; can click Activate |
 
 ---
 
 ## Sources
 
-- GoChul Fitness codebase — CONCERNS.md (C1–C26, April 2026)
-- GoChul Fitness — PROJECT.md (AI chatbot spec, April 2026)
-- GoChul Fitness — PROBLEM.md (Vietnamese time inference rules, session/contract lifecycle)
-- Anthropic developer documentation — tool use, prompt engineering best practices
-- Clerk authentication docs — `getToken()` usage, short-lived tokens
-- Next.js 16 App Router — portal behavior, client/server component boundaries
-- OWASP API Security Top 10 — prompt injection, auth token handling
-- WebAIM accessibility checklist — modal focus management, ARIA roles
+- GoChul Fitness — `docs/PROGRAM.md` (contract lifecycle, RBAC tables, expiry rules, April 2026)
+- GoChul Fitness — `docs/v1.1-enhance-contract-flow.md` (simplified flow requirement, April 2026)
+- GoChul Fitness — `src/app/api/contract/updateStatus/route.ts` (runtime transition logic)
+- GoChul Fitness — `src/utils/statusUtils.ts` (button logic, badge variants, expiry helpers)
+- GoChul Fitness — `src/lib/ai/toolDefinitions.ts` (AI chatbot tool schemas)
+- GoChul Fitness — `.planning/PROJECT.md` (v1.1 milestone scope, April 2026)
+- GoChul Fitness — `.planning/research/PITFALLS.md` (prior AI chatbot pitfalls, April 2026)
+- GoChul Fitness — `.planning/research/ARCHITECTURE.md` (system architecture)
+- GoChul Fitness — `.planning/research/STACK.md` (tech stack)
+- GoChul Fitness — `.claude/get-shit-done/templates/research-project/PITFALLS.md` (research template)
 
 ---
-*Pitfalls research for: GoChul Fitness AI Chatbot Feature*
-*Researched: 2026-04-04*
+
+*Pitfalls research for: Contract Lifecycle Simplification (6-state → 2-state)*
+*Researched: 2026-04-10*

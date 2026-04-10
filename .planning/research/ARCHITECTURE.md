@@ -1,70 +1,47 @@
-# Architecture Research
+# Architecture Research — Contract Flow Simplification
 
-**Domain:** AI Chatbot — Floating Modal Interface in Next.js 16 (App Router)
-**Researched:** 2026-04-04
+**Domain:** State Machine Reduction (GoChul Fitness contract lifecycle)
+**Researched:** 2026-04-10
 **Confidence:** HIGH
-
----
 
 ## Standard Architecture
 
 ### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           Browser / Client                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐     ┌─────────────────────────────────────────┐   │
-│  │  FloatingFAB     │────►│           AIChatbotModal                │   │
-│  │  (ClientComp)   │     │  ┌───────────┐  ┌──────────────────┐   │   │
-│  │                 │     │  │MessageList│  │ MessageInput    │   │   │
-│  └─────────────────┘     │  └─────┬─────┘  └────────┬─────────┘   │   │
-│                          │        │                  │              │   │
-│                          │        ▼                  ▼              │   │
-│                          │  ┌─────────────────────────────────────┐ │   │
-│                          │  │      useAIChatbotStore (Zustand)    │ │   │
-│                          │  │  • messages[]                       │ │   │
-│                          │  │  • isLoading                        │ │   │
-│                          │  │  • addMessage / clearMessages        │ │   │
-│                          │  └──────────────┬──────────────────────┘ │   │
-│                          └─────────────────┼─────────────────────────┘   │
-│                                            │ fetch / POST              │
-├────────────────────────────────────────────┼───────────────────────────┤
-│                           Next.js Server                                │
-├──────────────────────────┬─────────────────┴───────────────────────────┤
-│  API Route              │  /api/ai-chatbot/route.ts                     │
-│  ┌──────────────────────┴──────────────────────────────────────────┐   │
-│  │  1. auth()                        → Clerk session → userId       │   │
-│  │  2. getUserSetting(userId)         → resolve role (ADMIN/STAFF)   │   │
-│  │  3. buildSystemPrompt(role)        → inject available tools       │   │
-│  │  4. anthropic.messages.create()   → call Claude with full history │   │
-│  │  5. parseAssistantMessage()       → extract tool_use blocks       │   │
-│  │  6. executeTools(tools[], role)   → call internal API routes       │   │
-│  │  7. loop → re-call anthropic      → until no tool_use remain      │   │
-│  │  8. return final text response    → back to client                │   │
-│  └───────────────────────────────────────────────────────────────────┘   │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Existing API Routes (role-guarded)                                     │
-│  POST /api/contract/create   GET /api/history/getAll   etc.              │
-├─────────────────────────────────────────────────────────────────────────┤
-│  InstantDB   │   Clerk   │   Ably (realtime invalidation on mutation)  │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Client / UI Layer                                │
+├──────────────────────┬──────────────────────┬───────────────────────┤
+│  ContractCard.tsx   │  CreateContractModal  │  AIChatbotModal.tsx   │
+│  (action buttons)   │  (create + start_dt)  │  (tool layer)         │
+├──────────────────────┴──────────────────────┴───────────────────────┤
+│                    TanStack Query Hooks                              │
+│              useContracts.ts (CRUD + status mutations)               │
+├─────────────────────────────────────────────────────────────────────┤
+│                   Next.js API Routes (RBAC gate)                     │
+│  contract/create │ contract/getAll │ contract/updateStatus          │
+├───────────────────────────┬─────────────────────────────────────────┤
+│   Clerk Auth (auth())    │  InstantDB (instantServer transact)       │
+│   Role lookup            │  Ably publish (realtime events)           │
+├─────────────────────────────────────────────────────────────────────┤
+│                        InstantDB (data store)                        │
+│           contract.status ∈ {NEWLY_CREATED, ACTIVE, …}               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ### Component Responsibilities
 
 | Component | Responsibility | Typical Implementation |
-|-----------|----------------|-----------------------|
-| `FloatingFAB` | Persistent floating button; owns open/close trigger | Client Component — renders in root layout or `MainLayout`; uses React state or portal |
-| `AIChatbotModal` | Modal overlay shell; renders message list + input form | Client Component — `position: fixed` overlay + `z-index` layering; uses `next/dynamic` to avoid SSR conflicts |
-| `MessageBubble` | Single message render (user vs. bot); streaming text display | Client Component — pure presentational; receives `role`, `content`, `isLoading` props |
-| `MessageInput` | Text input + send button; keyboard submit (Enter); loading state | Client Component — `useRef` for auto-scroll anchor; disabled during AI thinking |
-| `useAIChatbotStore` | In-memory conversation state; manages message list + isLoading flag | Zustand store (no persistence needed — cleared on modal close) |
-| `/api/ai-chatbot/route.ts` | Server-side orchestrator: auth → prompt build → LLM call → tool execution loop → response | Route Handler (Node.js); uses `@anthropic-ai/sdk` |
-| `anthropicService.ts` | Wraps `Anthropic` client; exposes `createMessage()` with full message history | Server-only utility; never imported by client components |
-| `toolDefinitions.ts` | Declares the set of available tool schemas passed to Claude (API endpoint, params, roles) | Server-only constant; TypeScript-typed |
+|-----------|-----------------|------------------------|
+| `src/app/type/api/index.ts` | TypeScript types + union types (`ContractStatus`) | Single source of truth for all types |
+| `src/app/api/contract/updateStatus/route.ts` | Validates role + status transition + writes to InstantDB | Server-side route handler |
+| `src/utils/statusUtils.ts` | Derives action buttons, badge variants, visibility rules | Pure functions; no React imports |
+| `src/components/cards/ContractCard.tsx` | Renders buttons, confirmation dialogs, opens modals | Client Component; uses `useUpdateContractStatus` |
+| `src/lib/ai/toolDefinitions.ts` | Anthropic tool schemas; controls what the AI can do | Server-only |
+| `src/lib/ai/systemPrompt.ts` | Role constraints narrative for AI | Server-only |
+| `src/app/api/contract/getAll/route.ts` | Auto-expires pre-ACTIVE contracts; filters by role | Server-side query |
+| `src/lib/dbServer.ts` | InstantDB server-side client (`instantServer`) | Singleton |
+| `docs/PROGRAM.md` | Business logic, RBAC tables, lifecycle diagrams | Human-readable source of truth |
 
 ---
 
@@ -73,444 +50,175 @@
 ```
 src/
 ├── app/
-│   ├── (main)/
-│   │   └── layout.tsx              # add FloatingFAB here (inside auth shell)
-│   └── api/
-│       └── ai-chatbot/
-│           └── route.ts            # server-side AI orchestration endpoint
+│   ├── api/contract/
+│   │   ├── create/route.ts          # MODIFY — no changes needed (creates NEWLY_CREATED)
+│   │   ├── getAll/route.ts          # MODIFY — remove pre-ACTIVE auto-expire checks,
+│   │   │                              #        collapse CUSTOMER role contract visibility
+│   │   └── updateStatus/route.ts    # MODIFY — collapse transition matrix from 8→2 states
+│   ├── type/api/
+│   │   └── index.ts                 # MODIFY — shrink ContractStatus union
 ├── components/
-│   └── ai-chatbot/
-│       ├── index.ts                 # re-export all public components
-│       ├── FloatingFAB.tsx          # the persistent floating button
-│       ├── AIChatbotModal.tsx       # the modal overlay (portal)
-│       ├── MessageBubble.tsx        # single message row
-│       ├── MessageInput.tsx         # input + send
-│       └── AIChatbotModal.module.css # scoped styles (or Tailwind classes)
-├── features/
-│   └── ai-chatbot/
-│       ├── services/
-│       │   ├── anthropic.ts         # Anthropic client wrapper (server-only)
-│       │   └── executeTool.ts       # executes a resolved tool call
-│       ├── store/
-│       │   └── useAIChatbotStore.ts # Zustand store
-│       ├── types/
-│       │   └── index.ts             # ChatMessage, ToolResult, AIModalState
-│       └── constants/
-│           └── toolDefinitions.ts   # Claude tool schemas (server-only)
+│   └── cards/
+│       └── ContractCard.tsx         # MODIFY — simplify action buttons, remove obsolete dialogs
+├── hooks/
+│   └── useContracts.ts              # READ-ONLY (TanStack Query wrappers; no logic changes)
+├── lib/
+│   └── ai/
+│       ├── toolDefinitions.ts       # MODIFY — update enum values in tool schemas
+│       └── systemPrompt.ts          # MODIFY — simplify RBAC section
+└── utils/
+    └── statusUtils.ts               # MODIFY — collapse getContractActionButtons() logic
+docs/
+├── PROGRAM.md                       # MODIFY — rewrite lifecycle + RBAC tables
+└── v1.1-enhance-contract-flow.md   # MODIFY — reflect completed change
+.cursor/rules/
+└── gochul-fitness-rules.mdc        # MODIFY — update maintenance rulebook
 ```
 
 ### Structure Rationale
 
-- **`components/ai-chatbot/`:** Client-facing UI components — imported by layouts, zero server-side logic.
-- **`features/ai-chatbot/`:** Server-only business logic (Anthropic calls, tool execution). This separation prevents the large `@anthropic-ai/sdk` bundle from leaking into the client bundle.
-- **`app/api/ai-chatbot/route.ts`:** The single HTTP entry point; coordinates auth → AI → tool execution → response.
-- **`store/useAIChatbotStore.ts`:** Zustand store scoped to the modal lifecycle; no `persist` middleware — intentionally cleared on modal close.
+- **`src/app/api/` — API routes:** Structural change is localized here. The state machine is encoded entirely in `updateStatus/route.ts`. No new routes are needed.
+- **`src/utils/statusUtils.ts`:** Single transformation layer between the raw `ContractStatus` type and every UI rendering decision (buttons, badges, visibility). Changing it updates all consuming components simultaneously.
+- **`src/lib/ai/`:** The AI chatbot is an alternative interface to the same API. Tool schemas and system prompts must stay in sync with the API's actual behavior — otherwise the AI will attempt invalid transitions and receive HTTP 403s.
+- **`docs/` + `.cursor/rules/`:** Maintenance rulebook requires updating any time a status, role, or data field changes. Failure to update these is the highest-risk documentation gap.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Floating FAB + Modal Overlay
+### Pattern 1: Status Union Type as Single Source of Truth
 
-**What:** A persistent floating action button anchors to the viewport corner (bottom-right). Clicking it mounts a full-screen or slide-up modal that contains the chat interface. The modal uses a React Portal to escape stacking context constraints.
+**What:** `ContractStatus` is a TypeScript union type in `src/app/type/api/index.ts` that enumerates every valid status value. Every layer — API routes, UI utils, AI tool schemas — derives behavior from this type.
 
-**When to use:** When the feature must be accessible from every page without adding nav items, and the feature is secondary (not a primary flow).
-
-**Trade-offs:**
-
-| Pro | Con |
-|-----|-----|
-| Available globally without routing | z-index battles with other overlays (mobile menus, toasts) |
-| Single mount/unmount lifecycle = no page state pollution | FAB competes for screen real estate on mobile |
-| Portal-based = not affected by parent overflow/transform rules | Requires careful accessibility (focus trap, Escape key, aria-modal) |
-
-**Example:**
-```tsx
-// FloatingFAB.tsx
-'use client';
-import { useState } from 'react';
-import dynamic from 'next/dynamic';
-
-const AIChatbotModal = dynamic(() => import('./AIChatbotModal'), { ssr: false });
-
-export default function FloatingFAB() {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <>
-      <button
-        onClick={() => setIsOpen(true)}
-        aria-label="Open AI Assistant"
-        className="fixed bottom-6 right-6 z-50 ..."
-      >
-        <MessageSquareIcon />
-      </button>
-
-      {isOpen && <AIChatbotModal onClose={() => setIsOpen(false)} />}
-    </>
-  );
-}
-```
-
-```tsx
-// AIChatbotModal.tsx — Portal-based overlay
-'use client';
-import { createPortal } from 'react-dom';
-import { useEffect, useRef } from 'react';
-
-export default function AIChatbotModal({ onClose }: { onClose: () => void }) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  // Focus trap + Escape key
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div ref={overlayRef} role="dialog" aria-modal="true" className="fixed inset-0 z-[100] ...">
-      {/* message list */}
-      {/* message input */}
-    </div>,
-    document.body
-  );
-}
-```
-
----
-
-### Pattern 2: Clerk Auth — Server-Side Session Token
-
-**What:** The API route uses Next.js `auth()` from `@clerk/nextjs/server` to get the server-side session. The Clerk JWT contains the `userId` which is used to look up the user's role in InstantDB.
-
-**When to use:** Any server-side operation that needs to know "who is making this request" — in this case, to resolve the user's role and inject it into the AI system prompt.
+**When to use:** When status values drive conditional logic across multiple layers. Eliminates "stale status" bugs where one layer supports a status another layer doesn't know about.
 
 **Trade-offs:**
+- Pros: TypeScript enforces exhaustive matching; adding a new status produces compile errors in every switch statement.
+- Cons: Changing a status value requires updating many files simultaneously (mitigated by the maintenance rulebook).
 
-| Pro | Con |
-|-----|-----|
-| No token passing from client needed — `auth()` reads the HttpOnly cookie | `auth()` is async; adds ~5–20ms to API route latency |
-| Server-side validation cannot be spoofed by client headers | Only works inside Next.js route handlers (not plain API calls from outside) |
-| Clerk handles token refresh / rotation automatically | Requires `@clerk/nextjs/server` import — not available in client components |
+**Example — current vs. new:**
+```typescript
+// CURRENT: 8 statuses in the union
+type ContractStatus =
+  | 'NEWLY_CREATED'
+  | 'CUSTOMER_REVIEW'      // ← REMOVE
+  | 'CUSTOMER_CONFIRMED'   // ← REMOVE
+  | 'CUSTOMER_PAID'        // ← REMOVE
+  | 'PT_CONFIRMED'         // ← REMOVE
+  | 'ACTIVE'
+  | 'CANCELED'
+  | 'EXPIRED'
 
-**Example:**
-```ts
-// /api/ai-chatbot/route.ts
-import { auth } from '@clerk/nextjs/server';
-import { getUserSetting } from '@/instantDB'; // existing abstraction
-
-export async function POST(req: Request) {
-  const { userId } = await auth();           // throws 401 if unauthenticated
-  if (!userId) return new Response('Unauthorized', { status: 401 });
-
-  const userSetting = await getUserSetting(userId); // resolve role
-  const role = userSetting?.role ?? 'CUSTOMER';    // default to lowest privilege
-
-  const { messages } = await req.json();
-  // ... pass role into system prompt
-}
+// NEW: 4 statuses (2 lifecycle + 2 terminal)
+type ContractStatus =
+  | 'NEWLY_CREATED'
+  | 'ACTIVE'
+  | 'CANCELED'
+  | 'EXPIRED'
 ```
 
-**Important note from FEAT_AIBOT.txt:** The AI must call existing API routes (e.g., `POST /api/contract/create`) to ensure role permission guards are enforced. The API route itself — not the chatbot — is the gatekeeper. The chatbot passes the Clerk session token via the HttpOnly cookie automatically because the tool execution calls are `fetch()` requests made **from the server-side route handler**, not from the browser.
+### Pattern 2: Role-Gated Transition Matrix in API Route
 
----
+**What:** `updateStatus/route.ts` encodes all valid transitions as a role-conditional if/else chain. The API is the authoritative enforcement gate — the UI only surfaces transitions the API will accept.
 
-### Pattern 3: Tool-Use Loop — AI Orchestrating API Calls
-
-**What:** The AI model is given a set of "tools" (OpenAI/Anthropic tool-use format) corresponding to GoChul Fitness API endpoints. When the model decides to call a tool, the server executes the tool and feeds the result back to the model. The loop continues until the model produces a natural-language response (no more tool calls).
-
-**When to use:** When the AI needs to perform stateful, multi-step operations (like creating a contract with multiple parameters) rather than just answering questions.
+**When to use:** When transitions must be enforced consistently regardless of which interface (web UI, AI chatbot, mobile) initiates the request.
 
 **Trade-offs:**
+- Pros: Single enforcement point; AI chatbot and web UI are equally constrained.
+- Cons: Route handler grows in complexity with each added role/transition; the if/else chain needs to be kept in sync with the type.
 
-| Pro | Con |
-|-----|-----|
-| AI gathers missing parameters naturally over turns | Infinite loop risk — cap max iterations (e.g., 10) |
-| Maps cleanly to existing API endpoints (role guards already in place) | Latency compounds: each tool call = API round-trip |
-| Single API call from client → server handles all nested calls | Tool schemas must be kept in sync with actual API params |
-
-**Flow:**
-```
-User message
-    │
-    ▼
-anthropic.messages.create()   ← with tool definitions + full conversation history
-    │
-    ├─[no tool_use]──► return text response
-    │
-    └─[has tool_use]──► executeTool(tool, params)   ──► POST /api/contract/create
-            │                      │
-            │                      ▼
-            │               API returns result (success/error)
-            │                      │
-            ▼                      ▼
-    feed result back to model   ←anthropic.messages.create() again (continuation)
-            │
-            └─[no more tool_use]──► return final text response
-```
-
-**Example tool definition:**
-```ts
-// toolDefinitions.ts  (server-only)
-import type { Tool } from '@anthropic-ai/sdk';
-
-export const TOOL_DEFINITIONS: Tool[] = [
-  {
-    name: 'create_contract',
-    description: 'Create a new gym contract. Requires: customer_clerk_id, kind, credits, money',
-    input_schema: {
-      type: 'object',
-      properties: {
-        customer_clerk_id: { type: 'string', description: 'Clerk ID of the customer' },
-        kind: { type: 'string', enum: ['PT', 'REHAB', 'GYM'], description: 'Contract type' },
-        credits: { type: 'number', description: 'Number of sessions' },
-        money: { type: 'number', description: 'Amount paid in VND' },
-      },
-      required: ['customer_clerk_id', 'kind', 'credits', 'money'],
-    },
-  },
-  {
-    name: 'get_history',
-    description: 'List training sessions with optional time window filter',
-    input_schema: {
-      type: 'object',
-      properties: {
-        from_date: { type: 'string', description: 'ISO date string, start of window' },
-        to_date: { type: 'string', description: 'ISO date string, end of window' },
-      },
-    },
-  },
-  // ... more tools
-];
-```
-
----
-
-### Pattern 4: Multi-Turn Conversation State
-
-**What:** The full message history is sent to the AI on every turn so the model has context. On the client, this is stored in Zustand; on the server, it is rebuilt from the request body.
-
-**When to use:** Any conversational AI that supports follow-up questions — which is this feature's core value.
-
-**State shape:**
-```ts
-// store/useAIChatbotStore.ts
-import { create } from 'zustand';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  toolResults?: ToolResult[];  // optional: show what API was called
+**Example — current vs. new:**
+```typescript
+// CURRENT: 3 role branches with 8-state logic
+if (role === 'ADMIN') {
+  // can force any status
+} else if (newStatus === 'CANCELED') {
+  // pre-ACTIVE cancel logic
+} else if (role === 'STAFF') {
+  // NEWLY_CREATED→CUSTOMER_REVIEW, CUSTOMER_PAID→PT_CONFIRMED
+} else if (role === 'CUSTOMER') {
+  // CUSTOMER_REVIEW→CONFIRMED→PAID→PT_CONFIRMED→ACTIVE
 }
 
-interface AIChatbotStore {
-  messages: ChatMessage[];
-  isLoading: boolean;
-  addMessage: (msg: ChatMessage) => void;
-  setLoading: (loading: boolean) => void;
-  clearMessages: () => void;  // called when modal closes
+// NEW: 3 role branches, 2-state lifecycle
+if (role === 'ADMIN') {
+  // can force any status
+} else if (newStatus === 'CANCELED') {
+  // NEWLY_CREATED→CANCELED (pre-ACTIVE only)
+} else if (role === 'STAFF') {
+  // NEWLY_CREATED→CANCELED (cancel); NO forward transitions
+  // NEWLY_CREATED→ACTIVE (activate) — add this per spec
+} else if (role === 'CUSTOMER') {
+  // NEWLY_CREATED→ACTIVE (activate); NEWLY_CREATED→CANCELED
 }
-
-export const useAIChatbotStore = create<AIChatbotStore>((set) => ({
-  messages: [],
-  isLoading: false,
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
-  setLoading: (loading) => set({ isLoading: loading }),
-  clearMessages: () => set({ messages: [], isLoading: false }),
-}));
 ```
 
-**Server-side history reconstruction:**
-```ts
-// The client sends the current message list (without tool results) to the API route.
-// The API route reconstructs the full history including prior assistant messages.
-const history = messages.map(({ role, content }) => ({ role, content }));
-```
+### Pattern 3: UI Derives from Pure Utility Functions
 
-**When to clear:** Call `clearMessages()` in the `onClose` handler of `AIChatbotModal`. Per ARCHITECTURE.md: "Chat history persistence across sessions — cleared on modal close" is out of scope.
+**What:** `getContractActionButtons()`, `canViewContract()`, `getContractStatusVariant()` are pure functions in `statusUtils.ts`. `ContractCard` calls these and renders the result without any inline status logic.
 
----
-
-### Pattern 5: Streaming vs. Non-Streaming Responses
-
-**What:** The AI response can either arrive all at once (non-streaming) or be delivered token-by-token via Server-Sent Events (SSE) / ReadableStream (streaming). The ARCHITECTURE.md explicitly notes "streaming not required."
-
-**Decision: Non-streaming first, streaming as future enhancement.**
-
-**When to use streaming:** Long AI responses (explanatory text > 3 sentences), perceived latency matters, UX polish is a priority.
-
-**When to skip:** MVP phase, simpler implementation, server load is the bottleneck anyway (each token requires Claude API call overhead).
+**When to use:** When the same status-driven UI logic must be applied consistently across multiple components.
 
 **Trade-offs:**
-
-| | Non-Streaming | Streaming |
-|--|--|--|
-| Implementation | Single `POST`, single `Response` | SSE or ReadableStream, chunked transfer encoding |
-| UX | "Thinking..." spinner, then full response | Typing effect, feels faster |
-| Complexity | ~20 lines | ~60–80 lines (client event reader + buffer + cleanup) |
-| Server cost | Same Claude API pricing | Same — billed per output token regardless |
-
-**Non-streaming implementation (MVP):**
-```ts
-// /api/ai-chatbot/route.ts
-const response = await anthropic.messages.create({
-  model: process.env.MODEL_NAME!,
-  max_tokens: 8192,
-  system: buildSystemPrompt(role),
-  messages: history,
-  tools: TOOL_DEFINITIONS,
-});
-
-const text = response.content.find((b) => b.type === 'text')?.text ?? '';
-return NextResponse.json({ text });
-```
-
-**Streaming implementation (future phase):**
-```ts
-// SSE approach: client reads EventSource, server uses anthropic beta.messages.stream
-const stream = await anthropic.beta.messages.stream({
-  model: process.env.MODEL_NAME!,
-  max_tokens: 8192,
-  system: buildSystemPrompt(role),
-  messages: history,
-  tools: TOOL_DEFINITIONS,
-});
-
-const encoder = new TextEncoder();
-const readable = new ReadableStream({
-  async start(controller) {
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta') {
-        controller.enqueue(encoder.encode(`data: ${event.delta.text}\n\n`));
-      }
-    }
-    controller.close();
-  },
-});
-
-return new Response(readable, {
-  headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
-});
-```
+- Pros: Changing button logic in `statusUtils.ts` propagates to all components automatically. `ContractCard` remains thin.
+- Cons: Utility functions must be kept in sync with the type and the API route. No compile-time link between the utility and the route's actual behavior.
 
 ---
 
 ## Data Flow
 
-### Request Flow (Full Turn)
+### Request Flow
 
 ```
-User types message
-    │
-    ▼
-MessageInput onSubmit → addMessage({ role: 'user', content })
-    │
-    ▼
-setLoading(true)
-    │
-    ▼
-fetch('/api/ai-chatbot', {
-  method: 'POST',
-  body: JSON.stringify({ messages: messages.concat(newUserMsg) }),
-})                                                            ← no manual auth header needed; HttpOnly cookie sent automatically
-    │
-    ├─[API Route] auth() → userId → getUserSetting() → role
-    │
-    ├─[API Route] buildSystemPrompt(role) → inject role + tool definitions + time rules
-    │
-    ├─[API Route] anthropic.messages.create() → assistant response
-    │       │
-    │       ├─[no tool_use]──► text response
-    │       │
-    │       └─[has tool_use]──► for each tool_call:
-    │              │   fetch('/api/contract/create', { method: 'POST', body: params })
-    │              │       │   ← server-side call; Clerk cookie forwarded automatically
-    │              │       ▼
-    │              │   API route runs auth() → permission check → InstantDB write
-    │              │       ▼
-    │              │   return JSON result
-    │              ▼
-    │       re-call anthropic with tool_results
-    │
-    ▼
-NextResponse.json({ text: finalResponseText })
-    │
-    ▼
-addMessage({ role: 'assistant', content: text })
-    │
-    ▼
-setLoading(false)
-    │
-    ▼
-MessageList auto-scrolls to bottom
+[CUSTOMER clicks "Activate" on ContractCard]
+    ↓
+ContractCard.handleStatusChange('ACTIVE')
+    ↓
+useUpdateContractStatus({ contract_id, status: 'ACTIVE' })
+    ↓
+TanStack Query mutation → POST /api/contract/updateStatus
+    ↓
+auth() + user_setting lookup → role
+    ↓
+Role guard: isCustomer → can only ACTIVATE own NEWLY_CREATED contract
+    ↓
+InstantDB transact: contract[id].update({ status: 'ACTIVE', updated_at })
+    ↓
+Ably publish: contract.changed event
+    ↓
+RealtimeProvider invalidates TanStack Query cache
+    ↓
+ContractCard re-fetches contract → re-renders with ACTIVE badge + Create Session button
 ```
 
 ### State Management
 
 ```
-useAIChatbotStore (Zustand — client-only, in-memory)
-    │
-    ├── messages: ChatMessage[]        ← source of truth for UI
-    ├── isLoading: boolean             ← drives input disabled + spinner
-    │
-    ├── addMessage(msg)                ← called after fetch completes
-    ├── setLoading(bool)               ← called before/after fetch
-    └── clearMessages()               ← called on modal close
-
-    (No persistence — intentional. Chat dies when modal closes.)
+InstantDB (server)           TanStack Query (client)         React UI
+     │                               │                           │
+     │ ← query contract             │                           │
+     │                               │ ← useQuery contract       │
+     │                               │                           │
+     │ ← transact status update      │ ← mutation success         │
+     │                               │                           │
+     │                               │ ← invalidate queries      │
+     │                               │                           │
+     │ ← updated contract            │ ← re-fetch triggered      │
+     │                               │                           │
+     │                               │ ← query data updated      │
+     │                               │                           │
+     │                               │ ← component re-renders    │
 ```
 
 ### Key Data Flows
 
-1. **User Intent → API Action:** User says "Tạo hợp đồng" → AI detects `create_contract` tool → server calls `POST /api/contract/create` → InstantDB writes → Ably publishes `contract.changed` → `RealtimeProvider` invalidates `contractKeys.lists()` → TanStack Query refetches → UI updates automatically.
+1. **Contract creation:** `CreateContractModal` → `useCreateContract` → `POST /api/contract/create` → InstantDB writes `status: 'NEWLY_CREATED'` → TanStack Query cache invalidated → `ContractCard` appears on list page.
 
-2. **Session History Query:** User says "lịch tập sáng mai" → AI infers time window from system prompt rules (0am–11:59, tomorrow) → calls `GET /api/history/getAll?from=...&to=...` → returns sessions → AI formats summary → user sees structured response.
+2. **Contract activation:** `ContractCard` → `handleStatusChange('ACTIVE')` → `POST /api/contract/updateStatus` → API validates role + `currentStatus === 'NEWLY_CREATED'` → InstantDB update → Realtime event → UI transitions to ACTIVE.
 
-3. **Permission Scoping:** STAFF user asks "list all contracts" → AI calls `GET /api/contract/getAll` → API route's `auth()` resolves `userId` → `getUserSetting()` returns `role: 'STAFF'` → API route filters to only STAFF's own contracts → never returns unauthorized data.
+3. **Contract cancellation:** `ContractCard` → `handleStatusChange('CANCELED')` with red `AlertDialog` confirmation → API validates role + `currentStatus !== 'ACTIVE'` → InstantDB update → UI removes card from active list.
 
----
-
-## Build Order (Phase Structure)
-
-Dependencies between components — what must be built before what:
-
-```
-Phase 1: Skeleton
-├── Tool definitions + API route (server)
-│   └── No UI needed yet; test with curl / Postman
-│   └── Tool: buildSystemPrompt() + single anthropic.messages.create() call
-│   └── No tool-use loop yet — hardcoded system prompt with examples
-│
-Phase 2: Client shell
-├── FloatingFAB + AIChatbotModal (UI only, no AI logic)
-│   └── Fake "thinking" state to test open/close/mounting
-│   └── Zustand store with hardcoded addMessage/clearMessages
-│
-Phase 3: Wire API route to client
-├── fetch('/api/ai-chatbot') from MessageInput onSubmit
-│   └── Non-streaming, single-turn (no tool-use loop yet)
-│   └── Pass messages array; receive text; render in MessageList
-│
-Phase 4: Multi-turn + tool-use loop
-├── Add TOOL_DEFINITIONS to anthropic call
-│   └── Implement executeTool() calling existing API routes
-│   └── Loop: re-call anthropic with tool_results until done
-│   └── Max 10 iterations to prevent runaway loops
-│
-Phase 5: Polish
-├── Streaming response (ReadableStream) — if UX warrants it
-├── Auto-scroll MessageList
-├── Tool result display (show what API was called)
-└── Vietnamese time inference rules in system prompt
-```
-
-**Critical path:** Phase 3 is the riskiest integration point — Clerk session cookie forwarding from a fetch inside a Next.js API route must be verified. Test this before Phase 4.
+4. **AI chatbot path:** User → AIChatbotModal → `POST /api/ai-chatbot` → `update_contract_status` tool → same `updateStatus` API route → same data flow.
 
 ---
 
@@ -518,57 +226,46 @@ Phase 5: Polish
 
 | Scale | Architecture Adjustments |
 |-------|--------------------------|
-| 0–1k active users | Single `/api/ai-chatbot` route is fine; no caching needed; Zustand in-memory state is optimal |
-| 1k–10k users | Consider adding `rateLimit` middleware (e.g., `upstash-ratelimit`) on `/api/ai-chatbot` to prevent abuse; Claude API cost becomes the bottleneck |
-| 10k–100k users | Move AI orchestration to a dedicated edge function or separate service (Vercel AI SDK on Edge Runtime); consider caching tool results for repeated queries |
+| 0–1k users | Monolithic Next.js is fine. InstantDB handles 1:N contract/history queries well at this scale. |
+| 1k–100k users | InstantDB query performance may degrade on `/api/contract/getAll` with large result sets. Add `limit`/`page` pagination (already present). Consider indexing `status`, `purchased_by`, `sale_by` fields in InstantDB schema. |
+| 100k+ users | InstantDB may become a bottleneck for complex aggregation queries. Evaluate Postgres + Prisma migration. The API layer (role guards, transitions) would remain unchanged; only the data layer would swap. |
 
 ### Scaling Priorities
 
-1. **First bottleneck — Claude API latency:** A tool-use loop with 3 sequential calls adds 2–5 seconds total latency. Solution: reduce max loop iterations, pre-fetch known data in system prompt context.
-
-2. **Second bottleneck — InstantDB write throughput:** Each tool call hits InstantDB. At high volume, batch writes or optimistic UI updates help. The existing `publishRealtimeEventSafely()` pattern is already resilient.
+1. **First bottleneck:** Auto-expire logic in `getAll/route.ts` writes back to InstantDB on every request for pre-ACTIVE contracts past `end_date`. At scale, this write-on-read pattern will throttle. Fix: migrate expiry logic to a cron job or serverless function triggered on a schedule, not on every `getAll` call.
+2. **Second bottleneck:** `history` queries for contracts with many sessions (PT contracts with 50+ credits). Fix: cursor-based pagination on the `history` entity, not page-based.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Calling Anthropic from a Client Component
+### Anti-Pattern 1: UI-Layer Transition Enforcement
 
-**What people do:** Importing `Anthropic` from `@anthropic-ai/sdk` directly in a `'use client'` component and calling `client.messages.create()` from the browser.
+**What people do:** Encode role/transition logic only in the UI (`getContractActionButtons` conditionally hides buttons), assuming the API will never receive invalid requests.
 
-**Why it's wrong:** Exposes the `CLAUDE_API_KEY` to the client bundle. The API key is visible in the browser JS bundle via source maps and network requests. Additionally, all role-permission logic must be duplicated on the client.
+**Why it's wrong:** The AI chatbot bypasses the UI entirely. A tool definition that lists `CUSTOMER_REVIEW` as a valid next status will cause the AI to attempt that transition, hitting a 403 from the API and producing a confusing error message to the user.
 
-**Do this instead:** All AI calls happen exclusively in `/api/ai-chatbot/route.ts` (Server Component / Route Handler). Client only calls `fetch('/api/ai-chatbot')`.
+**Do this instead:** Always enforce transitions server-side in the API route. Use the UI utilities only to improve UX (hiding impossible actions), never as the security boundary.
 
----
+### Anti-Pattern 2: Stale Status Enums in Tool Schemas
 
-### Anti-Pattern 2: Storing Conversation History in localStorage / Cookies
+**What people do:** Update the `ContractStatus` type but forget to update the `enum` arrays in `toolDefinitions.ts` and the hardcoded `validStatuses` array in `updateStatus/route.ts`.
 
-**What people do:** Persisting the message array to `localStorage` or a cookie so chat survives page refreshes.
+**Why it's wrong:** TypeScript's union type only covers the TypeScript compile step. At runtime, the API still accepts the old enum values because they are string literals in the route, not derived from the type. This causes the AI (which uses tool schemas, not types) to propose transitions that are valid per the schema but invalid per the route's logic.
 
-**Why it's wrong:** Message history may contain sensitive data inferred from API responses (contract IDs, session times). Storing this in browser storage exposes it to XSS attacks and other tabs on the same device. GoChul Fitness is a gym management app with personal health-adjacent data.
+**Do this instead:** After changing `ContractStatus`, grep the entire codebase for the old status string literals (`'CUSTOMER_REVIEW'`, `'CUSTOMER_CONFIRMED'`, `'CUSTOMER_PAID'`, `'PT_CONFIRMED'`) and remove or update each occurrence. Add a compile-time check in the route:
+```typescript
+const validStatuses: ContractStatus[] = ['NEWLY_CREATED', 'ACTIVE', 'CANCELED', 'EXPIRED']
+if (!validStatuses.includes(newStatus)) { ... }
+```
 
-**Do this instead:** Keep state in-memory only (Zustand without `persist` middleware). Clear on modal close. If history persistence is needed later, store on the server side (InstantDB or a dedicated session table) with proper auth scoping.
+### Anti-Pattern 3: Inconsistent Documentation Updates
 
----
+**What people do:** Update the API route and UI but forget to update `PROGRAM.md` and `.cursor/rules/gochul-fitness-rules.mdc`.
 
-### Anti-Pattern 3: Not Capping the Tool-Use Loop
+**Why it's wrong:** Future developers (or AI agents) use `PROGRAM.md` as the source of truth for the lifecycle. A discrepancy means someone will implement new features against incorrect lifecycle documentation, producing bugs that are hard to detect until runtime.
 
-**What people do:** Letting the AI re-call tools indefinitely when parameters are ambiguous.
-
-**Why it's wrong:** Each loop iteration costs a Claude API call (and money). A confused AI can run 50+ iterations, generating a large bill and a degraded response.
-
-**Do this instead:** Cap at 10 iterations (configurable constant `MAX_TOOL_ITERATIONS`). If the loop exits via the cap, return a graceful error message asking the user to rephrase their request.
-
----
-
-### Anti-Pattern 4: Mixing Tool Schemas with API Implementation
-
-**What people do:** Encoding tool schemas inline in the API route file, duplicating parameter info from the actual API route handlers.
-
-**Why it's wrong:** Tool schemas and API params drift out of sync. A new required field added to `POST /api/contract/create` won't be reflected in the AI tool schema until someone manually updates both places.
-
-**Do this instead:** Keep `toolDefinitions.ts` as the single source of truth. If an API route's params change, the tool schema must be updated in the same PR. Add a TypeScript test that validates tool schema params against a type derived from the API route.
+**Do this instead:** Treat the maintenance rulebook as part of the same PR. Every status change requires updating all six items in the Maintenance Rulebook simultaneously.
 
 ---
 
@@ -578,34 +275,93 @@ Phase 5: Polish
 
 | Service | Integration Pattern | Notes |
 |---------|---------------------|-------|
-| **Anthropic (Claude)** | `@anthropic-ai/sdk` — `messages.create()` or `beta.messages.stream()` in `/api/ai-chatbot` route | Server-only. `CLAUDE_API_KEY`, `CLAUDE_BASE_URL`, `MODEL_NAME` must be in `.env.local`. Proxy URL supports Anthropic-compatible endpoint. |
-| **Clerk** | `auth()` from `@clerk/nextjs/server` inside the API route | No client-side token passing needed — HttpOnly cookie handled by Next.js. Server-side auth is non-negotiable for role resolution. |
-| **InstantDB** | `getUserSetting(userId)` via existing server abstraction inside API route | Reuse existing InstantDB server query pattern. No new setup needed. |
-| **Ably** | No direct integration in chatbot — tool executions trigger existing API routes which call `publishRealtimeEventSafely()` | Chat results propagate to other clients through existing realtime flow automatically. |
+| InstantDB | Server-side admin client (`instantServer`) in API routes; client-side `useQuery`/`useMutation` via TanStack Query | Status changes are InstantDB transactions. No schema migration needed — old `CUSTOMER_REVIEW` etc. values simply stop being written. |
+| Clerk | `auth()` in every API route; session token forwarded to AI chatbot | Role lookup is always from InstantDB `user_setting`, not from Clerk claims. |
+| Ably | `publishRealtimeEventSafely()` after every contract mutation | Event payload `{ entity_id, action: 'update_status', ... }` is generic. No changes needed — same `contract.changed` event fires regardless of which status value. |
+| Anthropic Claude | Tool-use pattern via `toolDefinitions.ts` + `systemPrompt.ts` | AI must know the simplified lifecycle. Tool enum values must match actual API behavior. |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| `FloatingFAB` ↔ `AIChatbotModal` | Props: `onClose` callback; conditional render | `FloatingFAB` owns the open/close state. `AIChatbotModal` receives `onClose` to report back. |
-| `AIChatbotModal` ↔ `useAIChatbotStore` | Zustand store (subscribe in component, `addMessage`/`setLoading`/`clearMessages` actions) | Store is the single source of truth for message list and loading state. |
-| `MessageInput` ↔ API route | `fetch('/api/ai-chatbot')` — no manual auth header | Clerk HttpOnly cookie is forwarded automatically by `fetch()` from a client component. |
-| `/api/ai-chatbot/route.ts` ↔ existing API routes | Server-side `fetch()` with `cookies()` request helper (no auth header needed — runs on same origin) | `fetch('http://localhost:3000/api/contract/create', ...)` from within the Next.js server can forward the Clerk session via `getRequestHeader('cookie')` + `fetch(..., { headers: { cookie } })`. |
-| `toolDefinitions.ts` ↔ API route schemas | Tool schemas defined in `constants/`, imported by route | Single source of truth. Validate against API route TypeScript types. |
+| UI → API | TanStack Query mutations + `sonner` toast on success/error | No changes needed. TanStack Query hooks are thin wrappers. |
+| AI Chatbot → API | `POST /api/ai-chatbot` → dispatches to internal API as user | AI tool schemas must be updated to reflect simplified transition matrix. |
+| Realtime events → UI | Ably `contract.changed` → `RealtimeProvider` invalidates cache | No changes needed. Cache key (`['contracts', ...]`) is unaffected by status value changes. |
+| `statusUtils.ts` → `ContractCard` | Function calls (`getContractActionButtons`, `getContractStatusVariant`) | Primary UI update point. Button logic collapses from 8-state switch to 2-state switch. |
 
 ---
 
 ## Sources
 
-- [Anthropic Messages API — Tool Use](https://docs.anthropic.com/en/api/messages)
-- [Anthropic SDK — TypeScript Reference](https://www.npmjs.com/package/@anthropic-ai/sdk)
-- [Next.js App Router — Route Handlers](https://nextjs.org/docs/app/api-reference/file-conventions/route)
-- [Clerk — Server-side `auth()`](https://clerk.com/docs/references/nextjs/auth)
-- [Zustand — Getting Started](https://zustand.docs.pmnd.rs/getting-started/introduction)
-- [React Portals — `createPortal`](https://react.dev/reference/react-dom/createPortal)
-- [Next.js — Dynamic Imports with `ssr: false`](https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading#disabling-ssr)
-- [TanStack Query — Query Invalidation](https://tanstack.com/query/latest/docs/framework/react/reference/useQueryClient)
+- `src/app/api/contract/updateStatus/route.ts` — current transition enforcement logic
+- `src/app/type/api/index.ts` — current `ContractStatus` union type
+- `src/utils/statusUtils.ts` — current action button derivation and badge logic
+- `src/components/cards/ContractCard.tsx` — current button rendering and confirmation dialogs
+- `src/lib/ai/toolDefinitions.ts` — current Anthropic tool schemas
+- `src/lib/ai/systemPrompt.ts` — current AI role constraints narrative
+- `docs/PROGRAM.md` — business logic and RBAC tables
+- `docs/v1.1-enhance-contract-flow.md` — feature specification for this change
 
 ---
-*Architecture research for: AI Chatbot Feature — GoChul Fitness*
-*Researched: 2026-04-04*
+
+## Integration Points Summary
+
+| Layer | File(s) | Change Type | Risk |
+|-------|---------|-------------|------|
+| Type definitions | `src/app/type/api/index.ts` | REMOVE 4 statuses from `ContractStatus` union | Medium — TypeScript compile errors will force all consumers to update |
+| API — transition enforcement | `src/app/api/contract/updateStatus/route.ts` | Collapse STAFF/CUSTOMER branches; simplify ADMIN | High — this is the authoritative enforcement gate |
+| API — auto-expiry | `src/app/api/contract/getAll/route.ts` | Remove pre-ACTIVE expiry by date (Rule C1) | Medium — old pre-ACTIVE statuses will stop being auto-expired |
+| API — validity list | `src/app/api/contract/updateStatus/route.ts` | Remove old statuses from `validStatuses` array | High — runtime accepts stale values without this |
+| UI — button logic | `src/utils/statusUtils.ts` | Collapse `getContractActionButtons()`; update `isPreActiveContractStatus()` | High — all cards rely on this |
+| UI — badge + text | `src/utils/statusUtils.ts` | Remove old status variants, icons, text maps | Low — purely presentational |
+| UI — card component | `src/components/cards/ContractCard.tsx` | Minor: remove any `CUSTOMER_REVIEW`/`PT_CONFIRMED` specific button handling (already correct since buttons come from `getContractActionButtons`); keep date-adjustment dialog for ACTIVE | Low — component is already correct for ACTIVE flow |
+| AI — tool schemas | `src/lib/ai/toolDefinitions.ts` | Remove old statuses from `update_contract_status` enum; update descriptions | High — AI will propose invalid transitions otherwise |
+| AI — system prompt | `src/lib/ai/systemPrompt.ts` | Update STAFF/CUSTOMER role permissions to reflect new 2-state lifecycle | Medium — affects AI conversation quality |
+| Docs | `docs/PROGRAM.md`, `docs/v1.1-enhance-contract-flow.md` | Rewrite lifecycle section and RBAC tables | High — future developers rely on this |
+| Cursor rules | `.cursor/rules/gochul-fitness-rules.mdc` | Update Maintenance Rulebook section | Medium — C3 and C4 expiry rules change |
+
+---
+
+## New vs. Modified Components
+
+### New (none required)
+
+This change is entirely a reduction — removing states, not adding new entities, routes, or components.
+
+### Modified
+
+| File | Modification |
+|------|-------------|
+| `src/app/type/api/index.ts` | Remove `'CUSTOMER_REVIEW'`, `'CUSTOMER_CONFIRMED'`, `'CUSTOMER_PAID'`, `'PT_CONFIRMED'` from `ContractStatus` |
+| `src/app/api/contract/updateStatus/route.ts` | Replace 8-state role guard logic with 2-state logic; remove old `validStatuses` array entries |
+| `src/app/api/contract/getAll/route.ts` | Update `CONTRACT_STATUS_VALUES` array; remove `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` |
+| `src/utils/statusUtils.ts` | Simplify `getContractActionButtons()`; update `isPreActiveContractStatus()`; remove dead `variant`/`text`/`icon` entries for removed statuses; update `canViewContract()` — customers can now see `NEWLY_CREATED` |
+| `src/components/cards/ContractCard.tsx` | Minor: remove any `CUSTOMER_REVIEW`/`PT_CONFIRMED` specific button handling (already correct since buttons come from `getContractActionButtons`); keep date-adjustment AlertDialog |
+| `src/lib/ai/toolDefinitions.ts` | Remove old statuses from `update_contract_status` tool enum; update tool descriptions to reflect new RBAC |
+| `src/lib/ai/systemPrompt.ts` | Update STAFF/CUSTOMER role permissions to reflect new 2-state lifecycle |
+| `docs/PROGRAM.md` | Rewrite §6 (Contract Workflow Lifecycle), §4.2 (Contract Permissions), §5 (Expiry Rules C1, C3, C4) |
+| `docs/v1.1-enhance-contract-flow.md` | Mark as complete / update to reflect implementation |
+| `.cursor/rules/gochul-fitness-rules.mdc` | Update Maintenance Rulebook section |
+
+---
+
+## Suggested Build Order
+
+1. **`src/app/type/api/index.ts`** — Change the `ContractStatus` union first. TypeScript compile errors in every other file will force sequential, safe updates.
+
+2. **`src/app/api/contract/updateStatus/route.ts`** — Collapse the role guard logic. Verify with a test that STAFF can no longer send `NEWLY_CREATED→CUSTOMER_REVIEW` and that CUSTOMER can now activate directly from `NEWLY_CREATED`.
+
+3. **`src/app/api/contract/getAll/route.ts`** — Remove old statuses from `CONTRACT_STATUS_VALUES`. Test that `CUSTOMER` role can now see `NEWLY_CREATED` contracts.
+
+4. **`src/utils/statusUtils.ts`** — Update all utility functions. Verify with a unit test that `getContractActionButtons('NEWLY_CREATED', 'CUSTOMER')` returns only `Activate` and `Cancel`, and that `getContractActionButtons('NEWLY_CREATED', 'STAFF')` returns `Cancel` (no `Send to Customer`).
+
+5. **`src/components/cards/ContractCard.tsx`** — The component should work correctly after step 4; verify the ACTIVE date-adjustment dialog still fires correctly.
+
+6. **`src/lib/ai/toolDefinitions.ts`** + **`src/lib/ai/systemPrompt.ts`** — Update AI layer. Test via the chatbot that attempting a removed transition produces a clean error (not a 403 with a confusing message).
+
+7. **`docs/PROGRAM.md`** + **`docs/v1.1-enhance-contract-flow.md`** + **`.cursor/rules/gochul-fitness-rules.mdc`** — Update documentation as the final step before marking the feature complete.
+
+---
+
+*Architecture research for: Contract Flow Simplification (v1.1)*
+*Researched: 2026-04-10*

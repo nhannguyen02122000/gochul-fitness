@@ -1,162 +1,235 @@
 # Stack Research
 
-**Domain:** AI Chatbot — In-app conversational interface (multi-turn, role-aware, API-driven)
-**Researched:** 2026-04-04
+**Domain:** Contract State Machine Simplification — Next.js/TypeScript/InstantDB
+**Researched:** 2026-04-10
 **Confidence:** HIGH
 
-## Recommended Stack
+## Context
 
-### Core Technologies
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **@anthropic-ai/sdk** | `0.82.0` | Claude API client for tool-use + multi-turn conversation | Already wired into the codebase (`CLAUDE_API_KEY`, `CLAUDE_BASE_URL`, `MODEL_NAME` env vars exist). SDK handles message history management, tool calling, and streaming natively. |
-| **zod** | `^4.1.8` | Schema validation for tool-call inputs/outputs | Required peer dep of `@anthropic-ai/sdk`. Also validates API response shapes and form inputs. Aligns with GoChul's TypeScript-first culture. |
-| **ai** (Vercel AI SDK) | `^6.0.145` | Server-side LLM abstraction + React streaming hooks | Provides `useChat` / `streamText` — the standard for React chat UIs. Handles streaming UI, message state, and reload/duplicate suppression out of the box. Eliminates ~300 lines of custom streaming logic. |
-| **sonner** | `^2.0.7` | Toast notifications | Already installed in GoChul (`^2.0.7`). Use for success/error toasts after API calls complete. |
-| **framer-motion** | `^12.38.0` | Modal animations (open/close/slide) | Industry-standard React animation library. Enables smooth FAB → modal transition. Works seamlessly with React 19. |
-
-### Supporting Libraries
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| **react-markdown** | `^10.1.0` | Render Claude's markdown responses | Already installed. Use to render bot text with code blocks, bold, lists. |
-| **remark-gfm** | `^4.0.1` | GitHub Flavored Markdown (tables, strikethrough) | Optional — enables richer markdown in bot responses (e.g. contract summary tables). |
-| **date-fns** | `^4.1.0` | Date arithmetic for Vietnamese time inference | Already installed. Use for `addDays()`, `format()`, timezone-aware date math for the morning/afternoon/evening/night window calculations. |
-| **clsx** | `^2.1.1` | Conditional CSS class merging | Already installed. Use for dynamic FAB + modal class composition. |
-
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| **Next.js 16 API Routes** | Server-side LLM calls + API proxy | All `POST /api/chat/message` calls go through existing App Router handlers. Use `auth()` from `@clerk/nextjs` to inject the Clerk session token for role enforcement. |
-| **Tailwind CSS 4** | Modal + FAB styling | Already configured. No new CSS pipeline needed. Use existing `cn()` from `lib/utils.ts`. |
-| **shadcn/ui components** | Modal, Button, ScrollArea | Use existing `Modal`, `Button`, `ScrollArea` components — don't duplicate. |
+This is not a technology addition — it is a **state machine reduction**. The current 6-state contract flow (`NEWLY_CREATED → CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → CUSTOMER_PAID → PT_CONFIRMED → ACTIVE`) is being collapsed to a 2-state flow (`NEWLY_CREATED → ACTIVE`), with the intermediate statuses removed entirely. No new libraries are needed; the work is purely in typing, logic, and UI layers.
 
 ---
 
-## Installation
+## Recommended Approach: Zero New Stack
 
-```bash
-# Core
-npm install @anthropic-ai/sdk@0.82.0 zod@^4.1.8 ai@^6.0.145
+### Rationale
 
-# Streaming + animation
-npm install framer-motion@^12.38.0
+The app already has all required capabilities. No package additions, no architecture shifts, no new services. The work is:
 
-# Markdown rendering (only if not already present)
-npm install remark-gfm@^4.0.1
+1. **Remove dead types** from `ContractStatus` union
+2. **Rewrite transition validation** in `updateStatus/route.ts`
+3. **Prune status utilities** in `statusUtils.ts`
+4. **Update badge/map constants** referencing removed statuses
+5. **Update AI chatbot tool definitions** so the bot stops proposing removed transitions
+
+Adding any new library (e.g., XState, Zustand state machines) would be disproportionate overhead for removing 4 string literals from an enum and their handlers.
+
+---
+
+## Files to Change
+
+### 1. `src/app/type/api/index.ts`
+
+**What:** Remove 4 values from `ContractStatus` union.
+
+**Why:** The TypeScript type is the source of truth for all downstream consumers. Removing `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` from the union forces the compiler to catch every stale reference automatically.
+
+**Change:**
+```typescript
+// BEFORE
+export type ContractStatus =
+    | 'NEWLY_CREATED'
+    | 'CUSTOMER_REVIEW'      // ← remove
+    | 'CUSTOMER_CONFIRMED'   // ← remove
+    | 'CUSTOMER_PAID'        // ← remove
+    | 'PT_CONFIRMED'         // ← remove
+    | 'ACTIVE'
+    | 'CANCELED'
+    | 'EXPIRED'
+
+// AFTER
+export type ContractStatus =
+    | 'NEWLY_CREATED'
+    | 'ACTIVE'
+    | 'CANCELED'
+    | 'EXPIRED'
 ```
 
-```bash
-# Dev dependencies
-npm install -D @types/node@^20
+---
+
+### 2. `src/app/api/contract/updateStatus/route.ts`
+
+**What:** Rewrite the STAFF and CUSTOMER transition blocks; remove `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` from `validStatuses` array.
+
+**Why:** This is the RBAC enforcement layer. The current STAFF block allows `NEWLY_CREATED→CUSTOMER_REVIEW` and `CUSTOMER_PAID→PT_CONFIRMED` — both are gone. The CUSTOMER block has 4 transition branches, all of which collapse to a single `PT_CONFIRMED→ACTIVE` path that must become `NEWLY_CREATED→ACTIVE`.
+
+**Key changes:**
+
+- `validStatuses` array: remove 4 entries, keep `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED`
+- STAFF role: strip all transition logic — STAFF can no longer change status themselves (they create the contract; customer activates it). Remove the STAFF transition block entirely, keeping only the `CANCELED` cancel guard.
+- CUSTOMER role: collapse to `currentStatus === 'NEWLY_CREATED' && newStatus === 'ACTIVE'`
+- ADMIN role: unchanged (ADMIN can still force any status)
+
+**After:**
+```typescript
+} else if (role === 'STAFF') {
+  // STAFF can cancel pre-ACTIVE contracts (handled by CANCELED block above)
+  // STAFF cannot transition to ACTIVE — only CUSTOMER can
+  if (newStatus !== 'CANCELED') {
+    return NextResponse.json(
+      { error: 'STAFF can only cancel contracts' },
+      { status: 403 }
+    )
+  }
+} else if (role === 'CUSTOMER') {
+  const isAllowedCustomerTransition =
+    (currentStatus === 'NEWLY_CREATED' && newStatus === 'ACTIVE')
+
+  if (!isAllowedCustomerTransition) {
+    return NextResponse.json(
+      { error: 'Invalid status transition for CUSTOMER role' },
+      { status: 403 }
+    )
+  }
+}
 ```
 
-> **Note:** `sonner`, `react-markdown`, `date-fns`, and `clsx` are already in `package.json`. No re-install needed.
+**Do not change:** The date-adjustment block (`if (newStatus === 'ACTIVE')`) — it is still valid and handles the trigger-date modal confirmed by the UI.
 
 ---
 
-## Alternatives Considered
+### 3. `src/utils/statusUtils.ts`
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| `@anthropic-ai/sdk` | OpenAI `openai` SDK | GoChul already has Anthropic configured. OpenAI would require a new API key, new env vars, and new proxy URL — zero upside. |
-| **Vercel AI SDK (`ai`)** | Custom streaming with `fetch` + `ReadableStream` | Custom streaming requires manual handling of SSE parsing, message state, reload, and duplicate suppression. `useChat` from `ai` covers all of this. |
-| **framer-motion** | CSS transitions + `transition` | CSS works for simple open/close, but FAB→modal choreographed animation (button morphs into modal, content fades in) is verbose and error-prone in pure CSS. framer-motion's `AnimatePresence` + `layoutId` is the idiomatic React approach. |
-| **sonner** | Custom toast implementation | Already in GoChul. Consistency with existing toasts is valuable. |
-| **zod** | TypeScript interfaces / `ajv` | `zod` is the de-facto standard for runtime schema validation in TypeScript projects. `ajv` is more verbose; TypeScript interfaces are compile-time only. |
+**What:** Rework 6 functions.
 
----
+**Why:** `statusUtils.ts` is the primary UI-facing utility layer. Every function references removed statuses.
 
-## What NOT to Use
+**Functions to change:**
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| **LangChain / LangGraph** | Overkill for a single-user, single-API chatbot. Adds 15+ packages, a steep learning curve, and runtime overhead with zero benefit for a one-bot, API-calling use case. | `@anthropic-ai/sdk` tool-use directly in an API Route. |
-| **AI SDK `useAssistant` or `useCompletion`** | `useAssistant` is for single-turn / stateless assistants. `useCompletion` lacks multi-turn state management. | `useChat` from `ai` — designed for multi-turn conversational UI with built-in streaming. |
-| **Streaming the entire response to the client and rendering character-by-character** | `useChat` handles incremental streaming rendering via the `stream` prop. Re-implementing SSE parsing from scratch reintroduces the complexity that `ai` solves. | `streamText` on server + `useChat` on client with `stream` prop. |
-| **Third-party chatbot widget services** (Intercom, Drift, Freshdesk, Botpress) | These are generic customer support tools. They cannot call GoChul's private API endpoints, respect RBAC, or infer Vietnamese time windows. | Custom implementation using `@anthropic-ai/sdk` + GoChul API. |
-| **Supabase Edge Functions as the AI endpoint** | Adds a separate hosting concern, auth overhead, and cost layer. GoChul already has a Next.js API Route layer. | Next.js API Route `POST /api/chat/message` — same hosting, same auth, same network. |
-| **Separate vector/Pinecone DB for conversation memory** | Conversation is stateless per session (cleared on modal close). No persistent memory needed. Vector DB adds latency, cost, and maintenance. | Pass full message history in the `messages` array on each request (cap at `MAX_HISTORY_MESSAGES=40`). |
-| **`ollama` or local LLM** | No GPU, no ops capacity for local inference. `CLAUDE_BASE_URL` already points to a proxy. | Keep using the proxy + Anthropic. |
+| Function | Change |
+|----------|--------|
+| `getContractActionButtons` | ADMIN: remove `Send to Customer` and all intermediate buttons → only `Cancel` on `NEWLY_CREATED`. STAFF: only `Cancel` on `NEWLY_CREATED`. CUSTOMER: only `Activate` on `NEWLY_CREATED`, no cancel. |
+| `isPreActiveContractStatus` | Remove all intermediate statuses — only `NEWLY_CREATED` remains as pre-active |
+| `canViewContract` | **Critical change:** CUSTOMER cannot see `NEWLY_CREATED` → CUSTOMER **can** see `NEWLY_CREATED` (per new flow spec: "customer can see it from this moment") |
+| `getContractStatusText` | Remove entries for `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` |
+| `getContractStatusVariant` | Remove entries for the 4 removed statuses |
+| `CONTRACT_STATUS_ICON` | Remove entries for the 4 removed statuses |
 
 ---
 
-## Stack Patterns by Variant
+### 4. `src/app/api/contract/getAll/route.ts`
 
-**If the AI proxy supports streaming SSE:**
-- Use `streamText` from `ai` SDK on the server with `stream: true`
-- Pass `data.toJSONStream` via `useChat`'s `stream` prop
-- Render tokens incrementally — no loading spinner needed
-- This is the recommended path
+**What:** Remove 4 statuses from `CONTRACT_STATUS_VALUES`; change CUSTOMER scope to include `NEWLY_CREATED`.
 
-**If streaming is disabled or rate-limited:**
-- Use `client.messages.create({ max_tokens: 8192 })` from `@anthropic-ai/sdk` directly in an API Route
-- Return the full `content` string as JSON
-- Client renders in one pass with a skeleton loader while awaiting response
-- Fallback: `useChat` with `process.env.NEXT_PUBLIC_AI_STREAMING_DISABLED=true`
+**Why:** `getAll` is the primary data-fetching route. `CONTRACT_STATUS_VALUES` is the allowlist for the `statuses` filter — removing the 4 values prevents filtering to them. The CUSTOMER role block currently excludes `NEWLY_CREATED` from the visible scope — this must be inverted per the new flow.
 
-**If the modal needs to be accessible (a11y):**
-- Use shadcn `Modal` component (already in codebase) as the container
-- Attach `framer-motion` animation to the inner panel only
-- Ensure focus trap, `aria-modal`, `role="dialog"`, and `Escape` key close
-- The shadcn `Modal` already handles focus management — extend it, don't replace it
+**Changes:**
+```typescript
+const CONTRACT_STATUS_VALUES: ContractStatus[] = [
+  'NEWLY_CREATED',   // now visible to CUSTOMER
+  'ACTIVE',
+  'CANCELED',
+  'EXPIRED'
+]
 
----
-
-## Version Compatibility
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| `@anthropic-ai/sdk@0.82.0` | Node.js 18+, React 18+, React 19+ | Peer dep is `zod@^3.25.0 \|\| ^4.0.0`. Use `zod@^4.1.8` for latest. |
-| `ai@6.0.145` | Next.js 14+, React 18+, React 19+ | Peer deps: `zod@^3.25.76 \|\| ^4.1.8`. Requires Next.js App Router for `streamText`. |
-| `framer-motion@12.38.0` | React 16+, React 19+ | No known compatibility issues with Next.js 16.1.0. |
-| `sonner@2.0.7` | React 16+, React 19+ | Already in GoChul's dep tree. |
-| `react-markdown@10.1.0` | React 16+, React 19+ | Already in GoChul's dep tree. |
-| `zod@4.1.8` | TypeScript 4+, Node 14+ | Both `ai` and `@anthropic-ai/sdk` support Zod v4. |
-
----
-
-## Sources
-
-- [@anthropic-ai/sdk npm](https://www.npmjs.com/package/@anthropic-ai/sdk) — v0.82.0, verified 2026-04-04
-- [Vercel AI SDK (ai) npm](https://www.npmjs.com/package/ai) — v6.0.145, verified 2026-04-04; peer deps confirmed
-- [framer-motion npm](https://www.npmjs.com/package/framer-motion) — v12.38.0, verified 2026-04-04
-- [zod npm](https://www.npmjs.com/package/zod) — v4.3.6 (stable), ^4.1.8 (range), verified 2026-04-04
-- [GoChul Fitness existing stack](/Users/nhannguyenthanh/Developer/gochul-fitness/.planning/codebase/STACK.md) — package.json confirmed, all versions current
-- [FEAT_AIBOT.txt](/Users/nhannguyenthanh/Developer/gochul-fitness/docs/FEAT_AIBOT.txt) — conversation requirements, time window rules, API routing logic
-- [PROJECT.md](/Users/nhannguyenthanh/Developer/gochul-fitness/.planning/PROJECT.md) — confirmed scope: multi-turn, Vietnamese-aware, role-aware, floating modal, no streaming required
-
----
-
-## Architecture Summary (for roadmap)
-
-```
-User action → Floating FAB (Client Component)
-    ↓ click
-ChatModal opens (AnimatePresence)
-    ↓ user types
-POST /api/chat/message (Server Route)
-    ├── auth() → Clerk session token
-    ├── build system prompt (role + API catalog + time rules)
-    ├── client.messages.create({ tools: [...] })  ← @anthropic-ai/sdk
-    │       ├── Tool: call_contract_api → zod schema
-    │       ├── Tool: call_session_api  → zod schema
-    │       └── Tool: call_user_api     → zod schema
-    ├── execute tool → POST existing GoChul API
-    │       (role permissions enforced by API layer)
-    ├── stream or return full response
-    └── return { text, toolResults, updatedHistory }
-        ↓
-useChat from ai SDK → renders streamed tokens via react-markdown
-    ↓
-sonner toast on tool execution success/failure
+// In CUSTOMER role block — replace the NEWLY_CREATED exclusion:
+// REMOVE:
+const customerVisibleStatuses = CONTRACT_STATUS_VALUES.filter(
+  (status) => status !== 'NEWLY_CREATED'
+)
+// REPLACE with: no filter — CUSTOMER sees all statuses from NEWLY_CREATED onward
 ```
 
-**Net new packages to install:** 4 (`@anthropic-ai/sdk`, `zod`, `ai`, `framer-motion`, `remark-gfm`).
-**Existing packages reused:** `sonner`, `react-markdown`, `date-fns`, `clsx`, shadcn components, Tailwind CSS.
+Also update `isPreActiveContractStatus` usage in this file to match the simplified function.
 
 ---
-*Stack research for: GoChul Fitness AI Chatbot*
-*Researched: 2026-04-04*
+
+### 5. `src/components/cards/ContractCard.tsx`
+
+**What:** Verify button rendering matches simplified `getContractActionButtons` output; wire CANCELED confirmation popup.
+
+**Why:** `ContractCard` calls `getContractActionButtons` and renders its result. After the utility rewrite, it will automatically render the correct buttons (Cancel for ADMIN/STAFF on `NEWLY_CREATED`, Activate for CUSTOMER on `NEWLY_CREATED`). The `handleStatusChange` → `executeStatusChange` flow and the activation confirmation dialog already handle the trigger-date modal — no structural changes needed.
+
+**Watch for:**
+- The `pendingActivation` state and confirmation dialog should remain — they handle the "show modal if trigger date is not today" requirement.
+- The `CANCELED` confirmation popup (red button + popup) must be wired in `handleStatusChange` when `newStatus === 'CANCELED'` — the spec requires "a color of red button and a popup to ask for user's confirmation before this action."
+
+---
+
+### 6. `src/lib/ai/toolDefinitions.ts`
+
+**What:** Update `update_contract_status` tool description and enum values.
+
+**Why:** The AI chatbot uses tool definitions passed to the Claude API. The tool's description and enum tell the AI which transitions are valid. If not updated, the AI will propose removed transitions (e.g., "send to customer review") and those calls will fail at the API layer.
+
+**Changes in `update_contract_status.description`:**
+```
+BEFORE:
+'STAFF: NEWLY_CREATED→CUSTOMER_REVIEW, CUSTOMER_PAID→PT_CONFIRMED, ...'
+'CUSTOMER: CUSTOMER_REVIEW→CUSTOMER_CONFIRMED/CANCELED, ...'
+
+AFTER:
+'STAFF: can cancel NEWLY_CREATED contracts. Cannot transition to ACTIVE.'
+'CUSTOMER: NEWLY_CREATED→ACTIVE. Can cancel NEWLY_CREATED contracts.'
+```
+
+**Changes in `status` enum:**
+- Remove: `'CUSTOMER_REVIEW'`, `'CUSTOMER_CONFIRMED'`, `'CUSTOMER_PAID'`, `'PT_CONFIRMED'`
+- Keep: `'NEWLY_CREATED'`, `'ACTIVE'`, `'CANCELED'`, `'EXPIRED'`
+- Update default: `'NEWLY_CREATED'`
+
+---
+
+### 7. `src/lib/ai/systemPrompt.ts`
+
+**What:** Update contract workflow description.
+
+**Why:** The system prompt is embedded in every AI chatbot conversation. Stale descriptions of the 6-state flow would confuse the AI about which transitions to suggest.
+
+**Changes:** Replace the contract lifecycle description with the simplified flow. Update the `update_contract_status` rules section to match the new allowed transitions.
+
+---
+
+## What NOT to Add
+
+| Avoid | Why |
+|-------|-----|
+| **XState or any state machine library** | The app's state machine is a 4-string union, not a complex reactive system. XState would add ~50KB+ bundle weight for zero runtime benefit. |
+| **New Zustand stores** | `useAIChatbotStore` already exists for chatbot state. Session/modal state is already in components. No new global state needed. |
+| **Additional API routes** | No new endpoints required. The existing `updateStatus` route handles the simplified flow with minor logic changes. |
+| **Database migrations** | InstantDB is schemaless. No schema migration needed — simply stop using the 4 removed status values. |
+| **New TanStack Query hooks** | Existing `useUpdateContractStatus` and `useContracts` hooks already call the right endpoints. |
+
+---
+
+## Integration Points Summary
+
+| File | Role | Change Scope |
+|------|------|-------------|
+| `src/app/type/api/index.ts` | Type source of truth | Remove 4 from union |
+| `src/app/api/contract/updateStatus/route.ts` | RBAC enforcement | Rewrite STAFF/CUSTOMER transition blocks |
+| `src/app/api/contract/getAll/route.ts` | Data fetching + customer visibility | Update allowlist + scope |
+| `src/utils/statusUtils.ts` | UI utility layer | Rewrite 6 functions |
+| `src/components/cards/ContractCard.tsx` | Contract UI | Wire CANCELED confirmation popup; rest auto-corrects |
+| `src/lib/ai/toolDefinitions.ts` | AI tool schema | Update description + enum |
+| `src/lib/ai/systemPrompt.ts` | AI instructions | Update workflow description |
+| `docs/PROGRAM.md` | Runtime behavior doc | Update lifecycle diagram + RBAC tables |
+| `.cursor/rules/gochul-fitness-rules.mdc` | Cursor rules | Update state machine rules |
+
+---
+
+## Rollout Note
+
+Because this is a **removal** (not an addition), the changes are safe to deploy in a single PR. The TypeScript compiler will surface any stale references as errors, making accidental retention of removed statuses impossible. No feature flags needed.
+
+**Test the following manually after deploy:**
+1. ADMIN creates a contract → verify it appears as `NEWLY_CREATED`
+2. CUSTOMER activates the contract → verify it transitions to `ACTIVE`
+3. ADMIN cancels a `NEWLY_CREATED` contract → verify red popup confirmation appears
+4. STAFF cannot transition a contract to ACTIVE (API should return 403)
+5. AI chatbot: verify it no longer proposes "send to customer review" or "confirm payment"
+
+---
+
+*Stack research for: Contract State Machine Simplification v1.1*
+*Researched: 2026-04-10*
