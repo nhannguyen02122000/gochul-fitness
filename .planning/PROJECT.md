@@ -95,6 +95,36 @@ GoChul Fitness is a gym/fitness studio management app built with Next.js 16, Typ
 | `detectLanguage()` via VI diacritics | Fast, deterministic, no external lib | ✅ Confirmed |
 | `useChat` replaces Zustand for chat state | AI SDK manages streaming natively | ✅ Confirmed — Zustand kept for modal open/close only |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
+---
+
+## Current Milestone: v1.1 Enhance Contract Flow
+
+**Goal:** Simplify the contract lifecycle from 6 states to 2 (NEWLY_CREATED → ACTIVE → EXPIRED), removing customer review/payment flow and consolidating all CTA buttons.
+
+**Target features:**
+- New contract flow: STAFF creates → CUSTOMER activates (no review/payment steps)
+- ADMIN/STAFF Cancel button with red styling + confirmation popup on NEWLY_CREATED
+- CUSTOMER Activate button with trigger-date modal on NEWLY_CREATED
+- Session booking continues unchanged on ACTIVE contracts
+- Update PROGRAM.md to reflect simplified flow
+
 ---
 
 *Last updated: 2026-04-10 after v1.0 milestone complete*
