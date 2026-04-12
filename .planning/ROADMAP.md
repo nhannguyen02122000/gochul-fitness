@@ -1,7 +1,7 @@
 # GoChul Fitness AI Chatbot — Roadmap
 
 **Created:** 2026-04-04
-**Updated:** 2026-04-10
+**Updated:** 2026-04-12
 **Version:** v1.1 in-progress
 
 ---
@@ -9,7 +9,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — AI Chatbot (shipped 2026-04-10)
-- 🔄 **v1.1** — Enhance Contract Flow (in-progress, started 2026-04-10)
+- 🔄 **v1.1** — Enhance Contract Flow (3/4 phases complete, Phase 9 pending — started 2026-04-10)
 
 ## Phases
 
@@ -90,34 +90,24 @@
 
 ---
 
-### Phase 8: UI
+### Phase 8: UI ✅ COMPLETE
 
 **Goal:** Update all UI components to reflect the 2-state model — red Cancel button for ADMIN/STAFF on `NEWLY_CREATED`, green Activate button for CUSTOMER on `NEWLY_CREATED`, correct status badges, correct utility function outputs.
 
-**Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08
+**Requirements:** UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08 — all ✅ Complete
 
-**Key files to modify:**
-- `src/components/cards/ContractCard.tsx` — Cancel + Activate buttons with confirmation popups
-- `src/utils/statusUtils.ts` — `getContractActionButtons()`, `getContractStatusVariant()`, `getContractStatusText()`, `isPreActiveContractStatus()`, `canViewContract()`
-
-**What to do:**
-1. `getContractActionButtons()`: ADMIN/STAFF → "Hủy" red button on `NEWLY_CREATED`; CUSTOMER → "Kích hoạt" button on `NEWLY_CREATED`; ADMIN → "Hủy" red button on `ACTIVE`
-2. `getContractStatusVariant()`: map `NEWLY_CREATED` → appropriate badge variant; map `ACTIVE` → active variant; removed statuses → `undefined` or error variant
-3. `getContractStatusText()`: `NEWLY_CREATED` → "Mới tạo", `ACTIVE` → "Đang hoạt động"
-4. `isPreActiveContractStatus()`: returns `true` only for `NEWLY_CREATED`
-5. `canViewContract()`: CUSTOMER → `true` for `NEWLY_CREATED`
-6. ContractCard: render Cancel button with `<AlertDialog>` confirmation before API call
-7. ContractCard: render Activate button with trigger-date modal if `start_date !== today`
-8. All status badges: only valid statuses rendered; no broken/missing mappings
+**Key files modified:**
+- `src/utils/statusUtils.ts` — Vietnamese labels for buttons and status badges
+- `src/components/cards/ContractCard.tsx` — Cancel confirmation dialog (removed trigger-date modal), direct activate call for CUSTOMER
 
 **Success criteria:**
-- [ ] ADMIN/STAFF sees red "Hủy" button + confirmation popup on `NEWLY_CREATED` contracts ✓
-- [ ] CUSTOMER sees "Kích hoạt" button on `NEWLY_CREATED` contracts ✓
-- [ ] Trigger-date modal appears when activating a contract with future `start_date` ✓
-- [ ] `getContractActionButtons()` returns correct buttons per role for all 3 valid statuses ✓
-- [ ] Status badge renders correctly for `NEWLY_CREATED` and `ACTIVE`; removed statuses throw or return undefined ✓
-- [ ] `isPreActiveContractStatus()` returns `true` only for `NEWLY_CREATED` ✓
-- [ ] CUSTOMER can see `NEWLY_CREATED` contracts in list view ✓
+- [x] ADMIN/STAFF sees "Hủy" button + confirmation popup on `NEWLY_CREATED` contracts ✓
+- [x] CUSTOMER sees "Kích hoạt" button on `NEWLY_CREATED` contracts ✓
+- [x] Trigger-date modal removed; server resets dates on activate ✓
+- [x] `getContractActionButtons()` returns correct buttons per role for all 4 statuses ✓
+- [x] Status badges use Vietnamese text: 'Mới tạo', 'Đang hoạt động', 'Đã hủy', 'Đã hết hạn' ✓
+- [x] `isPreActiveContractStatus()` returns `true` only for `NEWLY_CREATED` ✓
+- [x] CUSTOMER can see `NEWLY_CREATED` contracts in list view ✓
 
 ---
 

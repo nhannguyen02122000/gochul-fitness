@@ -2,30 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: verifying
-last_updated: "2026-04-10T17:18:18.684Z"
-last_activity: 2026-04-10
+status: executing
+last_updated: "2026-04-12T05:28:48Z"
+last_activity: 2026-04-12 -- Phase 08-01 complete
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
+  completed_phases: 2
+  total_plans: 1
   completed_plans: 1
 ---
 
 # GoChul Fitness — State
 
-**Updated:** 2026-04-10
+**Updated:** 2026-04-12
 **Version:** 1.1
 
 ---
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-10
-Resume: .planning/phases/06-data-migration/06-CONTEXT.md
+Phase: 09 (documentation) — pending
+Plan: 0 of 0 — not started
+Status: Phase 08 UI complete, next: Phase 09 Documentation
+Last activity: 2026-04-12 -- Phase 08-01 complete
 
 ---
 
@@ -35,10 +34,10 @@ Resume: .planning/phases/06-data-migration/06-CONTEXT.md
 
 **Target features:**
 
-- Data migration: backfill deprecated statuses → ACTIVE (Phase 6)
-- Type & API: remove 4 deprecated ContractStatus values; add transition guards (Phase 7)
-- UI: Cancel button (ADMIN/STAFF), Activate button (CUSTOMER), correct badges (Phase 8)
-- Docs: PROGRAM.md + cursor/rules updated (Phase 9)
+- Data migration: backfill deprecated statuses → ACTIVE (Phase 6) ✅ Complete
+- Type & API: remove 4 deprecated ContractStatus values; add transition guards (Phase 7) ✅ Complete
+- UI: Cancel button (ADMIN/STAFF), Activate button (CUSTOMER), correct badges (Phase 8) ✅ Complete
+- Docs: PROGRAM.md + cursor/rules updated (Phase 9) — NEXT
 
 ---
 
@@ -46,9 +45,9 @@ Resume: .planning/phases/06-data-migration/06-CONTEXT.md
 
 | # | Name | Requirements | Status |
 |---|------|-------------|--------|
-| 6 | Data Migration | MIGRATE-01–04 | Pending |
-| 7 | Type & API | TYPE-01, API-01–07 | Pending |
-| 8 | UI | UI-01–08 | Pending |
+| 6 | Data Migration | MIGRATE-01–04 | Complete |
+| 7 | Type & API | TYPE-01, API-01–07 | Complete |
+| 8 | UI | UI-01–08 | Complete |
 | 9 | Documentation | DOCS-01–04 | Pending |
 
 ---
@@ -60,9 +59,11 @@ Resume: .planning/phases/06-data-migration/06-CONTEXT.md
 | Data migration runs as Phase 6 (first) | Must complete before TypeScript types change — existing contracts in removed states break at runtime |
 | No AI chatbot updates in v1.1 | Chatbot not tested; deferred to future milestone |
 | ADMIN force-cancel on ACTIVE preserved | Sessions may be booked; ADMIN needs override capability |
-| Trigger-date modal on activate | Aligns with original business intent — `start_date` controls when contract takes effect |
 | `isPreActiveContractStatus()` returns `true` only for `NEWLY_CREATED` | Reflects simplified 2-state model — no intermediate pre-active states |
 | `canViewContract()` opens to CUSTOMER on `NEWLY_CREATED` | Customer needs to see their own pending contracts to activate them |
+| CUSTOMER activate → direct API call (no dialog) | Server resets start_date/end_date to now; no user choice needed |
+| Cancel → AlertDialog with "Xác nhận hủy hợp đồng" for all roles | Confirmation guard before any cancellation |
+| UI labels all in Vietnamese | Consistent with app localization (viVN Clerk locale) |
 
 ---
 
