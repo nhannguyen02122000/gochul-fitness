@@ -1,6 +1,6 @@
 # GoChul Fitness — Program Documentation
 
-> **Last updated:** 2026-04-01
+> **Last updated:** 2026-04-12
 > **Tech stack:** Next.js 16 (App Router) · TypeScript · InstantDB (backend/database) · Clerk (auth) · Ably (realtime) · Tailwind CSS v4 · TanStack Query
 
 ---
@@ -30,7 +30,7 @@ GoChul Fitness is a **gym/fitness studio management application** for managing:
 
 **Core business flow:**
 1. STAFF/ADMIN creates a contract for a customer (status = `NEWLY_CREATED`)
-2. Customer reviews → confirms → pays → PT confirms → customer activates contract
+2. Customer reviews the contract and activates it (→ `ACTIVE`), or STAFF/ADMIN cancels it (→ `CANCELED`)
 3. Once ACTIVE, sessions (history) are booked against the contract
 4. Sessions are checked-in by both customer and staff
 5. Contracts/sessions expire based on date and time rules
@@ -67,10 +67,9 @@ InstantDB is used as the primary database. The schema is defined in `instant.sch
 
 **Contract Status values (`ContractStatus`):**
 ```
-NEWLY_CREATED → CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → CUSTOMER_PAID → PT_CONFIRMED → ACTIVE
-                ↓                  ↓                   ↓                ↓
-              CANCELED           CANCELED             CANCELED         CANCELED
-                                                    (by ADMIN only)   (by ADMIN only)
+NEWLY_CREATED → ACTIVE → EXPIRED
+     ↓
+  CANCELED
 ```
 Terminal statuses: `CANCELED`, `EXPIRED`
 
@@ -261,18 +260,11 @@ New contracts are always created with status `NEWLY_CREATED` and `sale_by` = the
 
 | Transition | ADMIN | STAFF | CUSTOMER |
 |------------|-------|-------|---------|
-| `NEWLY_CREATED` → `CUSTOMER_REVIEW` | ✅ | ✅ | ❌ |
-| `NEWLY_CREATED` → `CANCELED` | ✅ | ❌ | ❌ |
-| `CUSTOMER_REVIEW` → `CUSTOMER_CONFIRMED` | ✅ | ❌ | ✅ (own contract) |
-| `CUSTOMER_REVIEW` → `CANCELED` | ✅ | ❌ | ✅ (own contract) |
-| `CUSTOMER_CONFIRMED` → `CUSTOMER_PAID` | ✅ | ❌ | ✅ (own contract) |
-| `CUSTOMER_CONFIRMED` → `CANCELED` | ✅ | ❌ | ✅ (own contract) |
-| `CUSTOMER_PAID` → `PT_CONFIRMED` | ✅ | ✅ | ❌ |
-| `CUSTOMER_PAID` → `CANCELED` | ✅ | ❌ | ❌ |
-| `PT_CONFIRMED` → `ACTIVE` | ✅ | ❌ | ✅ (own contract) |
-| `PT_CONFIRMED` → `CANCELED` | ✅ | ❌ | ❌ |
+| `NEWLY_CREATED` → `ACTIVE` | ✅ | ❌ | ✅ (own contract) |
+| `NEWLY_CREATED` → `CANCELED` | ✅ | ✅ (sale_by ownership) | ❌ |
 | `ACTIVE` → `CANCELED` | ✅ (force) | ❌ | ❌ |
-| Any → `EXPIRED` | ✅ (force) | ❌ | ❌ |
+| `NEWLY_CREATED` → `EXPIRED` | ✅ (force) | ❌ | ❌ |
+| `ACTIVE` → `EXPIRED` | ✅ (force) | ❌ | ❌ |
 
 **Note:** `ACTIVE` contracts cannot be canceled by STAFF or CUSTOMER — only ADMIN can force-cancel an active contract.
 
@@ -281,7 +273,7 @@ New contracts are always created with status `NEWLY_CREATED` and `sale_by` = the
 |------|-------|
 | ADMIN | All contracts |
 | STAFF | Contracts where `sale_by` = their user ID |
-| CUSTOMER | Contracts where `purchased_by` = their user ID; `NEWLY_CREATED` is always excluded |
+| CUSTOMER | Contracts where `purchased_by` = their user ID; `NEWLY_CREATED` is included (customer can activate own contracts) |
 
 ### 4.3 History / Session Permissions Detail
 
@@ -335,16 +327,10 @@ Additional checks:
 
 ### 5.1 Contract Expiry Rules
 
-A contract can be automatically marked as `EXPIRED` under two conditions:
-
-#### Rule C1: Pre-Active Expiry by Date
-**Trigger:** A contract is in a pre-ACTIVE status (`NEWLY_CREATED`, `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED`) AND its `end_date` has passed.
-
-**Where checked:**
-- `/api/contract/getAll` — auto-expires in-memory, writes back to DB
-- `/api/contract/updateStatus` — rejects any status change on already-expired contracts
-
-**Behavior:** Contract status → `EXPIRED`, `updated_at` → `now`
+Contracts in `NEWLY_CREATED` do not auto-expire. They remain in
+`NEWLY_CREATED` until the customer activates them (`→ ACTIVE`) or
+STAFF/ADMIN cancels them (`→ CANCELED`). Only `ACTIVE` contracts can
+reach `EXPIRED` automatically.
 
 #### Rule C2: Active Expiry by Credits (PT / REHAB only)
 **Trigger:** A contract is `ACTIVE` AND its `end_date` has passed AND all credits have been used.
@@ -365,13 +351,6 @@ A session counts as a "used credit" if it has status `NEWLY_CREATED` or `CHECKED
 
 #### Rule C3: Manual Force-Expire
 **ADMIN** can directly set a contract to `EXPIRED` via `updateStatus`.
-
-#### Rule C4: Activating a Contract (`PT_CONFIRMED` → `ACTIVE`) — Date Adjustment
-When a customer activates a contract (`PT_CONFIRMED` → `ACTIVE`), if the current time (`now`) differs from the stored `start_date`:
-- `start_date` is reset to `now`
-- `end_date` is recalculated: `now + (original_end_date - original_start_date)`
-
-This preserves the original contract duration when activation is delayed.
 
 ### 5.2 History / Session Expiry Rules
 
@@ -415,7 +394,7 @@ Once a session's end time passes while in `NEWLY_CREATED` status, it is marked `
 
 | Entity | Expiry Trigger | Resulting Status | Automatic? |
 |--------|---------------|-----------------|------------|
-| Contract (pre-ACTIVE) | `end_date < now` | `EXPIRED` | ✅ |
+| Contract (NEWLY_CREATED) | never auto-expires | — | ❌ |
 | Contract (ACTIVE, PT/REHAB) | `end_date < now` AND credits exhausted | `EXPIRED` | ✅ |
 | Contract (ACTIVE, PT_MONTHLY) | `end_date < now` | Remains `ACTIVE` (no credits to check) | ❌ |
 | Session | Session end time `< now` AND status = `NEWLY_CREATED` | `EXPIRED` | ✅ |
@@ -424,59 +403,47 @@ Once a session's end time passes while in `NEWLY_CREATED` status, it is marked `
 
 ## 6. Contract Workflow Lifecycle
 
+> **v1.1 Change (2026-04):** In v1.1 (2026-04), the contract flow was
+> simplified from 6 states to 4. The statuses `CUSTOMER_REVIEW`,
+> `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, and `PT_CONFIRMED` were removed.
+> Existing contracts in those states were migrated to `ACTIVE`.
+
 ```
 [ADMIN/STAFF creates contract]
          │
          ▼
-    NEWLY_CREATED
-  (customer cannot see)
-         │
-    [ADMIN/STAFF sends to customer]
-         │
-         ▼
-    CUSTOMER_REVIEW
-         │
-  [CUSTOMER confirms details]
-         │
-         ▼
-  CUSTOMER_CONFIRMED
-         │
-  [CUSTOMER completes payment]
-         │
-         ▼
-    CUSTOMER_PAID
-         │
-  [ADMIN/STAFF confirms receipt]
-         │
-         ▼
-    PT_CONFIRMED
-         │
-  [CUSTOMER activates contract]
-         │
-         ▼
-       ACTIVE
-    (sessions can be booked)
+   NEWLY_CREATED
+  (visible to customer)
          │
   ┌──────┴──────┐
   │             │
-[Credits      [end_date
- exhausted]   passed]
+[CUSTOMER      [STAFF/ADMIN
+ activates]     cancels]
   │             │
   ▼             ▼
- EXPIRED     EXPIRED
+  ACTIVE     CANCELED
+(sessions     (terminal)
+ can be
+ booked)
+         │
+  [end_date
+   passed,
+  credits
+  exhausted
+  (PT/REHAB)]
+         │
+         ▼
+     EXPIRED
+   (terminal)
 ```
 
 ### Status Transitions by Role
 
 ```
-ADMIN:  Can force-set any status to any other (except blocked by expiry rules)
-STAFF:  NEWLY_CREATED → CUSTOMER_REVIEW
-        CUSTOMER_PAID → PT_CONFIRMED
-        NEWLY_CREATED/CUSTOMER_REVIEW/CUSTOMER_CONFIRMED → CANCELED
-CUSTOMER: CUSTOMER_REVIEW → CUSTOMER_CONFIRMED
-          CUSTOMER_CONFIRMED → CUSTOMER_PAID
-          PT_CONFIRMED → ACTIVE
-          CUSTOMER_REVIEW/CUSTOMER_CONFIRMED → CANCELED
+ADMIN:  Can force any status to any other (except blocked by expiry rules)
+STAFF:  NEWLY_CREATED → CANCELED (sale_by ownership required)
+CUSTOMER: NEWLY_CREATED → ACTIVE (purchased_by ownership required)
+          NEWLY_CREATED → CANCELED (❌ — customer cannot cancel)
 ```
 
 ---
@@ -637,10 +604,6 @@ type ContractKind = 'PT' | 'REHAB' | 'PT_MONTHLY'
 ```typescript
 type ContractStatus =
   | 'NEWLY_CREATED'
-  | 'CUSTOMER_REVIEW'
-  | 'CUSTOMER_CONFIRMED'
-  | 'CUSTOMER_PAID'
-  | 'PT_CONFIRMED'
   | 'ACTIVE'
   | 'CANCELED'
   | 'EXPIRED'
