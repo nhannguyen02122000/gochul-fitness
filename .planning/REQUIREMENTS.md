@@ -28,14 +28,14 @@ Requirements for v1.1 milestone. Each maps to roadmap phases.
 
 ### UI
 
-- [ ] **UI-01**: ADMIN/STAFF sees red "Hủy" (Cancel) button on `NEWLY_CREATED` contracts with confirmation popup before calling API
-- [ ] **UI-02**: CUSTOMER sees "Kích hoạt" (Activate) button on `NEWLY_CREATED` contracts — if `start_date` is not today, shows trigger-date modal (existing AlertDialog logic)
-- [ ] **UI-03**: `getContractActionButtons()` returns correct buttons per role for `NEWLY_CREATED` and `ACTIVE` only
-- [ ] **UI-04**: `getContractStatusVariant()` maps `NEWLY_CREATED` and `ACTIVE` to correct badge styles; removed statuses return `undefined` or error variant
-- [ ] **UI-05**: `getContractStatusText()` returns correct label for `NEWLY_CREATED` and `ACTIVE`
-- [ ] **UI-06**: Status badges only render for valid statuses (no broken/missing mappings for removed types)
-- [ ] **UI-07**: `isPreActiveContractStatus()` returns `true` only for `NEWLY_CREATED`
-- [ ] **UI-08**: `canViewContract()` returns `true` for CUSTOMER on `NEWLY_CREATED` (previously returned `false`)
+- [x] **UI-01**: ADMIN/STAFF sees red "Hủy" (Cancel) button on `NEWLY_CREATED` contracts with confirmation popup before calling API
+- [x] **UI-02**: CUSTOMER sees "Kích hoạt" (Activate) button on `NEWLY_CREATED` contracts — if `start_date` is not today, shows trigger-date modal (existing AlertDialog logic)
+- [x] **UI-03**: `getContractActionButtons()` returns correct buttons per role for `NEWLY_CREATED` and `ACTIVE` only
+- [x] **UI-04**: `getContractStatusVariant()` maps `NEWLY_CREATED` and `ACTIVE` to correct badge styles; removed statuses return `undefined` or error variant
+- [x] **UI-05**: `getContractStatusText()` returns correct label for `NEWLY_CREATED` and `ACTIVE`
+- [x] **UI-06**: Status badges only render for valid statuses (no broken/missing mappings for removed types)
+- [x] **UI-07**: `isPreActiveContractStatus()` returns `true` only for `NEWLY_CREATED`
+- [x] **UI-08**: `canViewContract()` returns `true` for CUSTOMER on `NEWLY_CREATED` (previously returned `false`)
 
 ### Documentation
 
@@ -72,14 +72,14 @@ Which phases cover which requirements.
 | API-05 | Phase 7 | Complete |
 | API-06 | Phase 7 | Complete |
 | API-07 | Phase 7 | Complete |
-| UI-01 | Phase 8 | Pending |
-| UI-02 | Phase 8 | Pending |
-| UI-03 | Phase 8 | Pending |
-| UI-04 | Phase 8 | Pending |
-| UI-05 | Phase 8 | Pending |
-| UI-06 | Phase 8 | Pending |
-| UI-07 | Phase 8 | Pending |
-| UI-08 | Phase 8 | Pending |
+| UI-01 | Phase 8 | Complete |
+| UI-02 | Phase 8 | Complete |
+| UI-03 | Phase 8 | Complete |
+| UI-04 | Phase 8 | Complete |
+| UI-05 | Phase 8 | Complete |
+| UI-06 | Phase 8 | Complete |
+| UI-07 | Phase 8 | Complete |
+| UI-08 | Phase 8 | Complete |
 | DOCS-01 | Phase 9 | Pending |
 | DOCS-02 | Phase 9 | Pending |
 | DOCS-03 | Phase 9 | Pending |
