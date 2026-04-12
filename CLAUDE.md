@@ -75,7 +75,9 @@ Floating action button opens a chat modal. Users chat in English or Vietnamese t
 
 ### State Machines
 
-**Contract lifecycle:** `NEWLY_CREATED → CUSTOMER_REVIEW → CUSTOMER_CONFIRMED → CUSTOMER_PAID → PT_CONFIRMED → ACTIVE → EXPIRED`. Side branches to `CANCELED`. All transitions are role-gated (ADMIN can force any transition; STAFF and CUSTOMER have limited permissions).
+**Contract lifecycle (v1.1, simplified):** `NEWLY_CREATED → ACTIVE → EXPIRED`. Side branches to `CANCELED`. All transitions are role-gated (ADMIN can force any transition; STAFF and CUSTOMER have limited permissions).
+
+> **Note:** In v1.1 (2026-04), the intermediate statuses `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, and `PT_CONFIRMED` were removed. Customers activate contracts directly from `NEWLY_CREATED`.
 
 **Session lifecycle:** `NEWLY_CREATED → CHECKED_IN`. Side branches to `CANCELED`/`EXPIRED`. Dual check-in: customer sets `user_check_in_time`, trainer sets `staff_check_in_time` — status becomes `CHECKED_IN` only when both are present. Each side can check in only once (idempotent).
 

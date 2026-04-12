@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json()
-    const { contract_id, status } = body
+    const { contract_id, status, start_date: bodyStartDate, end_date: bodyEndDate } = body
 
     // Validate required fields
     if (!contract_id || typeof contract_id !== 'string') {
@@ -101,6 +101,12 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // Parse optional date overrides
+    const startDateOverride =
+      typeof bodyStartDate === 'number' ? bodyStartDate : undefined
+    const endDateOverride =
+      typeof bodyEndDate === 'number' ? bodyEndDate : undefined
 
     // Check if contract exists
     const contractData = await instantServer.query({
@@ -239,6 +245,10 @@ export async function POST(request: Request) {
     }
 
     // Update the contract status
+    // Use date overrides if provided (client-side Case 2 flow), otherwise use current time
+    const effectiveStartDate = startDateOverride ?? now
+    const effectiveEndDate = endDateOverride ?? now
+
     const updateData: {
       status: ContractStatus
       updated_at: number
@@ -247,8 +257,8 @@ export async function POST(request: Request) {
     } = {
       status: newStatus,
       updated_at: now,
-      start_date: now,
-      end_date: now
+      start_date: effectiveStartDate,
+      end_date: effectiveEndDate
     }
 
     await instantServer.transact([

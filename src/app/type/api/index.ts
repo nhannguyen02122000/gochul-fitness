@@ -346,6 +346,8 @@ export type GetAllHistoryResponse = GetAllHistorySuccessResponse | ApiErrorRespo
 export interface UpdateContractStatusRequest {
     contract_id: string
     status: ContractStatus
+    start_date?: number  // Optional date override for ACTIVE transition (ms timestamp)
+    end_date?: number    // Optional date override for ACTIVE transition (ms timestamp)
 }
 
 export interface UpdateContractStatusSuccessResponse {

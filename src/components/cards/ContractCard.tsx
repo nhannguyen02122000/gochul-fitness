@@ -14,6 +14,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -87,7 +95,16 @@ export default function ContractCard({
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [activationDialogOpen, setActivationDialogOpen] = useState(false)
   const { mutate: updateStatus } = useUpdateContractStatus()
+
+  // Computed activation dates for the Case 2 dialog (derived from contract, not Date.now in render)
+  const [activationDates, setActivationDates] = useState<{
+    originalStart: number
+    originalEnd: number
+    newStart: number
+    newEnd: number
+  } | null>(null)
 
   // Get customer info
   const purchasedByUser = contract.purchased_by_user?.[0]
@@ -132,16 +149,60 @@ export default function ContractCard({
     : []
 
 
-  const handleStatusChange = (newStatus: ContractStatus) => {
-    // CUSTOMER activate: API resets start_date/end_date to now server-side — no dialog needed
-    // ADMIN/STAFF cancel: show Cancel Confirmation dialog (via button.onClick branching)
-    executeStatusChange(newStatus)
+  // Normalize a timestamp to midnight (00:00:00) in local time for date-only comparison
+  const normalizeToMidnight = (ts: number): number => {
+    const d = new Date(ts)
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
   }
 
-  const executeStatusChange = (newStatus: ContractStatus) => {
+  const handleStatusChange = (newStatus: ContractStatus) => {
+    // CUSTOMER activating their own contract: check if dates need to shift
+    if (
+      userRole === 'CUSTOMER' &&
+      newStatus === 'ACTIVE' &&
+      contract.status === 'NEWLY_CREATED'
+    ) {
+      // eslint-disable-next-line react-hooks/purity -- event handler, not called during render
+      const now = Date.now()
+      const todayMidnight = normalizeToMidnight(now)
+      const contractStartMidnight = normalizeToMidnight(contract.start_date ?? now)
+
+      if (todayMidnight === contractStartMidnight) {
+        // Case 1: today equals contract start_date — activate silently, original dates unchanged
+        executeStatusChange(newStatus)
+      } else {
+        // Case 2: today ≠ start_date — compute new dates and show confirmation dialog
+        const originalStart = contract.start_date ?? now
+        const originalEnd = contract.end_date ?? now
+        const originalDuration = originalEnd - originalStart
+
+        setActivationDates({
+          originalStart,
+          originalEnd,
+          newStart: now,
+          newEnd: now + originalDuration,
+        })
+        setActivationDialogOpen(true)
+      }
+    } else {
+      executeStatusChange(newStatus)
+    }
+  }
+
+  const executeStatusChange = (
+    newStatus: ContractStatus,
+    startDateOverride?: number,
+    endDateOverride?: number
+  ) => {
     setLoadingStatus(newStatus)
     updateStatus(
-      { contract_id: contract.id, status: newStatus },
+      {
+        contract_id: contract.id,
+        status: newStatus,
+        ...(startDateOverride !== undefined && { start_date: startDateOverride }),
+        ...(endDateOverride !== undefined && { end_date: endDateOverride }),
+      },
       {
         onSuccess: () => {
           toast.success(`Contract status updated to ${newStatus}`)
@@ -288,8 +349,8 @@ export default function ContractCard({
                         // ADMIN/STAFF/CUSTOMER Cancel: open confirmation dialog, do NOT call API yet
                         setConfirmDialogOpen(true)
                       } else {
-                        // CUSTOMER Activate: call API directly — loading state handles UX
-                        executeStatusChange(button.nextStatus as ContractStatus)
+                        // CUSTOMER Activate: handleStatusChange checks dates and may show dialog
+                        handleStatusChange(button.nextStatus as ContractStatus)
                       }
                     }}
                     className={cn(
@@ -343,6 +404,83 @@ export default function ContractCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Activation Date Confirmation Dialog — Case 2 only (CUSTOMER, today ≠ start_date) */}
+      {activationDialogOpen && activationDates && (
+        <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Xác nhận kích hoạt hợp đồng</DialogTitle>
+              <DialogDescription>
+                Ngày bắt đầu của hợp đồng sẽ được thay đổi để phù hợp với ngày hiện tại.
+                Vui lòng xác nhận các ngày mới bên dưới.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Date comparison */}
+            <div className="space-y-3 py-2">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Ngày bắt đầu</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-muted bg-muted/30">
+                    <span className="text-muted-foreground text-[10px]">Hiện tại</span>
+                    <span className="font-medium">{formatDate(activationDates.originalStart)}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-[var(--color-cta)] bg-[var(--color-cta)]/5">
+                    <span className="text-[var(--color-cta)] text-[10px] font-medium">Sẽ thay đổi thành</span>
+                    <span className="font-medium text-[var(--color-cta)]">{formatDate(activationDates.newStart)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Ngày kết thúc</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-muted bg-muted/30">
+                    <span className="text-muted-foreground text-[10px]">Hiện tại</span>
+                    <span className="font-medium">{formatDate(activationDates.originalEnd)}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 p-2.5 rounded-lg border border-[var(--color-cta)] bg-[var(--color-cta)]/5">
+                    <span className="text-[var(--color-cta)] text-[10px] font-medium">Sẽ thay đổi thành</span>
+                    <span className="font-medium text-[var(--color-cta)]">{formatDate(activationDates.newEnd)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setActivationDialogOpen(false)
+                  setActivationDates(null)
+                }}
+                disabled={loadingStatus !== null}
+              >
+                Hủy
+              </Button>
+              <Button
+                className="bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+                disabled={loadingStatus !== null}
+                onClick={() => {
+                  setActivationDialogOpen(false)
+                  executeStatusChange('ACTIVE', activationDates.newStart, activationDates.newEnd)
+                  setActivationDates(null)
+                }}
+              >
+                {loadingStatus === 'ACTIVE' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Đang kích hoạt…
+                  </>
+                ) : (
+                  'Xác nhận kích hoạt'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Create Session Modal */}
       <CreateSessionModal
