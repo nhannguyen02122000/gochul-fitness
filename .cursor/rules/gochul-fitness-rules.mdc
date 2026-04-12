@@ -96,24 +96,20 @@ alwaysApply: true
 ## 5) Lifecycle state machines
 
 ### Contract statuses
-`NEWLY_CREATED -> CUSTOMER_REVIEW -> CUSTOMER_CONFIRMED -> CUSTOMER_PAID -> PT_CONFIRMED -> ACTIVE -> EXPIRED`
-
+`NEWLY_CREATED -> ACTIVE -> EXPIRED`
 Terminal side branch: `CANCELED`
+`NEWLY_CREATED` contracts do not auto-expire — they remain pending until manually activated (`→ ACTIVE`) or canceled (`→ CANCELED`).
 
 #### Transition enforcement (`POST /api/contract/updateStatus`)
 - `ADMIN`: can force any status.
-- `STAFF`: only
-  - `NEWLY_CREATED -> CUSTOMER_REVIEW`
-  - `CUSTOMER_PAID -> PT_CONFIRMED`
-- `CUSTOMER`: only
-  - `CUSTOMER_REVIEW -> CUSTOMER_CONFIRMED`
-  - `CUSTOMER_CONFIRMED -> CUSTOMER_PAID`
-  - `PT_CONFIRMED -> ACTIVE`
-- Non-admin cancel rules:
-  - cannot cancel `ACTIVE`
-  - cannot cancel already `CANCELED`/`EXPIRED`
-  - customer can cancel only own purchased contracts
-  - API allows cancel from `PT_CONFIRMED` for non-admin, but UI action buttons intentionally do not expose Cancel at `PT_CONFIRMED`
+- `STAFF`:
+  - `NEWLY_CREATED -> ACTIVE`: ❌
+  - `NEWLY_CREATED -> CANCELED`: ✅ (requires `sale_by` ownership)
+- `CUSTOMER`:
+  - `NEWLY_CREATED -> ACTIVE`: ✅ (requires `purchased_by` ownership)
+  - `NEWLY_CREATED -> CANCELED`: ❌
+- `ACTIVE` cannot be canceled by STAFF or CUSTOMER (ADMIN force-cancel only)
+- Already `CANCELED` or `EXPIRED` cannot transition further
 
 #### Contract action-button runtime behavior (`src/utils/statusUtils.ts`, `src/components/cards/ContractCard.tsx`)
 - Action rendering requires `shouldShowContractActionButtons()`:
@@ -121,27 +117,20 @@ Terminal side branch: `CANCELED`
   - `CUSTOMER`: can see actions only when `contract.purchased_by === userInstantId`.
 - Button generation source of truth is `getContractActionButtons()`:
   - `ADMIN`
-    - `NEWLY_CREATED`: `Send to Customer`, `Cancel`
-    - `CUSTOMER_REVIEW`: `Cancel`
-    - `CUSTOMER_CONFIRMED`: `Cancel`
-    - `CUSTOMER_PAID`: `PT Confirm Receipt`, `Cancel`
-    - `PT_CONFIRMED`, `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
+    - `NEWLY_CREATED`: `Cancel`
+    - `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
   - `STAFF`
-    - `NEWLY_CREATED`: `Send to Customer` and `Cancel`
-    - `CUSTOMER_PAID`: `PT Confirm Receipt` and `Cancel`
-    - `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`: `Cancel`
-    - `PT_CONFIRMED`, `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
+    - `NEWLY_CREATED`: `Cancel` (requires `sale_by` ownership)
+    - `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
   - `CUSTOMER`
-    - `CUSTOMER_REVIEW`: `Confirm Details` and `Cancel`
-    - `CUSTOMER_CONFIRMED`: `Payment Completed` and `Cancel`
-    - `PT_CONFIRMED`: `Activate` only
-    - `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
-- Activation confirmation dialog appears when requested next status is `ACTIVE` and contract has both `start_date` and `end_date`, and current timestamp differs from `start_date`.
+    - `NEWLY_CREATED`: `Activate`
+    - `ACTIVE`, `CANCELED`, `EXPIRED`: no action buttons
 
 #### Auto-expire contract rules
-- On contract list and status update paths, contracts may be auto-set to `EXPIRED` if:
-  - pre-active status and `end_date < now`, or
-  - status `ACTIVE`, `end_date < now`, and no available credits (for `PT`/`REHAB`), where consumed credits are counted from history with status `NEWLY_CREATED` or `CHECKED_IN`
+- On contract list and status update paths, contracts may be auto-set to `EXPIRED` when:
+  - status is `ACTIVE`, `end_date < now`, and no available credits remain (for `PT`/`REHAB`), where consumed credits are counted from history with status `NEWLY_CREATED` or `CHECKED_IN`
+- `NEWLY_CREATED` contracts do not auto-expire.
+- `ADMIN` can force-expire any contract.
 
 ### History statuses
 `NEWLY_CREATED -> CHECKED_IN`
@@ -227,11 +216,6 @@ Terminal side branches: `CANCELED`, `EXPIRED`
 - Action button render gate uses `shouldShowContractActionButtons()`:
   - `ADMIN` and `STAFF` can see contract actions for all cards.
   - `CUSTOMER` can see actions only for own purchased contracts.
-- Runtime button map:
-  - `CUSTOMER_REVIEW`: `CUSTOMER` sees `Confirm Details`, `ADMIN/STAFF` see cancel-only.
-  - `CUSTOMER_CONFIRMED`: `CUSTOMER` sees `Payment Completed`, `ADMIN/STAFF` see cancel-only.
-  - `CUSTOMER_PAID`: `ADMIN/STAFF` see `PT Confirm Receipt` and cancel; `CUSTOMER` sees no action.
-  - `PT_CONFIRMED`: only `CUSTOMER` sees `Activate`; `ADMIN` and `STAFF` see no action buttons.
 - Create Session button behavior:
   - shown only when contract is `ACTIVE` and user is `ADMIN`/`STAFF`, or `CUSTOMER` owner.
   - for `PT`/`REHAB`, requires `used_credits < credits`; for `PT_MONTHLY`, credit-cap check is bypassed.
