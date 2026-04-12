@@ -3,7 +3,6 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,12 +21,10 @@ import {
 import {
   Calendar,
   User,
-  Mail,
   Plus,
   Crown,
   Zap,
   Heart,
-  Eye,
   Loader2,
   DollarSign
 } from 'lucide-react'
@@ -42,10 +39,6 @@ import CreateSessionModal from '@/components/modals/CreateSessionModal'
 import SessionHistoryModal from '@/components/modals/SessionHistoryModal'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-
-function getCurrentTimestamp() {
-  return Date.now()
-}
 
 interface ContractCardProps {
   contract: Contract
@@ -94,11 +87,6 @@ export default function ContractCard({
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
-  const [pendingActivation, setPendingActivation] = useState<{
-    newStartDate: number
-    newEndDate: number
-    durationDays: number
-  } | null>(null)
   const { mutate: updateStatus } = useUpdateContractStatus()
 
   // Get customer info
@@ -145,18 +133,8 @@ export default function ContractCard({
 
 
   const handleStatusChange = (newStatus: ContractStatus) => {
-    if (newStatus === 'ACTIVE' && contract.start_date && contract.end_date) {
-      const now = getCurrentTimestamp()
-      if (now !== contract.start_date) {
-        const contractDuration = contract.end_date - contract.start_date
-        const newStartDate = now
-        const newEndDate = now + contractDuration
-        const durationDays = Math.ceil(contractDuration / (1000 * 60 * 60 * 24))
-        setPendingActivation({ newStartDate, newEndDate, durationDays })
-        setConfirmDialogOpen(true)
-        return
-      }
-    }
+    // CUSTOMER activate: API resets start_date/end_date to now server-side — no dialog needed
+    // ADMIN/STAFF cancel: show Cancel Confirmation dialog (via button.onClick branching)
     executeStatusChange(newStatus)
   }
 
@@ -306,7 +284,13 @@ export default function ContractCard({
                     disabled={loadingStatus !== null && loadingStatus !== button.nextStatus}
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleStatusChange(button.nextStatus as ContractStatus)
+                      if (button.type === 'danger') {
+                        // ADMIN/STAFF/CUSTOMER Cancel: open confirmation dialog, do NOT call API yet
+                        setConfirmDialogOpen(true)
+                      } else {
+                        // CUSTOMER Activate: call API directly — loading state handles UX
+                        executeStatusChange(button.nextStatus as ContractStatus)
+                      }
                     }}
                     className={cn(
                       'flex-1 min-w-[100px] text-sm h-10',
@@ -336,42 +320,25 @@ export default function ContractCard({
         </CardContent>
       </Card>
 
-      {/* Confirm Activation Dialog */}
+      {/* Cancel Confirmation Dialog */}
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Contract Date Adjustment</AlertDialogTitle>
-            <AlertDialogDescription render={<div />} className="space-y-3 text-sm">
-              <p>You are activating this contract before its scheduled start date.</p>
-              <div>
-                <p className="font-medium text-foreground">Current dates:</p>
-                <p>Start: {contract.start_date && formatDate(contract.start_date)}</p>
-                <p>End: {contract.end_date && formatDate(contract.end_date)}</p>
-              </div>
-              {pendingActivation && (
-                <>
-                  <div>
-                    <p className="font-medium text-foreground">New dates:</p>
-                    <p>Start: {formatDate(pendingActivation.newStartDate)} (Today)</p>
-                    <p>End: {formatDate(pendingActivation.newEndDate)}</p>
-                  </div>
-                  <p className="text-[var(--color-success)] font-medium">
-                    Duration unchanged: {pendingActivation.durationDays} days
-                  </p>
-                </>
-              )}
+            <AlertDialogTitle>Xác nhận hủy hợp đồng</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn hủy hợp đồng này?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setConfirmDialogOpen(false)
-                executeStatusChange('ACTIVE')
+                executeStatusChange('CANCELED')
               }}
-              className="bg-[var(--color-cta)] hover:bg-[var(--color-cta-hover)]"
+              className="bg-destructive/10 text-destructive hover:bg-destructive/20"
             >
-              Confirm & Activate
+              Xác nhận hủy
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
