@@ -37,10 +37,10 @@ export function getContractActionButtons(
   if (role === 'ADMIN') {
     switch (status) {
       case 'NEWLY_CREATED':
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+        buttons.push({ label: 'Hủy', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'ACTIVE':
-        buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+        buttons.push({ label: 'Hủy', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'CANCELED':
       case 'EXPIRED':
@@ -49,12 +49,12 @@ export function getContractActionButtons(
     }
   } else if (role === 'STAFF') {
     if (status === 'NEWLY_CREATED') {
-      buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+      buttons.push({ label: 'Hủy', nextStatus: 'CANCELED', type: 'danger' })
     }
   } else if (role === 'CUSTOMER') {
     if (status === 'NEWLY_CREATED') {
-      buttons.push({ label: 'Activate', nextStatus: 'ACTIVE', type: 'primary' })
-      buttons.push({ label: 'Cancel', nextStatus: 'CANCELED', type: 'danger' })
+      buttons.push({ label: 'Kích hoạt', nextStatus: 'ACTIVE', type: 'primary' })
+      buttons.push({ label: 'Hủy', nextStatus: 'CANCELED', type: 'danger' })
     }
   }
 
@@ -143,10 +143,10 @@ export function canCancelHistory(status: HistoryStatus): boolean {
  */
 export function getContractStatusText(status: ContractStatus): string {
   const statusMap: Record<ContractStatus, string> = {
-    'NEWLY_CREATED': 'Newly Created',
-    'ACTIVE': 'Active',
-    'CANCELED': 'Canceled',
-    'EXPIRED': 'Expired'
+    'NEWLY_CREATED': 'Mới tạo',
+    'ACTIVE':        'Đang hoạt động',
+    'CANCELED':      'Đã hủy',
+    'EXPIRED':       'Đã hết hạn',
   }
   return statusMap[status] || status
 }
