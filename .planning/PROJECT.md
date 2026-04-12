@@ -37,6 +37,9 @@ Users can manage their gym contracts and training sessions through natural conve
 - ✓ AI Chatbot — English time parsing: "tomorrow at 9am", "next Thursday" rules (Phase 5 — system prompt)
 - ✓ AI Chatbot — Streaming cursor + phase-aware LoadingIndicator (Phase 5)
 - ✓ AI Chatbot — Warning + nudge bubble variants (Phase 5)
+- ✓ Contract UI — 4-state model labels in Vietnamese: `'Mới tạo'`, `'Đang hoạt động'`, `'Đã hủy'`, `'Đã hết hạn'` (Phase 8 — statusUtils.ts + StatusBadge cascade)
+- ✓ Contract UI — ADMIN/STAFF Cancel with AlertDialog confirmation (`Xác nhận hủy hợp đồng`) (Phase 8 — ContractCard.tsx)
+- ✓ Contract UI — CUSTOMER Activate button calls API directly (trigger-date modal deferred to server-side reset) (Phase 8 — ContractCard.tsx + Phase 7 D-12)
 
 ### Active
 
@@ -127,4 +130,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-*Last updated: 2026-04-10 after v1.0 milestone complete*
+*Last updated: 2026-04-12 after Phase 8 complete*
