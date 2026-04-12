@@ -117,17 +117,16 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-## Current Milestone: v1.1 Enhance Contract Flow
+## Current Milestone: v1.1 Enhance Contract Flow — COMPLETE
 
 **Goal:** Simplify the contract lifecycle from 6 states to 2 (NEWLY_CREATED → ACTIVE → EXPIRED), removing customer review/payment flow and consolidating all CTA buttons.
 
-**Target features:**
-- New contract flow: STAFF creates → CUSTOMER activates (no review/payment steps)
-- ADMIN/STAFF Cancel button with red styling + confirmation popup on NEWLY_CREATED
-- CUSTOMER Activate button with trigger-date modal on NEWLY_CREATED
-- Session booking continues unchanged on ACTIVE contracts
-- Update PROGRAM.md to reflect simplified flow
+**Completed phases:**
+- Phase 6: Data Migration — backfill deprecated statuses → ACTIVE ✅
+- Phase 7: Type & API — remove 4 deprecated ContractStatus values; add transition guards ✅
+- Phase 8: UI — Cancel button, Activate button, correct badges in Vietnamese ✅
+- Phase 9: Documentation — PROGRAM.md + cursor/rules updated to reflect 4-state model ✅
 
 ---
 
-*Last updated: 2026-04-12 after Phase 8 complete*
+*Last updated: 2026-04-12 after Phase 09 complete (v1.1 milestone shipped)*
