@@ -2,14 +2,14 @@
 
 **Created:** 2026-04-04
 **Updated:** 2026-04-12
-**Version:** v1.1 in-progress
+**Version:** v1.1 ✅ SHIPPED 2026-04-12
 
 ---
 
 ## Milestones
 
 - ✅ **v1.0 MVP** — AI Chatbot (shipped 2026-04-10)
-- 🔄 **v1.1** — Enhance Contract Flow (3/4 phases complete, Phase 9 pending — started 2026-04-10)
+- ✅ **v1.1** — Enhance Contract Flow (4/4 phases complete — shipped 2026-04-12)
 
 ## Phases
 
@@ -26,8 +26,8 @@
 
 </details>
 
-<details open>
-<summary>🔄 v1.1 Enhance Contract Flow (Phases 6–9)</summary>
+<details>
+<summary>✅ v1.1 Enhance Contract Flow (Phases 6–9) — SHIPPED 2026-04-12</summary>
 
 > **Critical ordering:** Phase 6 (Data Migration) MUST run before the new TypeScript code ships. Existing contracts in removed states will break at runtime if migration is skipped. Migration is a pre-flight step that sets deprecated statuses to `ACTIVE` before any other phase deploys.
 
@@ -111,27 +111,22 @@
 
 ---
 
-### Phase 9: Documentation
+### Phase 9: Documentation ✅ COMPLETE
 
 **Goal:** Keep `docs/PROGRAM.md` and `.cursor/rules/gochul-fitness-rules.mdc` in sync with the 2-state contract model.
 
-**Requirements:** DOCS-01, DOCS-02, DOCS-03, DOCS-04
+**Requirements:** DOCS-01, DOCS-02, DOCS-03, DOCS-04 — all ✅ Complete
 
-**Key files to modify:**
-- `docs/PROGRAM.md` — lifecycle diagram, RBAC transition table, expiry rules
-- `.cursor/rules/gochul-fitness-rules.mdc` — contract lifecycle section
-
-**What to do:**
-1. Lifecycle diagram: replace 6-state diagram with 4-state diagram (`NEWLY_CREATED → ACTIVE`, side branches to `CANCELED`, final state `EXPIRED`)
-2. RBAC table: remove rows for deprecated transitions; add `CUSTOMER → NEWLY_CREATED → ACTIVE`; add `STAFF/ADMIN → NEWLY_CREATED → CANCELED`; preserve `ADMIN → ACTIVE → CANCELED`
-3. Expiry rules: update to reflect `ACTIVE → EXPIRED` only
-4. Cursor rules: update `ContractStatus` type, state machine rules, role permissions
+**Key files modified:**
+- `docs/PROGRAM.md` — lifecycle diagram, RBAC transition table (5 rows), expiry rules, migration note, Appendix ContractStatus type
+- `.cursor/rules/gochul-fitness-rules.mdc` — contract lifecycle section, action-button rules, auto-expire rules; removed deprecated ContractCard display block
 
 **Success criteria:**
-- [ ] PROGRAM.md lifecycle diagram shows only `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED` ✓
-- [ ] PROGRAM.md RBAC table has no entries for `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` ✓
-- [ ] PROGRAM.md expiry rules describe `ACTIVE → EXPIRED` path only ✓
-- [ ] cursor/rules reflect new type, transitions, and role permissions ✓
+- [x] PROGRAM.md lifecycle diagram shows only `NEWLY_CREATED`, `ACTIVE`, `CANCELED`, `EXPIRED` ✓
+- [x] PROGRAM.md RBAC table has no entries for `CUSTOMER_REVIEW`, `CUSTOMER_CONFIRMED`, `CUSTOMER_PAID`, `PT_CONFIRMED` ✓
+- [x] PROGRAM.md expiry rules describe `ACTIVE → EXPIRED` path only; NEWLY_CREATED non-expiry note added ✓
+- [x] cursor/rules reflect new type, transitions, and role permissions ✓
+- [x] v1.1 migration note present in §6 ✓
 
 ---
 
