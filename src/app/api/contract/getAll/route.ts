@@ -339,45 +339,14 @@ export async function GET(request: Request) {
 
     const contracts = allData.contract || []
 
-    // Calculate used_credits and auto-expire eligible contracts in current page
-    const now = Date.now()
-    const contractsToExpire: string[] = []
-
+    // Calculate used_credits
     contracts.forEach((contract) => {
       const usedCreditsCount =
         contract.history?.filter((h) => isCreditUsedHistoryStatus(h.status || ''))
           .length || 0
 
       contract.used_credits = usedCreditsCount
-
-      const shouldExpireByDate =
-        isPreActiveContractStatus(contract.status) &&
-        !!contract.end_date &&
-        contract.end_date < now
-
-      const shouldExpireByCredits =
-        contract.status === 'ACTIVE' &&
-        !!contract.end_date &&
-        contract.end_date < now &&
-        !hasAvailableCreditsForContract(contract)
-
-      if (shouldExpireByDate || shouldExpireByCredits) {
-        contractsToExpire.push(contract.id)
-        contract.status = 'EXPIRED'
-        contract.updated_at = now
-      }
     })
-
-    if (contractsToExpire.length > 0) {
-      await instantServer.transact(
-        contractsToExpire.map((contractId) =>
-          instantServer.tx.contract[contractId].update({
-            status: 'EXPIRED',
-            updated_at: now
-          })
-        )
-      )
-    }
 
     const dateFilteredContracts = contracts.filter((contract) =>
       matchesContractDateRange(contract, startDate, endDate)

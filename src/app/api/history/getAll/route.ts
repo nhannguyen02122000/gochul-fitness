@@ -384,34 +384,6 @@ export async function GET(request: Request) {
       )
     }
 
-    // New expiry rule: only expire NEWLY_CREATED records
-    const now = Date.now()
-    const expiredHistoryIds: string[] = []
-
-    for (const session of pagedHistory) {
-      if (session.status !== 'NEWLY_CREATED') {
-        continue
-      }
-
-      const sessionEndTime = session.date + (session.to * 60 * 1000)
-
-      if (sessionEndTime < now) {
-        expiredHistoryIds.push(session.id)
-        session.status = 'EXPIRED'
-        session.updated_at = now
-      }
-    }
-
-    if (expiredHistoryIds.length > 0) {
-      const transactions = expiredHistoryIds.map(id =>
-        instantServer.tx.history[id].update({
-          status: 'EXPIRED',
-          updated_at: now
-        })
-      )
-      await instantServer.transact(transactions)
-    }
-
     pagedHistory.sort(compareHistoryLatestFirst)
 
     total = pagedHistory.length

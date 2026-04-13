@@ -149,33 +149,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Auto-expire checks before transition validation
-    const now = Date.now()
-    const shouldExpireByDate =
-      isPreActiveContractStatus(currentStatus) &&
-      !!contract.end_date &&
-      contract.end_date < now
-
-    const shouldExpireByCredits =
-      currentStatus === 'ACTIVE' &&
-      !!contract.end_date &&
-      contract.end_date < now &&
-      !hasAvailableCredits(contract)
-
-    if (shouldExpireByDate || shouldExpireByCredits) {
-      await instantServer.transact([
-        instantServer.tx.contract[contract_id].update({
-          status: 'EXPIRED',
-          updated_at: now
-        })
-      ])
-
-      return NextResponse.json(
-        { error: 'Contract has expired and cannot be updated' },
-        { status: 400 }
-      )
-    }
-
     // Validate status transitions based on role
     if (role === 'ADMIN') {
       // ADMIN can force any status change
@@ -243,6 +216,8 @@ export async function POST(request: Request) {
         { status: 403 }
       )
     }
+
+    const now = Date.now()
 
     // Update the contract status
     // Use date overrides if provided (client-side Case 2 flow), otherwise use current time

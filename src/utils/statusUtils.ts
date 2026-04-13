@@ -26,17 +26,25 @@ export interface ActionButton {
  * Get available action buttons for contract based on current status and user role
  * @param status - Current contract status
  * @param role - User role
- * @returns Array of available action buttons
+ * @param endDate - Optional contract end_date (epoch ms). When provided and end_date < now,
+ *   ADMIN sees Kích hoạt + Huỷ for NEWLY_CREATED; CUSTOMER sees no buttons.
  */
 export function getContractActionButtons(
   status: ContractStatus,
-  role: Role
+  role: Role,
+  endDate?: number
 ): ActionButton[] {
   const buttons: ActionButton[] = []
+  const now = Date.now()
+  const isPastEndDate = endDate !== undefined && endDate < now
 
   if (role === 'ADMIN') {
     switch (status) {
       case 'NEWLY_CREATED':
+        // Past-due NEWLY_CREATED: show Kích hoạt (activate with date shift) + Huỷ
+        if (isPastEndDate) {
+          buttons.push({ label: 'Kích hoạt', nextStatus: 'ACTIVE', type: 'primary' })
+        }
         buttons.push({ label: 'Hủy', nextStatus: 'CANCELED', type: 'danger' })
         break
       case 'ACTIVE':
@@ -44,7 +52,6 @@ export function getContractActionButtons(
         break
       case 'CANCELED':
       case 'EXPIRED':
-        // No actions for terminal statuses
         break
     }
   } else if (role === 'STAFF') {
@@ -53,8 +60,11 @@ export function getContractActionButtons(
     }
   } else if (role === 'CUSTOMER') {
     if (status === 'NEWLY_CREATED') {
-      buttons.push({ label: 'Kích hoạt', nextStatus: 'ACTIVE', type: 'primary' })
-      buttons.push({ label: 'Hủy', nextStatus: 'CANCELED', type: 'danger' })
+      // Customers cannot activate past-due contracts
+      if (!isPastEndDate) {
+        buttons.push({ label: 'Kích hoạt', nextStatus: 'ACTIVE', type: 'primary' })
+        buttons.push({ label: 'Hủy', nextStatus: 'CANCELED', type: 'danger' })
+      }
     }
   }
 
@@ -119,11 +129,25 @@ export function canViewContract(status: ContractStatus, role: Role): boolean {
 /**
  * Check if a contract can be canceled
  * @param status - Contract status
+ * @param role - User role
+ * @param endDate - Optional contract end_date (epoch ms). CUSTOMER cannot cancel if past end_date.
  * @returns true if contract can be canceled
  */
-export function canCancelContract(status: ContractStatus): boolean {
-  // Can cancel any pre-ACTIVE status except terminal statuses
-  return status !== 'ACTIVE' && status !== 'CANCELED' && status !== 'EXPIRED'
+export function canCancelContract(
+  status: ContractStatus,
+  role: Role,
+  endDate?: number
+): boolean {
+  if (status === 'CANCELED' || status === 'EXPIRED') return false
+  if (status === 'ACTIVE') {
+    // Only ADMIN can cancel ACTIVE contracts
+    return role === 'ADMIN'
+  }
+  // NEWLY_CREATED: ADMIN/STAFF can always cancel; CUSTOMER cannot cancel if past end_date
+  if (role === 'CUSTOMER' && endDate !== undefined && endDate < Date.now()) {
+    return false
+  }
+  return true
 }
 
 /**

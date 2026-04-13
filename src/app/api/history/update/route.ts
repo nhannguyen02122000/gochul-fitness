@@ -227,22 +227,6 @@ export async function POST(request: Request) {
         )
       }
 
-      // Check if contract has expired
-      if (contract.end_date && contract.end_date < now) {
-        // Update contract status to EXPIRED
-        await instantServer.transact([
-          instantServer.tx.contract[contract.id].update({
-            status: 'EXPIRED',
-            updated_at: now
-          })
-        ])
-
-        return NextResponse.json(
-          { error: 'Contract has expired' },
-          { status: 400 }
-        )
-      }
-
       // Query existing history records for that teach_by user on the same date
       const conflictHistoryData = await instantServer.query({
         history: {

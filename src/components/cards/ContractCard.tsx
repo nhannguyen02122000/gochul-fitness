@@ -145,7 +145,7 @@ export default function ContractCard({
     shouldShowContractActionButtons(contract, userRole, userInstantId)
 
   const actionButtons = shouldShowButtons && userRole
-    ? getContractActionButtons(contract.status, userRole)
+    ? getContractActionButtons(contract.status, userRole, contract.end_date)
     : []
 
 

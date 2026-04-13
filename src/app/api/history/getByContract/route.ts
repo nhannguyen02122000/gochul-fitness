@@ -150,41 +150,6 @@ export async function GET(request: Request) {
         // Get all history for this contract
         const history = (contract.history || []) as Array<Record<string, unknown>>
 
-        // Check for expired sessions and update them
-        const now = Date.now()
-        const expiredHistoryIds: string[] = []
-
-        for (const session of history) {
-            // New rule: only NEWLY_CREATED sessions can be auto-expired
-            if (session.status !== 'NEWLY_CREATED') {
-                continue
-            }
-
-            const date = typeof session.date === 'number' ? session.date : 0
-            const to = typeof session.to === 'number' ? session.to : 0
-            const sessionEndTime = date + (to * 60 * 1000)
-
-            if (sessionEndTime < now) {
-                const sessionId = typeof session.id === 'string' ? session.id : ''
-                if (sessionId) {
-                    expiredHistoryIds.push(sessionId)
-                }
-                session.status = 'EXPIRED'
-                session.updated_at = now
-            }
-        }
-
-        // Batch update expired sessions in the database
-        if (expiredHistoryIds.length > 0) {
-            const transactions = expiredHistoryIds.map(id =>
-                instantServer.tx.history[id].update({
-                    status: 'EXPIRED',
-                    updated_at: now
-                })
-            )
-            await instantServer.transact(transactions)
-        }
-
         // Sort history by updated_at (latest first) with deterministic fallbacks
         history.sort(compareHistoryLatestFirst)
 

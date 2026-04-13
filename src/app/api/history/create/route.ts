@@ -159,23 +159,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if contract has expired
-    const now = Date.now()
-    if (contract.end_date && contract.end_date < now) {
-      // Update contract status to EXPIRED
-      await instantServer.transact([
-        instantServer.tx.contract[contract_id].update({
-          status: 'EXPIRED',
-          updated_at: now
-        })
-      ])
-
-      return NextResponse.json(
-        { error: 'Contract has expired' },
-        { status: 400 }
-      )
-    }
-
     const contractDuration = typeof contract.duration_per_session === 'number'
       ? contract.duration_per_session
       : LEGACY_DEFAULT_DURATION

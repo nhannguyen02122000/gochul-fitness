@@ -136,7 +136,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (currentStatus === 'CANCELED' || currentStatus === 'EXPIRED') {
+    if (currentStatus === 'CANCELED') {
       return NextResponse.json(
         { error: `Cannot update a session with status ${currentStatus}` },
         { status: 400 }
