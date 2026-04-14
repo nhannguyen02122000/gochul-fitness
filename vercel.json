@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/expire-entities",
-      "schedule": "*/2 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
