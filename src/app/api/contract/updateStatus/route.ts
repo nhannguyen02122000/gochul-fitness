@@ -149,6 +149,30 @@ export async function POST(request: Request) {
       )
     }
 
+    // Contract-level expiry guard: reject transitions on contracts that meet cron expiry criteria
+    const now = Date.now()
+
+    // 1. NEWLY_CREATED past end_date → cannot activate or cancel
+    if (currentStatus === 'NEWLY_CREATED' && contract.end_date && contract.end_date < now) {
+      return NextResponse.json(
+        { error: 'Contract has expired and cannot be updated' },
+        { status: 400 }
+      )
+    }
+
+    // 2. ACTIVE + past end_date + no credits → cannot do anything
+    if (
+      currentStatus === 'ACTIVE' &&
+      contract.end_date &&
+      contract.end_date < now &&
+      !hasAvailableCredits(contract)
+    ) {
+      return NextResponse.json(
+        { error: 'Contract has expired and cannot be updated' },
+        { status: 400 }
+      )
+    }
+
     // Validate status transitions based on role
     if (role === 'ADMIN') {
       // ADMIN can force any status change

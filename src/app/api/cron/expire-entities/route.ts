@@ -54,6 +54,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    // Verify CRON_SECRET from Authorization header (added in Vercel cron config)
+    const cronSecret = process.env.CRON_SECRET
+    if (cronSecret) {
+      const authHeader = request.headers.get('authorization')
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    }
+
     const { searchParams } = new URL(request.url)
     const dryRun = searchParams.get('dry_run') === 'true'
 

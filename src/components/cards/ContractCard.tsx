@@ -135,6 +135,14 @@ export default function ContractCard({
     border: 'border-l-zinc-400',
   }
   const KindIcon = kind.icon
+
+  // Past-due: contract is not yet expired in DB but end_date has passed
+  const isPastDue =
+    contract.status !== 'CANCELED' &&
+    contract.status !== 'EXPIRED' &&
+    !!contract.end_date &&
+    contract.end_date < Date.now()
+
   const hasCreditLimit = contract.kind === 'PT' || contract.kind === 'REHAB'
   const shouldShowUsedCredits = hasCreditLimit || contract.kind === 'PT_MONTHLY'
 
@@ -239,11 +247,18 @@ export default function ContractCard({
         className={cn(
           'w-full overflow-hidden border-l-4 animate-fade-in transition-shadow hover:shadow-md cursor-default',
           kind.border,
-          onClick && 'cursor-pointer'
+          onClick && 'cursor-pointer',
+          isPastDue && 'grayscale opacity-50 pointer-events-none'
         )}
         onClick={onClick}
       >
         <CardContent className="p-0">
+          {/* Past-due chip */}
+          {isPastDue && (
+            <div className="px-4 py-2 bg-[var(--color-warning-bg)] text-[var(--color-warning)] text-xs font-medium">
+              Đã quá hạn
+            </div>
+          )}
           {/* Header */}
           <div className="px-4 pt-4 pb-3">
             <div className="flex items-start justify-between gap-2 mb-3">

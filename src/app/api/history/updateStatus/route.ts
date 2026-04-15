@@ -121,7 +121,14 @@ export async function POST(request: Request) {
     const now = Date.now()
     const sessionEndTime = history.date + (history.to * 60 * 1000)
 
-    // New rule: only NEWLY_CREATED can become EXPIRED by time
+    if (currentStatus === 'CANCELED') {
+      return NextResponse.json(
+        { error: `Cannot update a session with status ${currentStatus}` },
+        { status: 400 }
+      )
+    }
+
+    // Session-level expiry guard: if session end time has passed, write EXPIRED and block update
     if (currentStatus === 'NEWLY_CREATED' && sessionEndTime < now) {
       await instantServer.transact([
         instantServer.tx.history[history_id].update({
@@ -132,13 +139,6 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         { error: 'Session has expired and cannot be updated' },
-        { status: 400 }
-      )
-    }
-
-    if (currentStatus === 'CANCELED') {
-      return NextResponse.json(
-        { error: `Cannot update a session with status ${currentStatus}` },
         { status: 400 }
       )
     }

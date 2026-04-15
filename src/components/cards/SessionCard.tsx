@@ -110,6 +110,12 @@ export default function SessionCard({
 
   const isUpcoming = checkIfUpcoming(session.date, session.from, session.status)
 
+  // Past-due: session is not yet expired in DB but end time has passed
+  const isPastDue =
+    session.status !== 'CANCELED' &&
+    session.status !== 'EXPIRED' &&
+    (session.date + session.to * 60 * 1000) < Date.now()
+
   // Action buttons
   const shouldShowButtons = Boolean(
     userRole &&
@@ -208,11 +214,18 @@ export default function SessionCard({
       className={cn(
         'w-full overflow-hidden animate-fade-in transition-shadow hover:shadow-md cursor-default',
         isUpcoming && 'ring-1 ring-[var(--color-cta)]/20',
-        onClick && 'cursor-pointer'
+        onClick && 'cursor-pointer',
+        isPastDue && 'grayscale opacity-50 pointer-events-none'
       )}
       onClick={onClick}
     >
       <CardContent className="p-0">
+        {/* Past-due chip */}
+        {isPastDue && (
+          <div className="px-4 py-2 bg-[var(--color-warning-bg)] text-[var(--color-warning)] text-xs font-medium">
+            Đã quá hạn
+          </div>
+        )}
         <div className="flex">
           {/* Date column */}
           <div className={cn(
