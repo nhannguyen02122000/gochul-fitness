@@ -25,13 +25,16 @@ export default function InstantDBAuthSync() {
           idToken: token as string,
         })
       })
-      .then(() => {
+      .then(async () => {
         // Sync email to $users so createUserSetting can find the record
         const email = user.emailAddresses?.[0]?.emailAddress
-        if (email) {
-          // Use the auth object's own identity to write the email
-          return instantClient.transact([
-            instantClient.tx.$users[instantClient.auth.id!].update({ email })
+        if (!email) return
+
+        // Get the authenticated InstantDB user id
+        const authUser = await instantClient.getAuth()
+        if (authUser?.id) {
+          instantClient.transact([
+            instantClient.tx.$users[authUser.id].update({ email })
           ])
         }
       })
